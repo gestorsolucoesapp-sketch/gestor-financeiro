@@ -189,6 +189,10 @@ input,select{font-family:inherit;font-size:16px}
 .istep:last-child{border-bottom:none}
 .istep .n{width:26px;height:26px;border-radius:50%;background:var(--emerald);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
 .istep .st{font-size:14px}
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.addopt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border-radius:16px;background:#fff;border:1.5px solid var(--line-2);font-weight:700;font-size:13px;color:var(--ink)}
+.addopt span{font-size:26px}
+.addopt.rec{border-color:#b6e6cf}.addopt.desp{border-color:#f3c6c0}.addopt.card{border-color:#cfc4ec}.addopt.tr{border-color:#bcd0f0}
 </style>
 </head>
 <body>
@@ -246,7 +250,7 @@ input,select{font-family:inherit;font-size:16px}
   </div>
 </div>
 
-<button class="fab hidden" id="fab" onclick="openLanc()">+</button>
+<button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
 
 <div class="tabbar hidden" id="tabbar">
   <button data-tab="home" class="on" onclick="go('home')"><span class="i">🏠</span>Início</button>
@@ -834,17 +838,32 @@ async function desconectar(shareId){
   source='eu'; await loadAll(); toast('Desconectado'); go('home');
 }
 
-async function wipeValores(){
-  if(!confirm('Apagar TODAS as transações e orçamentos?\n\nSuas contas, cartões e categorias serão mantidos.'))return;
+function pedirSenha(titulo, onok){
+  openSheet(`
+    <h2>${titulo}</h2>
+    <div class="note">Por segurança, confirme sua senha para continuar.</div>
+    <div class="field" style="margin-top:12px"><label>Sua senha</label><input id="pwConfirm" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn" onclick="verificarSenha()">Confirmar</button>
+    <button class="btn ghost" onclick="closeSheet()">Cancelar</button>
+  `);
+  window._pwCallback=onok;
+}
+async function verificarSenha(){
+  const pw=$('pwConfirm').value; if(!pw){toast('Digite a senha');return;}
+  const {error}=await sb.auth.signInWithPassword({email:USER.email,password:pw});
+  if(error){toast('Senha incorreta');return;}
+  closeSheet(); const cb=window._pwCallback; window._pwCallback=null; if(cb) cb();
+}
+function wipeValores(){ pedirSenha('Limpar valores', doWipeValores); }
+async function doWipeValores(){
   toast('Limpando…');
   const e1=(await sb.from('lancamentos').delete().eq('user_id',USER.id)).error;
   const e2=(await sb.from('orcamentos').delete().eq('user_id',USER.id)).error;
   if(e1||e2){toast('Erro: '+((e1||e2).message));return;}
   await loadAll(); toast('Valores limpos ✅'); go('home');
 }
-async function wipeTudo(){
-  if(!confirm('⚠️ ZERAR TUDO\n\nApaga transações, orçamentos, cartões, contas E categorias. Não dá pra desfazer.\n\nContinuar?'))return;
-  if(!confirm('Tem certeza mesmo? Vai apagar tudo e começar do zero.'))return;
+function wipeTudo(){ pedirSenha('Começar do zero', doWipeTudo); }
+async function doWipeTudo(){
   toast('Zerando…');
   for(const t of ['lancamentos','orcamentos','cartoes','contas','categorias']){
     const {error}=await sb.from(t).delete().eq('user_id',USER.id);
@@ -1019,10 +1038,22 @@ function closeSheet(){$('modalRoot').innerHTML='';}
 
 // ---- LANÇAMENTO ----
 let lancType='despesa';
-function openLanc(id){
+function openAddMenu(){
+  openSheet(`
+    <h2>Adicionar</h2>
+    <div class="addgrid">
+      <button class="addopt rec"  onclick="closeSheet();openLanc(null,'receita')"><span>💚</span>Receita</button>
+      <button class="addopt desp" onclick="closeSheet();openLanc(null,'despesa_conta')"><span>💸</span>Despesa em conta</button>
+      <button class="addopt card" onclick="closeSheet();openLanc(null,'despesa_cartao')"><span>💳</span>Despesa no cartão</button>
+      <button class="addopt tr"   onclick="closeSheet();openLanc(null,'transferencia')"><span>🔁</span>Transferência</button>
+    </div>
+  `);
+}
+function openLanc(id, preset){
   const editing=id?DATA.lancamentos.find(l=>l.id===id):null;
   if(editing && !souDono(editing.user_id)){ toast('👀 Somente leitura · '+apelidoDe(editing.user_id)); return; }
-  lancType=editing?editing.tipo:'despesa';
+  lancType = editing ? editing.tipo : (preset==='receita'?'receita':(preset==='transferencia'?'transferencia':'despesa'));
+  window._presetMeio = preset==='despesa_cartao'?'cartao':(preset==='despesa_conta'?'conta':null);
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
   const cartoes=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id);
   if(!contas.length && !cartoes.length){
@@ -1040,7 +1071,7 @@ function openLanc(id){
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…"></div>
     <div class="row2">
       <div class="field"><label>Valor (R$)</label><input id="lValor" type="number" inputmode="decimal" step="0.01" value="${e.valor||''}" placeholder="0,00"></div>
-      <div class="field"><label>Data</label><input id="lData" type="date" value="${e.data||ymd(new Date())}"></div>
+      <div class="field"><label>Data</label><input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData()"></div>
     </div>
     <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status</label>
@@ -1078,11 +1109,12 @@ function renderLancDynamic(e){
     // categoria
     h+=`<div class="field"><label>Categoria</label><div class="chiprow" id="catChips">
       ${cats.map(c=>`<button class="chip ${e.categoria_id===c.id?'on':''}" data-cat="${c.id}" onclick="pickCat('${c.id}')">${c.icone||''} ${esc(c.nome)}</button>`).join('')}
+      <button class="chip" style="border-style:dashed" onclick="criarCategoriaRapida()">➕ Escrever categoria</button>
       </div></div>`;
   }
   $('lancDynamic').innerHTML=h;
   if(lancType!=='transferencia'){
-    window._meio = e.cartao_id?'cartao':'conta';
+    window._meio = e.cartao_id?'cartao':(window._presetMeio||'conta');
     window._catSel = e.categoria_id||null;
     renderMeio(e);
   }
@@ -1120,6 +1152,28 @@ function updateParcNote(){
   else $('parcNote').textContent='';
 }
 function pickCat(id){window._catSel=(window._catSel===id?null:id);document.querySelectorAll('#catChips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===window._catSel));}
+function ajustaStatusData(){
+  const d=$('lData')?$('lData').value:''; if(!d) return;
+  if(d>ymd(new Date())){ if($('stPago')) setStatus('pendente'); }
+}
+async function criarCategoriaRapida(){
+  const nome=prompt('Nome da nova categoria:'); if(!nome||!nome.trim()) return;
+  const tipo=lancType==='receita'?'receita':'despesa';
+  const {data,error}=await sb.from('categorias').insert({user_id:USER.id,nome:nome.trim(),tipo}).select().single();
+  if(error){toast('Erro: '+error.message);return;}
+  DATA.categorias.push(data);
+  const wrap=$('catChips');
+  if(wrap){
+    const btn=document.createElement('button');
+    btn.className='chip on'; btn.dataset.cat=data.id;
+    btn.textContent=(data.icone?data.icone+' ':'')+data.nome;
+    btn.setAttribute('onclick',`pickCat('${data.id}')`);
+    wrap.insertBefore(btn, wrap.lastElementChild);
+  }
+  window._catSel=data.id;
+  document.querySelectorAll('#catChips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===data.id));
+  toast('Categoria "'+data.nome+'" criada');
+}
 
 // calcula a competência (1º dia do mês da fatura) p/ uma compra
 function calcCompetencia(dataStr,diaFechamento){
@@ -1269,7 +1323,8 @@ function openCartao(id){
     </div>
     <div class="note">Compras feitas até o dia de fechamento entram na fatura do mês; depois dele, vão para a próxima.</div>
     <button class="btn" style="margin-top:14px" onclick="saveCartao(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar cartão'}</button>
-    ${id?`<button class="btn ghost" onclick="arquivarCartao('${id}')"><span class="danger">Arquivar cartão</span></button>`:''}
+    ${id?`<button class="btn ghost" onclick="arquivarCartao('${id}')">Arquivar cartão</button>`:''}
+    ${id?`<button class="btn ghost" onclick="delCartao('${id}')"><span class="danger">Excluir cartão de vez</span></button>`:''}
   `);
   window._cartaoTipo=tipo;
 }
@@ -1290,6 +1345,13 @@ async function arquivarCartao(id){
   const {error}=await sb.from('cartoes').update({arquivado:true}).eq('id',id);
   if(error){toast('Erro: '+error.message);return;}
   closeSheet(); await loadAll(); toast('Cartão arquivado'); render();
+}
+async function delCartao(id){
+  const c=cartaoById(id);
+  if(!confirm('Excluir o cartão "'+(c?c.nome:'')+'" de vez?\n\nIsso remove o cartão e TODOS os lançamentos dele. Não dá pra desfazer.'))return;
+  const {error}=await sb.from('cartoes').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast('Cartão excluído'); render();
 }
 
 // ---- CATEGORIA ----

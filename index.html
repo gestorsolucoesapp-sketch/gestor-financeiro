@@ -170,6 +170,7 @@ input,select{font-family:inherit;font-size:16px}
 .subhead{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;font-size:15px}
 .subhead span{color:var(--mint);font-weight:600;cursor:pointer;min-width:64px}
 .subhead b{font-size:16px}
+.badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:10px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--emerald)}
 </style>
 </head>
 <body>
@@ -209,7 +210,10 @@ input,select{font-family:inherit;font-size:16px}
   <div class="topbar">
     <div class="row1">
       <div class="hi">Olá,<b id="userName">—</b></div>
-      <button class="iconbtn" onclick="doLogout()" title="Sair">⏻</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="iconbtn" id="bellBtn" onclick="abrirNotificacoes()" style="position:relative">🔔<span id="bellBadge" class="badge hidden">0</span></button>
+        <button class="iconbtn" onclick="doLogout()" title="Sair">⏻</button>
+      </div>
     </div>
     <div class="seg" id="scopeSeg">
       <button data-scope="tudo" class="on" onclick="setScope('tudo')">Tudo</button>
@@ -334,8 +338,67 @@ async function afterLogin(){
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   await loadAll();
   await maybeSeedCategorias();
+  updateBell();
+  iniciarRealtime();
   go('home');
 }
+// ---- NOTIFICAÇÕES (tempo real do parceiro) ----
+let _rtChannel=null;
+function iniciarRealtime(){
+  try{ if(_rtChannel) sb.removeChannel(_rtChannel); }catch(e){}
+  _rtChannel = sb.channel('lanc-rt')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'lancamentos'},payload=>{
+      const r=payload.new;
+      if(!r || r.user_id===USER.id) return;
+      if(!MYPARTNERS.some(p=>p.owner_id===r.user_id)) return;
+      if(!DATA.lancamentos.find(x=>x.id===r.id)) DATA.lancamentos.unshift(r);
+      const sinal = r.tipo==='receita'?'+':(r.tipo==='despesa'?'-':'');
+      toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor)));
+      updateBell();
+      if(['home','trans','relatorios','contas'].includes(tab)) render();
+    }).subscribe();
+}
+function notifSeenAt(){ try{ return localStorage.getItem('notifSeen_'+USER.id)||'1970-01-01'; }catch(e){ return '1970-01-01'; } }
+function setNotifSeen(){ try{ localStorage.setItem('notifSeen_'+USER.id, new Date().toISOString()); }catch(e){} }
+function partnerLancs(){
+  return DATA.lancamentos
+    .filter(l=> l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id))
+    .sort((a,b)=> (b.criado_em||b.data) < (a.criado_em||a.data) ? -1 : 1);
+}
+function updateBell(){
+  const badge=$('bellBadge'); if(!badge) return;
+  if(!MYPARTNERS.length){ badge.classList.add('hidden'); return; }
+  const seen=notifSeenAt();
+  const n=partnerLancs().filter(l=> (l.criado_em||l.data) > seen).length;
+  if(n>0){ badge.textContent=n>9?'9+':n; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+function abrirNotificacoes(){
+  const lista=partnerLancs().slice(0,40);
+  let h=`<h2>Notificações</h2>`;
+  if(!MYPARTNERS.length){
+    h+=`<div class="empty"><div class="ico">🔔</div><p>Conecte a conta da sua esposa para receber avisos quando ela lançar algo.</p><button class="btn coral sm" onclick="closeSheet();abrirConectar()">Conectar conta</button></div>`;
+  }else if(!lista.length){
+    h+=`<div class="empty"><div class="ico">🔔</div><p>Nada por aqui ainda. Quando ${esc(MYPARTNERS[0].apelido)} lançar algo, aparece aqui.</p></div>`;
+  }else{
+    const seen=notifSeenAt();
+    h+=`<div class="card" style="margin-top:6px">`;
+    lista.forEach(l=>{
+      const cat=catById(l.categoria_id);
+      const isNew=(l.criado_em||l.data)>seen;
+      const sinal=l.tipo==='receita'?'+':(l.tipo==='despesa'?'-':'');
+      const cls=l.tipo==='receita'?'g':(l.tipo==='despesa'?'r':'b');
+      const dt=new Date((l.criado_em||l.data)).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      h+=`<div class="lrow"><div class="dot">${isNew?'🟢':(cat?cat.icone:'🔔')}</div>
+        <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}</div><div class="s">${dt}${cat?' · '+esc(cat.nome):''}</div></div>
+        <div class="amt ${cls}">${sinal}${brl(Number(l.valor))}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  openSheet(h);
+  setNotifSeen(); updateBell();
+}
+
 async function loadAll(){
   const [c1,c2,c3,c4]=await Promise.all([
     sb.from('contas').select('*').order('criado_em'),
@@ -357,6 +420,7 @@ async function loadAll(){
   MYSHARES   = shares.filter(s=>s.owner_id===USER.id);
   if(source!=='eu' && source!=='casal' && !MYPARTNERS.some(p=>p.owner_id===source)) source='eu';
   updateSourceSeg();
+  updateBell();
 }
 function updateSourceSeg(){
   const wrap=$('sourceSegWrap'); if(!wrap) return;

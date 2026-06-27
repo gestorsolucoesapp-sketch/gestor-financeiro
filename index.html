@@ -216,6 +216,7 @@ input,select{font-family:inherit;font-size:16px}
       <button data-scope="pessoal" onclick="setScope('pessoal')">Pessoal</button>
       <button data-scope="negocio" onclick="setScope('negocio')">Negócio</button>
     </div>
+    <div id="sourceSegWrap"></div>
   </div>
 
   <div class="content" id="content">
@@ -244,7 +245,9 @@ const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
-let USER=null, scope='tudo', tab='home';
+let USER=null, scope='tudo', tab='home', source='eu';
+let MYPARTNERS=[]; // {owner_id, apelido} quem compartilhou comigo
+let MYSHARES=[];   // compartilhamentos onde eu sou dono
 let viewMonth=new Date(); viewMonth.setDate(1);
 let faturaMonth=new Date(); faturaMonth.setDate(1);
 let faturaCartaoId=null;
@@ -262,8 +265,15 @@ function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}));}
 
 // scope filter helpers
-function contasScope(){return DATA.contas.filter(c=>!c.arquivada && (scope==='tudo'||c.tipo===scope));}
-function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && (scope==='tudo'||c.tipo===scope));}
+function srcOk(uid){
+  if(source==='casal') return uid===USER.id || MYPARTNERS.some(p=>p.owner_id===uid);
+  if(source==='eu') return uid===USER.id;
+  return uid===source; // source = owner_id de um parceiro
+}
+function apelidoDe(uid){const p=MYPARTNERS.find(p=>p.owner_id===uid);return p?p.apelido:'Parceiro';}
+function souDono(uid){return uid===USER.id;}
+function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
+function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
 function contaById(id){return DATA.contas.find(c=>c.id===id);}
 function cartaoById(id){return DATA.cartoes.find(c=>c.id===id);}
 function catById(id){return DATA.categorias.find(c=>c.id===id);}
@@ -341,10 +351,28 @@ async function loadAll(){
   DATA.contas=c1.data; DATA.categorias=c2.data; DATA.cartoes=c3.data; DATA.lancamentos=c4.data;
   const o=await sb.from('orcamentos').select('*');
   DATA.orcamentos = o.error ? [] : o.data;
+  const sh=await sb.from('compartilhamentos').select('*');
+  const shares = sh.error ? [] : sh.data;
+  MYPARTNERS = shares.filter(s=>s.viewer_id===USER.id && s.status==='ativo').map(s=>({owner_id:s.owner_id, apelido:s.apelido||'Parceiro', id:s.id}));
+  MYSHARES   = shares.filter(s=>s.owner_id===USER.id);
+  if(source!=='eu' && source!=='casal' && !MYPARTNERS.some(p=>p.owner_id===source)) source='eu';
+  updateSourceSeg();
 }
+function updateSourceSeg(){
+  const wrap=$('sourceSegWrap'); if(!wrap) return;
+  if(!MYPARTNERS.length){ wrap.innerHTML=''; if($('fab'))$('fab').classList.remove('hidden'); return; }
+  let btns=`<button class="${source==='eu'?'on':''}" onclick="setSource('eu')">Eu</button>`;
+  MYPARTNERS.forEach(p=>{ btns+=`<button class="${source===p.owner_id?'on':''}" onclick="setSource('${p.owner_id}')">${esc(p.apelido)}</button>`; });
+  btns+=`<button class="${source==='casal'?'on':''}" onclick="setSource('casal')">Casal</button>`;
+  wrap.innerHTML=`<div class="seg" style="margin-top:8px">${btns}</div>`;
+  // botão "+" só faz sentido quando estou lançando nas MINHAS contas
+  const partnerOnly = source!=='eu' && source!=='casal';
+  if($('fab'))$('fab').classList.toggle('hidden', partnerOnly);
+}
+function setSource(s){source=s;updateSourceSeg();render();}
 // cria categorias padrão na primeira vez
 async function maybeSeedCategorias(){
-  if(DATA.categorias.length) return;
+  if(DATA.categorias.filter(c=>c.user_id===USER.id).length) return;
   const base=[
     ['Salário','receita','💼'],['Vendas','receita','🛒'],['Outras receitas','receita','➕'],
     ['Alimentação','despesa','🍽️'],['Transporte','despesa','🚗'],['Moradia','despesa','🏠'],
@@ -370,6 +398,7 @@ function render(){
 }
 // agregações para gráficos/orçamento
 function noScope(l){
+  if(!srcOk(l.user_id)) return false;
   if(scope==='tudo') return true;
   if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
   const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
@@ -422,6 +451,7 @@ function balancoMes(d){
   for(const l of DATA.lancamentos){
     if(l.tipo==='transferencia') continue;
     if(l.cartao_id) continue; // gastos de cartão entram via fatura
+    if(!srcOk(l.user_id)) continue;
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) continue;
     const conta=contaById(l.conta_id);
@@ -437,6 +467,7 @@ function renderHome(){
   // lançamentos recentes (não-cartão) do scope
   const recents=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false;
+    if(!srcOk(l.user_id)) return false;
     const conta=contaById(l.conta_id)||contaById(l.conta_destino_id);
     if(scope!=='tudo'){
       if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
@@ -492,6 +523,7 @@ function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
   let list=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false; // cartão aparece na fatura
+    if(!srcOk(l.user_id)) return false;
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) return false;
     if(scope==='tudo') return true;
@@ -576,7 +608,7 @@ function renderFatura(){
   $('content').innerHTML=html;
 }
 async function pagarFatura(cartaoId){
-  const cs=contasScope().length?contasScope():DATA.contas.filter(c=>!c.arquivada);
+  const cs=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
   if(!cs.length){toast('Crie uma conta primeiro');return;}
   const c=cartaoById(cartaoId);
   const tot=faturaTotal(cartaoId,faturaMonth);
@@ -596,7 +628,7 @@ async function confirmPagarFatura(cartaoId,tot){
 
 // ============ CONTAS ============
 function renderContas(){
-  const cs=DATA.contas.filter(c=>!c.arquivada && (scope==='tudo'||c.tipo===scope));
+  const cs=DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));
   let html=`<div class="page-title">Contas</div>`;
   html+=`<div class="card hero"><div class="lab">Saldo somado</div><div class="big">${brl(cs.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
   html+=`<div class="card">`;
@@ -619,6 +651,10 @@ function renderConfig(){
     ${hubItem('🏷️','Categorias','Gerenciar categorias',"openCatList()")}
     ${hubItem('📥','Importar do Mobills','Suba o CSV exportado',"triggerImport()")}
   </div>`;
+  html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
+    ${hubItem('👥','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()")}
+    ${hubItem('🔗','Conectar a outra conta','Veja as finanças de quem te compartilhou',"abrirConectar()")}
+  </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Zona de risco</div><div class="card">
     ${hubItem('🧹','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()")}
     ${hubItem('💣','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()")}
@@ -632,6 +668,79 @@ function hubItem(ic,t,s,act){
     <div class="mid"><div class="t">${t}</div><div class="s">${s}</div></div>
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
 }
+// ---- COMPARTILHAMENTO (CASAL) ----
+function gerarCodigo(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
+  for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)];
+  return s;
+}
+async function abrirCompartilhar(){
+  // lista convites que eu (dono) criei
+  let lista='';
+  if(MYSHARES.length){
+    lista=`<div class="note" style="margin-top:14px"><b>Seus compartilhamentos:</b></div><div class="card" style="margin-top:8px">`;
+    MYSHARES.forEach(s=>{
+      const st = s.status==='ativo' ? `ligado a ${esc(s.apelido||'alguém')}` : `código <b>${esc(s.codigo)}</b> · aguardando`;
+      lista+=`<div class="lrow"><div class="dot">${s.status==='ativo'?'✅':'⏳'}</div>
+        <div class="mid"><div class="t">${s.status==='ativo'?'Ativo':'Pendente'}</div><div class="s">${st}</div></div>
+        <button class="btn ghost sm" onclick="removerShare('${s.id}')"><span class="danger">×</span></button></div>`;
+    });
+    lista+=`</div>`;
+  }
+  openSheet(`
+    <h2>Compartilhar minhas finanças</h2>
+    <div class="note">Gere um código e passe pra pessoa (sua esposa). No app dela, ela usa "Conectar a outra conta" e digita o código. Aí ela passa a ver as suas finanças — só leitura, ela não altera nada seu.</div>
+    <button class="btn" style="margin-top:14px" onclick="novoCodigo()">Gerar novo código</button>
+    ${lista}
+  `);
+}
+async function novoCodigo(){
+  const codigo=gerarCodigo();
+  const {error}=await sb.from('compartilhamentos').insert({owner_id:USER.id,codigo,status:'pendente'});
+  if(error){toast('Erro: '+error.message);return;}
+  await loadAll(); toast('Código gerado: '+codigo); abrirCompartilhar();
+}
+async function removerShare(id){
+  if(!confirm('Remover este compartilhamento?'))return;
+  const {error}=await sb.from('compartilhamentos').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  await loadAll(); toast('Removido'); abrirCompartilhar();
+}
+function abrirConectar(){
+  let lista='';
+  if(MYPARTNERS.length){
+    lista=`<div class="note" style="margin-top:14px"><b>Você está vendo:</b></div><div class="card" style="margin-top:8px">`;
+    MYPARTNERS.forEach(p=>{
+      lista+=`<div class="lrow"><div class="dot">👁️</div>
+        <div class="mid"><div class="t">${esc(p.apelido)}</div><div class="s">finanças compartilhadas</div></div>
+        <button class="btn ghost sm" onclick="desconectar('${p.id}')"><span class="danger">×</span></button></div>`;
+    });
+    lista+=`</div>`;
+  }
+  openSheet(`
+    <h2>Conectar a outra conta</h2>
+    <div class="note">Digite o código que a outra pessoa gerou no app dela. Você vai poder ver as finanças dela aqui, na aba que aparece no topo (Eu / Nome / Casal).</div>
+    <div class="field" style="margin-top:14px"><label>Código</label><input id="connCode" style="text-transform:uppercase;letter-spacing:3px;font-weight:700" maxlength="6" placeholder="ABC123"></div>
+    <div class="field"><label>Apelido (como vai aparecer)</label><input id="connApelido" placeholder="Ex: Carol"></div>
+    <button class="btn" onclick="conectarCodigo()">Conectar</button>
+    ${lista}
+  `);
+}
+async function conectarCodigo(){
+  const codigo=($('connCode').value||'').trim().toUpperCase();
+  const apelido=($('connApelido').value||'').trim()||'Parceiro';
+  if(codigo.length<4){toast('Digite o código');return;}
+  const {error}=await sb.rpc('aceitar_compartilhamento',{p_codigo:codigo,p_apelido:apelido});
+  if(error){toast(/invalido|utilizado/i.test(error.message)?'Código inválido ou já usado':('Erro: '+error.message));return;}
+  closeSheet(); await loadAll(); source='casal'; updateSourceSeg(); toast('Conectado! ✅'); go('home');
+}
+async function desconectar(shareId){
+  if(!confirm('Parar de ver as finanças dessa pessoa?'))return;
+  const {error}=await sb.from('compartilhamentos').delete().eq('id',shareId);
+  if(error){toast('Erro: '+error.message);return;}
+  source='eu'; await loadAll(); toast('Desconectado'); go('home');
+}
+
 async function wipeValores(){
   if(!confirm('Apagar TODAS as transações e orçamentos?\n\nSuas contas, cartões e categorias serão mantidos.'))return;
   toast('Limpando…');
@@ -651,7 +760,7 @@ async function wipeTudo(){
   DATA.categorias=[]; await loadAll(); await maybeSeedCategorias(); toast('Tudo zerado ✅'); go('home');
 }
 function openCatList(){
-  const cats=DATA.categorias;
+  const cats=DATA.categorias.filter(c=>c.user_id===USER.id);
   let h=`<h2>Categorias</h2><div class="card" style="margin:6px 0 12px">`;
   if(!cats.length) h+=`<div class="empty"><div class="ico">🏷️</div><p>Sem categorias.</p></div>`;
   else cats.forEach(c=>{
@@ -755,7 +864,7 @@ function openOrcamento(id){
   const e=id?DATA.orcamentos.find(o=>o.id===id):null;
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
   const usadas=new Set(DATA.orcamentos.filter(o=>o.ano_mes===am && (!e||o.id!==e.id)).map(o=>o.categoria_id));
-  const cats=DATA.categorias.filter(c=>c.tipo==='despesa' && (!usadas.has(c.id)||(e&&e.categoria_id===c.id)));
+  const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo==='despesa' && (!usadas.has(c.id)||(e&&e.categoria_id===c.id)));
   openSheet(`
     <h2>${id?'Editar':'Definir'} orçamento</h2>
     <div class="note">Mês: ${mesNome(viewMonth)}</div>
@@ -819,9 +928,10 @@ function closeSheet(){$('modalRoot').innerHTML='';}
 let lancType='despesa';
 function openLanc(id){
   const editing=id?DATA.lancamentos.find(l=>l.id===id):null;
+  if(editing && !souDono(editing.user_id)){ toast('👀 Somente leitura · '+apelidoDe(editing.user_id)); return; }
   lancType=editing?editing.tipo:'despesa';
-  const contas=DATA.contas.filter(c=>!c.arquivada);
-  const cartoes=DATA.cartoes.filter(c=>!c.arquivado);
+  const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
+  const cartoes=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id);
   if(!contas.length && !cartoes.length){
     openSheet(`<h2>Crie uma conta antes</h2><div class="note">Para lançar transações você precisa de pelo menos uma conta ou cartão.</div><button class="btn" style="margin-top:14px" onclick="closeSheet();openConta()">Criar conta</button>`);
     return;
@@ -855,9 +965,9 @@ function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$
 function setStatus(s){window._lancStatus=s;$('stPago').classList.toggle('on',s==='pago');$('stPend').classList.toggle('on',s==='pendente');}
 function renderLancDynamic(e){
   e=e||{};
-  const contas=DATA.contas.filter(c=>!c.arquivada);
-  const cartoes=DATA.cartoes.filter(c=>!c.arquivado);
-  const cats=DATA.categorias.filter(c=>c.tipo===(lancType==='receita'?'receita':'despesa'));
+  const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
+  const cartoes=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id);
+  const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo===(lancType==='receita'?'receita':'despesa'));
   let h='';
   if(lancType==='transferencia'){
     h+=`<div class="row2">
@@ -887,8 +997,8 @@ function renderLancDynamic(e){
 function setMeio(m){window._meio=m;document.getElementById('meioConta').classList.toggle('on',m==='conta');const mc=document.getElementById('meioCartao');if(mc)mc.classList.toggle('on',m==='cartao');renderMeio(window._lancEdit||{});}
 function renderMeio(e){
   e=e||{};
-  const contas=DATA.contas.filter(c=>!c.arquivada);
-  const cartoes=DATA.cartoes.filter(c=>!c.arquivado);
+  const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
+  const cartoes=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id);
   let h='';
   if(window._meio==='cartao'){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
@@ -1015,6 +1125,7 @@ async function delLanc(id){
 // ---- CONTA ----
 function openConta(id){
   const e=id?DATA.contas.find(c=>c.id===id):{};
+  if(id && e && !souDono(e.user_id)){ toast('👀 Somente leitura · '+apelidoDe(e.user_id)); return; }
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
@@ -1049,6 +1160,7 @@ async function arquivarConta(id){
 // ---- CARTÃO ----
 function openCartao(id){
   const e=id?DATA.cartoes.find(c=>c.id===id):{};
+  if(id && e && !souDono(e.user_id)){ toast('👀 Somente leitura · '+apelidoDe(e.user_id)); return; }
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Novo'} cartão</h2>

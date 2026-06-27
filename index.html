@@ -199,6 +199,9 @@ input,select{font-family:inherit;font-size:16px}
 .tema-chip{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font-weight:600;font-size:14px;color:var(--ink)}
 .tema-chip .sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.1)}
 .cor-in{width:48px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
+.ctxrow{display:flex;gap:6px;margin-bottom:12px}
+.ctxrow button{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:13px;color:var(--muted)}
+.ctxrow button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
 .saved-acc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);margin-bottom:8px;cursor:pointer}
 .saved-acc.last{border-color:var(--mint)}
 .saved-acc .sa-ic{font-size:20px}
@@ -259,6 +262,7 @@ input,select{font-family:inherit;font-size:16px}
       <button data-scope="tudo" class="on" onclick="setScope('tudo')">Tudo</button>
       <button data-scope="pessoal" onclick="setScope('pessoal')">Pessoal</button>
       <button data-scope="negocio" onclick="setScope('negocio')">Negócio</button>
+      <button data-scope="familia" onclick="setScope('familia')">Família</button>
     </div>
     <div id="sourceSegWrap"></div>
   </div>
@@ -294,7 +298,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "2.6";
+const APP_VER = "2.7";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -325,12 +329,24 @@ function srcOk(uid){
 }
 function apelidoDe(uid){const p=MYPARTNERS.find(p=>p.owner_id===uid);return p?p.apelido:'Parceiro';}
 function souDono(uid){return uid===USER.id;}
-function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
-function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
-function contasPrincipais(){return contasScope().filter(c=>c.incluir_principal!==false);}
-function contasFamiliares(){return contasScope().filter(c=>c.incluir_principal===false);}
-function cartoesPrincipais(){return cartoesScope().filter(c=>c.incluir_principal!==false);}
-function cartoesFamiliares(){return cartoesScope().filter(c=>c.incluir_principal===false);}
+function ehFamiliarConta(c){return !!(c && c.incluir_principal===false);}
+function lancFamiliar(l){
+  const c = l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+  let fam = ehFamiliarConta(c);
+  if(!fam && l.tipo==='transferencia') fam = ehFamiliarConta(contaById(l.conta_destino_id));
+  return fam;
+}
+function contaPassaScope(c){
+  if(scope==='familia') return c.incluir_principal===false;
+  if(c.incluir_principal===false) return false;
+  return scope==='tudo' || c.tipo===scope;
+}
+function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && contaPassaScope(c));}
+function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && contaPassaScope(c));}
+function contasPrincipais(){return contasScope();}
+function contasFamiliares(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && c.incluir_principal===false);}
+function cartoesPrincipais(){return cartoesScope();}
+function cartoesFamiliares(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && c.incluir_principal===false);}
 function titularesSugeridos(){
   const set=new Set(['Eu','Mãe','Pai','Irmão','Irmã','Filho','Filha','Esposa']);
   DATA.contas.concat(DATA.cartoes).forEach(x=>{ if(x.titular && x.titular.trim()) set.add(x.titular.trim()); });
@@ -396,21 +412,29 @@ function initLoginUI(){
 
 function authErr(m){$('authMsg').innerHTML='<div class="msg err">'+esc(m)+'</div>';}
 
-// ===== TEMA / CORES =====
+// ===== TEMA / CORES (por contexto) =====
 const TEMA_DEFAULT={emerald:'#0d3b34',mint:'#1f9d8a',coral:'#e8654e',green:'#1f9d6b',red:'#d6473a',paper:'#f4f1ea',card:'#ffffff',ink:'#0c1c1a',muted:'#6f7d79',line:'#e6e1d6'};
 const TEMA_PRESETS={
   'Esmeralda (padrão)':TEMA_DEFAULT,
   'Logo (azul/roxo)':{emerald:'#1e2350',mint:'#5b8bff',coral:'#8b5cf6',green:'#22b07d',red:'#e0485a',paper:'#f2f3fb',card:'#ffffff',ink:'#161a2e',muted:'#6b7090',line:'#e3e5f2'},
   'Roxo':{emerald:'#3b1d6e',mint:'#7c3aed',coral:'#ec4899',green:'#22b07d',red:'#e0485a',paper:'#f6f3fb',card:'#ffffff',ink:'#1f1733',muted:'#6f6a86',line:'#e9e3f3'},
   'Azul oceano':{emerald:'#0b3d6e',mint:'#2563eb',coral:'#f59e0b',green:'#1f9d6b',red:'#d6473a',paper:'#eef3fa',card:'#ffffff',ink:'#0c1f33',muted:'#637084',line:'#dde6f0'},
+  'Verde negócio':{emerald:'#14532d',mint:'#16a34a',coral:'#f59e0b',green:'#16a34a',red:'#dc2626',paper:'#eef6ef',card:'#ffffff',ink:'#0f2a18',muted:'#5d7064',line:'#dde9de'},
+  'Laranja família':{emerald:'#9a3412',mint:'#f97316',coral:'#e8654e',green:'#1f9d6b',red:'#d6473a',paper:'#fdf3ec',card:'#ffffff',ink:'#3a1d10',muted:'#7d6a60',line:'#f0e2d6'},
   'Escuro (beta)':{emerald:'#0f1a18',mint:'#2dd4bf',coral:'#fb7185',green:'#34d399',red:'#f87171',paper:'#11151a',card:'#1b2129',ink:'#e8edf2',muted:'#9aa6b2',line:'#2a323c'}
 };
-function getTema(){return Object.assign({},TEMA_DEFAULT,lsGet('tema',null)||{});}
+function getTemas(){
+  let all=lsGet('temas',null);
+  if(!all){ const old=lsGet('tema',null); all = old?{tudo:old}:{}; lsSet('temas',all); }
+  return all;
+}
+function setTema(sc,t){const all=getTemas();all[sc]=t;lsSet('temas',all);}
+function getTema(sc){sc=sc||scope||'tudo';const all=getTemas();return Object.assign({},TEMA_DEFAULT,all[sc]||all['tudo']||{});}
 function _hx(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}
 function lighten(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r+(255-r)*amt)+_hx(g+(255-g)*amt)+_hx(b+(255-b)*amt);}
 function darken(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r*(1-amt))+_hx(g*(1-amt))+_hx(b*(1-amt));}
-function applyTema(t){
-  t=t||getTema(); const s=document.documentElement.style;
+function applyTema(sc){
+  const t=getTema(sc); const s=document.documentElement.style;
   s.setProperty('--emerald',t.emerald); s.setProperty('--emerald-2',lighten(t.emerald,0.18));
   s.setProperty('--mint',t.mint); s.setProperty('--coral',t.coral); s.setProperty('--coral-soft',lighten(t.coral,0.75));
   s.setProperty('--green',t.green); s.setProperty('--red',t.red);
@@ -418,13 +442,18 @@ function applyTema(t){
   s.setProperty('--ink',t.ink); s.setProperty('--muted',t.muted);
   s.setProperty('--line',t.line); s.setProperty('--line-2',darken(t.line,0.06));
 }
-let _temaWork=null;
+let _temaScope='tudo', _temaWork=null;
 function renderTema(){
-  _temaWork=getTema();
+  if(!_temaScope)_temaScope='tudo';
+  _temaWork=getTema(_temaScope);
+  applyTema(_temaScope);
+  const ctx=[['tudo','Geral'],['pessoal','Pessoal'],['negocio','Negócio'],['familia','Família']];
   const row=(key,label)=>`<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
     <input type="color" value="${_temaWork[key]}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
   let html=`<div class="page-title">🎨 Cores do app</div>`;
-  html+=`<div class="card"><div class="note" style="margin-bottom:8px">Temas prontos (toque pra aplicar)</div><div class="tema-presets">`;
+  html+=`<div class="note" style="margin:0 2px 8px">Escolha o contexto e personalize as cores dele separado. O app troca de cor sozinho quando você muda o contexto lá em cima.</div>`;
+  html+=`<div class="ctxrow">`+ctx.map(([k,l])=>`<button class="${_temaScope===k?'on':''}" onclick="editarTemaScope('${k}')">${l}</button>`).join('')+`</div>`;
+  html+=`<div class="card"><div class="note" style="margin-bottom:8px">Temas prontos pra <b>${ctx.find(c=>c[0]===_temaScope)[1]}</b></div><div class="tema-presets">`;
   Object.keys(TEMA_PRESETS).forEach(nome=>{const p=TEMA_PRESETS[nome];
     html+=`<button class="tema-chip" onclick="aplicarPreset('${nome}')"><span class="sw" style="background:${p.emerald}"></span><span class="sw" style="background:${p.mint}"></span><span class="sw" style="background:${p.coral}"></span>${nome}</button>`;});
   html+=`</div></div>`;
@@ -432,12 +461,13 @@ function renderTema(){
     ${row('emerald','Primária (topo, botões)')}${row('mint','Destaque (links, ativos)')}${row('coral','Alerta / botão +')}
     ${row('green','Receita')}${row('red','Despesa')}${row('paper','Fundo do app')}${row('card','Cartões / caixas')}
     ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}</div>`;
-  html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão</button>`;
+  html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão deste contexto</button>`;
   $('content').innerHTML=html;
 }
-function setTemaCor(key,val){_temaWork[key]=val;lsSet('tema',_temaWork);applyTema(_temaWork);}
-function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);lsSet('tema',_temaWork);applyTema(_temaWork);renderTema();toast('Tema aplicado ✅');}
-function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);lsSet('tema',_temaWork);applyTema(_temaWork);renderTema();toast('Tema padrão restaurado');}
+function editarTemaScope(k){_temaScope=k;renderTema();}
+function setTemaCor(key,val){_temaWork[key]=val;setTema(_temaScope,_temaWork);applyTema(_temaScope);}
+function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Tema aplicado');}
+function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Padrão restaurado');}
 function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>';}
 
 async function doSignup(){
@@ -592,8 +622,8 @@ async function maybeSeedCategorias(){
 }
 
 // ============ NAV ============
-function setScope(s){scope=s;document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.scope===s));render();}
-function go(t){tab=t;document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();}
+function setScope(s){scope=s;document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.scope===s));applyTema(s);render();}
+function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();}
 function render(){
   if(tab==='home')renderHome();
   else if(tab==='trans')renderTrans();
@@ -627,6 +657,8 @@ function patrimonioTotal(){
 // agregações para gráficos/orçamento
 function noScope(l){
   if(!srcOk(l.user_id)) return false;
+  if(scope==='familia') return lancFamiliar(l);
+  if(lancFamiliar(l)) return false;
   if(scope==='tudo') return true;
   if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
   const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
@@ -683,7 +715,8 @@ function balancoMes(d){
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) continue;
     const conta=contaById(l.conta_id);
-    if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue;
+    if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+    else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
     if(l.tipo==='receita') rec+=Number(l.valor)||0;
     else desp+=Number(l.valor)||0;
   }
@@ -755,6 +788,8 @@ function renderTrans(){
     if(!srcOk(l.user_id)) return false;
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) return false;
+    if(scope==='familia') return lancFamiliar(l);
+    if(lancFamiliar(l)) return false;
     if(scope==='tudo') return true;
     if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
     const conta=contaById(l.conta_id); return conta&&conta.tipo===scope;
@@ -803,20 +838,18 @@ function cardCartaoHTML(c){
       </div></div>`;
 }
 function renderCartoes(){
-  const all=cartoesScope();
-  const principais=cartoesPrincipais();
-  const familiares=cartoesFamiliares();
-  let html=`<div class="page-title">Cartões de crédito</div>`;
-  if(!all.length){
-    html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>Nenhum cartão cadastrado.</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
+  const cs=cartoesScope();
+  const fam = scope==='familia';
+  let html=`<div class="page-title">${fam?'👨‍👩‍👧 Cartões de familiares':'Cartões de crédito'}</div>`;
+  if(!cs.length){
+    html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
     $('content').innerHTML=html;return;
   }
-  principais.forEach(c=>html+=cardCartaoHTML(c));
-  if(familiares.length){
-    const grupos={};
-    familiares.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
-    html+=`<div class="page-title" style="margin-top:18px">👨‍👩‍👧 Cartões de familiares</div>`;
+  if(fam){
+    const grupos={}; cs.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
     Object.keys(grupos).forEach(t=>{ html+=`<div class="note" style="margin:2px 2px 6px;font-weight:700;color:var(--ink)">${esc(t)}</div>`; grupos[t].forEach(c=>html+=cardCartaoHTML(c)); });
+  }else{
+    cs.forEach(c=>html+=cardCartaoHTML(c));
   }
   html+=`<button class="btn outline" onclick="openCartao()">+ Adicionar cartão</button>`;
   const arqN=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id).length;
@@ -894,24 +927,19 @@ async function confirmPagarFatura(cartaoId,tot){
 
 // ============ CONTAS ============
 function renderContas(){
-  const principais=contasPrincipais();
-  const familiares=contasFamiliares();
-  let html=`<div class="page-title">Contas</div>`;
-  html+=`<div class="card hero"><div class="lab">Saldo somado (principal)</div><div class="big">${brl(principais.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
-  html+=`<div class="card">`;
-  if(!principais.length) html+=`<div class="empty"><div class="ico">🏦</div><p>Nenhuma conta principal.</p></div>`;
-  else principais.forEach(c=>html+=rowConta(c));
-  html+=`</div>`;
-  if(familiares.length){
-    const grupos={};
-    familiares.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
-    html+=`<div class="page-title" style="margin-top:18px">👨‍👩‍👧 Familiares <span class="note" style="font-weight:400">(separado do principal)</span></div>`;
-    Object.keys(grupos).forEach(t=>{
-      const arr=grupos[t], sub=arr.reduce((a,c)=>a+saldoConta(c.id),0);
-      html+=`<div class="card"><div class="lrow" style="border:none;padding:2px 0 8px"><div class="mid"><div class="t">${esc(t)}</div><div class="s">Saldo somado</div></div><div class="amt ${sub<0?'r':''}">${brl(sub)}</div></div>`;
-      arr.forEach(c=>html+=rowConta(c));
-      html+=`</div>`;
-    });
+  const cs=contasScope();
+  const fam = scope==='familia';
+  let html=`<div class="page-title">${fam?'👨‍👩‍👧 Contas de familiares':'Contas'}</div>`;
+  html+=`<div class="card hero"><div class="lab">Saldo somado${fam?' (familiares)':''}</div><div class="big">${brl(cs.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
+  if(fam){
+    if(!cs.length) html+=`<div class="card"><div class="empty"><div class="ico">👨‍👩‍👧</div><p>Nenhuma conta de familiar. Crie uma conta e marque "Separado (familiar)".</p></div></div>`;
+    else{
+      const grupos={}; cs.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
+      Object.keys(grupos).forEach(t=>{const arr=grupos[t],sub=arr.reduce((a,c)=>a+saldoConta(c.id),0);
+        html+=`<div class="card"><div class="lrow" style="border:none;padding:2px 0 8px"><div class="mid"><div class="t">${esc(t)}</div><div class="s">Saldo somado</div></div><div class="amt ${sub<0?'r':''}">${brl(sub)}</div></div>`+arr.map(rowConta).join('')+`</div>`;});
+    }
+  }else{
+    html+=`<div class="card">`+(cs.length?cs.map(rowConta).join(''):`<div class="empty"><div class="ico">🏦</div><p>Nenhuma conta.</p></div>`)+`</div>`;
   }
   html+=`<button class="btn outline" onclick="openConta()">+ Adicionar conta</button>`;
   $('content').innerHTML=html;
@@ -1914,7 +1942,7 @@ async function ativarPush(){
 
 // ============ INIT ============
 (async function init(){
-  applyTema();
+  applyTema(scope);
   const {data:{session}}=await sb.auth.getSession();
   if(session){ await afterLogin(); }
   else { initLoginUI(); }

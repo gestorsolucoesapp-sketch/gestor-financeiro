@@ -146,6 +146,30 @@ input,select{font-family:inherit;font-size:16px}
 .monthnav button{width:36px;height:36px;border-radius:10px;font-size:18px;color:var(--emerald)}
 .monthnav .m{font-weight:700;font-size:14px;text-transform:capitalize}
 .facard{background:linear-gradient(155deg,#2a2440,#3d3460);color:#fff}
+
+/* atalhos rápidos */
+.quickrow{display:flex;gap:10px;margin-bottom:14px}
+.quick{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--ink)}
+.quick .qi{font-size:22px;margin-bottom:4px}
+/* barra receita x despesa no hero */
+.rdbar{display:flex;height:8px;border-radius:6px;overflow:hidden;margin:16px 0 4px;background:rgba(255,255,255,.18)}
+.rdrec{background:#a8f0c8}.rddesp{background:#ffb4a8}
+/* progresso */
+.prog{height:9px;border-radius:6px;background:var(--line);overflow:hidden}
+.progfill{height:100%;border-radius:6px;transition:width .3s}
+/* barras 6 meses */
+.bars{display:flex;align-items:flex-end;justify-content:space-between;height:110px;gap:6px}
+.barcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.barpair{display:flex;gap:3px;align-items:flex-end;height:90px}
+.bar{width:11px;border-radius:4px 4px 0 0;min-height:2px}
+.bar.rec{background:var(--green)}.bar.desp{background:var(--red)}
+.barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
+.legend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+/* subhead com voltar */
+.subhead{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;font-size:15px}
+.subhead span{color:var(--mint);font-weight:600;cursor:pointer;min-width:64px}
+.subhead b{font-size:16px}
 </style>
 </head>
 <body>
@@ -224,7 +248,8 @@ let USER=null, scope='tudo', tab='home';
 let viewMonth=new Date(); viewMonth.setDate(1);
 let faturaMonth=new Date(); faturaMonth.setDate(1);
 let faturaCartaoId=null;
-let DATA={contas:[],categorias:[],cartoes:[],lancamentos:[]};
+let DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[]};
+const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00cec9','#a29bfe','#fab1a0','#55efc4','#74b9ff','#ff7675','#81ecec','#ffeaa7','#fd79a8','#636e72'];
 
 // ============ HELPERS ============
 const $=id=>document.getElementById(id);
@@ -314,6 +339,8 @@ async function loadAll(){
     throw e;
   }
   DATA.contas=c1.data; DATA.categorias=c2.data; DATA.cartoes=c3.data; DATA.lancamentos=c4.data;
+  const o=await sb.from('orcamentos').select('*');
+  DATA.orcamentos = o.error ? [] : o.data;
 }
 // cria categorias padrão na primeira vez
 async function maybeSeedCategorias(){
@@ -338,6 +365,54 @@ function render(){
   else if(tab==='cartoes')renderCartoes();
   else if(tab==='contas')renderContas();
   else if(tab==='config')renderConfig();
+  else if(tab==='relatorios')renderRelatorios();
+  else if(tab==='planejamento')renderPlanejamento();
+}
+// agregações para gráficos/orçamento
+function noScope(l){
+  if(scope==='tudo') return true;
+  if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
+  const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+  return conta&&conta.tipo===scope;
+}
+function inMonth(l,d){const ld=new Date(l.data+'T00:00:00');return ld>=firstOfMonth(d)&&ld<=new Date(d.getFullYear(),d.getMonth()+1,0);}
+function gastosPorCategoria(d){
+  const map={};
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(!inMonth(l,d)) continue;
+    if(!noScope(l)) continue;
+    const cat=catById(l.categoria_id);
+    const key=cat?cat.id:'_sem';
+    if(!map[key]) map[key]={nome:cat?cat.nome:'Sem categoria',icone:cat?cat.icone:'❓',valor:0};
+    map[key].valor+=Number(l.valor)||0;
+  }
+  return Object.entries(map).map(([id,v])=>({id,...v})).sort((a,b)=>b.valor-a.valor);
+}
+function gastoCategoriaMes(catId,d){
+  let s=0;
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa'||l.categoria_id!==catId) continue;
+    if(!inMonth(l,d)) continue;
+    if(!noScope(l)) continue;
+    s+=Number(l.valor)||0;
+  }
+  return s;
+}
+function evolucaoMeses(n){
+  const out=[];
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-i,1);
+    let rec=0,desp=0;
+    for(const l of DATA.lancamentos){
+      if(l.tipo==='transferencia'||l.cartao_id) continue;
+      if(!inMonth(l,d)) continue;
+      if(!noScope(l)) continue;
+      if(l.tipo==='receita') rec+=Number(l.valor)||0; else desp+=Number(l.valor)||0;
+    }
+    out.push({mes:d,rec,desp});
+  }
+  return out;
 }
 
 // ============ HOME ============
@@ -374,11 +449,20 @@ function renderHome(){
   <div class="card hero">
     <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
+    ${barRecDesp(b.rec,b.desp)}
     <div class="balrow">
-      <div class="b"><div class="l">Receitas do mês</div><div class="v g">${brl(b.rec)}</div></div>
-      <div class="b"><div class="l">Despesas do mês</div><div class="v r">${brl(b.desp)}</div></div>
+      <div class="b"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
+      <div class="b"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
+      <div class="b"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
-    <div class="balrow"><div class="b" style="flex:1"><div class="l">Balanço de ${mesNome(viewMonth)}</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div></div>
+  </div>`;
+
+  // atalhos rápidos
+  html+=`<div class="quickrow">
+    <div class="quick" onclick="go('relatorios')"><div class="qi">📊</div><div>Relatórios</div></div>
+    <div class="quick" onclick="go('planejamento')"><div class="qi">🎯</div><div>Planejar</div></div>
+    <div class="quick" onclick="go('cartoes')"><div class="qi">💳</div><div>Cartões</div></div>
+    <div class="quick" onclick="go('trans')"><div class="qi">🧾</div><div>Extrato</div></div>
   </div>`;
 
   // minhas contas resumo
@@ -522,26 +606,173 @@ function renderContas(){
   $('content').innerHTML=html;
 }
 
-// ============ CONFIG ============
+// ============ MAIS (HUB) ============
 function renderConfig(){
+  let html=`<div class="page-title">Mais</div>`;
+  html+=`<div class="card">
+    ${hubItem('📊','Relatórios','Gráficos de gastos e evolução',"go('relatorios')")}
+    ${hubItem('🎯','Planejamento','Orçamento por categoria',"go('planejamento')")}
+    ${hubItem('🏦','Contas','Suas contas e saldos',"go('contas')")}
+    ${hubItem('💳','Cartões','Faturas e limites',"go('cartoes')")}
+  </div>`;
+  html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
+    ${hubItem('🏷️','Categorias','Gerenciar categorias',"openCatList()")}
+    ${hubItem('📥','Importar do Mobills','Suba o CSV exportado',"triggerImport()")}
+  </div>`;
+  html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v2<br>Conta: ${esc(USER.email)}</div>`;
+  html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
+  $('content').innerHTML=html;
+}
+function hubItem(ic,t,s,act){
+  return `<div class="lrow" onclick="${act}"><div class="dot">${ic}</div>
+    <div class="mid"><div class="t">${t}</div><div class="s">${s}</div></div>
+    <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
+}
+function openCatList(){
   const cats=DATA.categorias;
-  let html=`<div class="page-title">Categorias</div><div class="card">`;
-  if(!cats.length) html+=`<div class="empty"><div class="ico">🏷️</div><p>Sem categorias.</p></div>`;
+  let h=`<h2>Categorias</h2><div class="card" style="margin:6px 0 12px">`;
+  if(!cats.length) h+=`<div class="empty"><div class="ico">🏷️</div><p>Sem categorias.</p></div>`;
   else cats.forEach(c=>{
-    html+=`<div class="lrow" onclick="openCat('${c.id}')"><div class="dot">${c.icone||'🏷️'}</div>
+    h+=`<div class="lrow" onclick="closeSheet();openCat('${c.id}')"><div class="dot">${c.icone||'🏷️'}</div>
     <div class="mid"><div class="t">${esc(c.nome)}</div><div class="s">${c.tipo}</div></div>
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
   });
-  html+=`</div><button class="btn outline" onclick="openCat()">+ Nova categoria</button>`;
-  html+=`<div class="page-title" style="margin-top:24px">Ferramentas</div>
-    <div class="card">
-      <div class="lrow" onclick="triggerImport()"><div class="dot">📥</div>
-      <div class="mid"><div class="t">Importar do Mobills</div><div class="s">Suba o arquivo CSV exportado do Mobills</div></div>
-      <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>
+  h+=`</div><button class="btn" onclick="closeSheet();openCat()">+ Nova categoria</button>`;
+  openSheet(h);
+}
+
+// ============ RELATÓRIOS ============
+function renderRelatorios(){
+  let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
+  html+=monthNav('trans');
+  const gastos=gastosPorCategoria(viewMonth);
+  const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
+  // DONUT despesas por categoria
+  html+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
+  if(!totalGasto){ html+=`<div class="empty"><div class="ico">📊</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
+  else{
+    const seg=gastos.map((g,i)=>({valor:g.valor,color:PALETA[i%PALETA.length]}));
+    html+=`<div style="display:flex;align-items:center;justify-content:center;margin:8px 0 4px">${donutSVG(seg,totalGasto)}</div>`;
+    html+=`<div style="margin-top:6px">`;
+    gastos.forEach((g,i)=>{
+      const pct=(g.valor/totalGasto*100);
+      html+=`<div class="lrow" style="cursor:default">
+        <div class="dot" style="background:${PALETA[i%PALETA.length]}22;color:${PALETA[i%PALETA.length]}">${g.icone||'•'}</div>
+        <div class="mid"><div class="t">${esc(g.nome)}</div><div class="s">${pct.toFixed(1)}% do mês</div></div>
+        <div class="amt r">${brl(g.valor)}</div></div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  // BARRAS evolução 6 meses
+  const ev=evolucaoMeses(6);
+  const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
+  html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
+    <div class="bars">`;
+  ev.forEach(m=>{
+    const hr=Math.round(m.rec/maxV*90), hd=Math.round(m.desp/maxV*90);
+    html+=`<div class="barcol">
+      <div class="barpair">
+        <div class="bar rec" style="height:${hr}px" title="${brl(m.rec)}"></div>
+        <div class="bar desp" style="height:${hd}px" title="${brl(m.desp)}"></div>
+      </div>
+      <div class="barlab">${m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</div>
     </div>`;
-  html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v1<br>Conta: ${esc(USER.email)}</div>`;
-  html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
+  });
+  html+=`</div><div class="legend"><span><i style="background:var(--green)"></i>Receitas</span><span><i style="background:var(--red)"></i>Despesas</span></div></div>`;
   $('content').innerHTML=html;
+}
+function donutSVG(seg,total){
+  const size=180,r=70,cx=size/2,cy=size/2,sw=26;
+  const C=2*Math.PI*r; let off=0; let arcs='';
+  seg.forEach(s=>{
+    const frac=s.valor/total; const len=frac*C;
+    arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}"
+      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
+    off+=len;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${arcs}
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="#6f7d79">Total</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="700" fill="#0c1c1a">${brl(total).replace('R$ ','R$')}</text></svg>`;
+}
+
+// ============ PLANEJAMENTO (ORÇAMENTO) ============
+function renderPlanejamento(){
+  let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Planejamento</b><span></span></div>`;
+  html+=monthNav('trans');
+  const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
+  const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am);
+  const totalLim=orcs.reduce((a,o)=>a+Number(o.limite||0),0);
+  let totalGasto=0; orcs.forEach(o=>totalGasto+=gastoCategoriaMes(o.categoria_id,viewMonth));
+  html+=`<div class="card hero"><div class="lab">Orçamento de ${mesNome(viewMonth)}</div>
+    <div class="big" style="font-size:26px">${brl(totalGasto)} <span style="font-size:15px;opacity:.7">/ ${brl(totalLim)}</span></div>
+    ${barProg(totalGasto,totalLim,'#fff')}</div>`;
+  html+=`<div class="card">`;
+  if(!orcs.length){
+    html+=`<div class="empty"><div class="ico">🎯</div><p>Defina quanto pode gastar em cada categoria neste mês.</p></div>`;
+  }else{
+    orcs.sort((a,b)=>gastoCategoriaMes(b.categoria_id,viewMonth)-gastoCategoriaMes(a.categoria_id,viewMonth));
+    orcs.forEach(o=>{
+      const cat=catById(o.categoria_id); if(!cat) return;
+      const g=gastoCategoriaMes(o.categoria_id,viewMonth), lim=Number(o.limite)||0;
+      const pct=lim?Math.min(100,g/lim*100):0; const over=g>lim;
+      html+=`<div class="lrow" style="display:block;cursor:pointer" onclick="openOrcamento('${o.id}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="dot">${cat.icone||'🏷️'}</div>
+          <div class="mid"><div class="t">${esc(cat.nome)}</div><div class="s ${over?'danger':''}">${brl(g)} de ${brl(lim)}${over?' · estourou!':''}</div></div>
+          <div class="amt ${over?'r':''}">${lim?Math.round(g/lim*100):0}%</div>
+        </div>
+        <div class="prog" style="margin-top:8px"><div class="progfill" style="width:${pct}%;background:${over?'var(--red)':'var(--mint)'}"></div></div>
+      </div>`;
+    });
+  }
+  html+=`</div><button class="btn" onclick="openOrcamento()">+ Definir orçamento</button>`;
+  $('content').innerHTML=html;
+}
+function openOrcamento(id){
+  const e=id?DATA.orcamentos.find(o=>o.id===id):null;
+  const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
+  const usadas=new Set(DATA.orcamentos.filter(o=>o.ano_mes===am && (!e||o.id!==e.id)).map(o=>o.categoria_id));
+  const cats=DATA.categorias.filter(c=>c.tipo==='despesa' && (!usadas.has(c.id)||(e&&e.categoria_id===c.id)));
+  openSheet(`
+    <h2>${id?'Editar':'Definir'} orçamento</h2>
+    <div class="note">Mês: ${mesNome(viewMonth)}</div>
+    <div class="field" style="margin-top:10px"><label>Categoria</label>
+      <select id="oCat" ${id?'disabled':''}>${cats.map(c=>`<option value="${c.id}" ${e&&e.categoria_id===c.id?'selected':''}>${c.icone||''} ${esc(c.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label>Limite do mês (R$)</label><input id="oLim" type="number" inputmode="decimal" step="0.01" value="${e?e.limite:''}" placeholder="0,00"></div>
+    <button class="btn" onclick="saveOrcamento(${id?`'${id}'`:'null'})">${id?'Salvar':'Definir'}</button>
+    ${id?`<button class="btn ghost" onclick="delOrcamento('${id}')"><span class="danger">Remover orçamento</span></button>`:''}
+  `);
+}
+async function saveOrcamento(id){
+  const lim=parseFloat($('oLim').value);
+  if(!(lim>0)){toast('Informe um limite válido');return;}
+  const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
+  let error;
+  if(id){({error}=await sb.from('orcamentos').update({limite:lim}).eq('id',id));}
+  else{
+    const catId=$('oCat').value; if(!catId){toast('Selecione uma categoria');return;}
+    ({error}=await sb.from('orcamentos').insert({user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim}));
+  }
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast('Orçamento salvo'); render();
+}
+async function delOrcamento(id){
+  if(!confirm('Remover este orçamento?'))return;
+  const {error}=await sb.from('orcamentos').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast('Removido'); render();
+}
+
+// barras/progresso helpers
+function barRecDesp(rec,desp){
+  const tot=rec+desp; if(!tot) return '';
+  const pr=Math.round(rec/tot*100);
+  return `<div class="rdbar"><div class="rdrec" style="width:${pr}%"></div><div class="rddesp" style="width:${100-pr}%"></div></div>`;
+}
+function barProg(g,lim,bg){
+  const pct=lim?Math.min(100,g/lim*100):0; const over=g>lim;
+  return `<div class="prog" style="margin-top:12px;background:rgba(255,255,255,.18)"><div class="progfill" style="width:${pct}%;background:${over?'#ffb4a8':'#a8f0c8'}"></div></div>`;
 }
 
 // ============ MONTH NAV ============
@@ -647,6 +878,11 @@ function renderMeio(e){
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
   }else{
     h+=`<div class="field"><label>Conta</label><select id="lConta">${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
+    if(!window._lancEdit){
+      h+=`<div class="field"><label>Repetir mensalmente</label>
+        <select id="lRecorr"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option></select>
+        <div class="note">Cria a transação repetida nos próximos meses (ex: assinatura, aluguel, salário). As futuras entram como pendentes.</div></div>`;
+    }
     if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
   }
   $('meioWrap').innerHTML=h;
@@ -709,9 +945,29 @@ async function saveLanc(id){
 
   // conta normal
   const contaId=$('lConta').value;
+  const recorr = $('lRecorr') ? (parseInt($('lRecorr').value)||0) : 0;
+  if(!id && recorr>1){
+    const grupo=uuid();
+    const rows=[];
+    for(let i=0;i<recorr;i++){
+      rows.push({user_id:USER.id,tipo:lancType,descricao:desc,valor,data:addMonths(data,i),
+        status: i===0?(window._lancStatus||'pago'):'pendente',
+        conta_id:contaId,categoria_id:window._catSel||null,grupo_id:grupo});
+    }
+    const {error}=await sb.from('lancamentos').insert(rows);
+    if(error){toast('Erro: '+error.message);return;}
+    closeSheet(); await loadAll(); toast(recorr+'x criadas'); render(); return;
+  }
   const row={user_id:USER.id,tipo:lancType,descricao:desc,valor,data,status:window._lancStatus||'pago',
     conta_id:contaId,categoria_id:window._catSel||null};
   await upsertLanc(id,row);
+}
+function addMonths(dateStr,n){
+  const b=new Date(dateStr+'T00:00:00'); const day=b.getDate();
+  const t=new Date(b.getFullYear(),b.getMonth()+n,1);
+  const dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+  t.setDate(Math.min(day,dim));
+  return ymd(t);
 }
 async function upsertLanc(id,row){
   let error;

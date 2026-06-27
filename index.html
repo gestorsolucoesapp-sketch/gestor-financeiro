@@ -209,6 +209,7 @@ input,select{font-family:inherit;font-size:16px}
   <button data-tab="config" onclick="go('config')"><span class="i">⚙️</span>Mais</button>
 </div>
 
+<input type="file" id="mobillsFile" accept=".csv,text/csv" style="display:none" onchange="handleMobillsFile(event)">
 <div id="modalRoot"></div>
 <div class="toast" id="toast"></div>
 
@@ -532,6 +533,12 @@ function renderConfig(){
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
   });
   html+=`</div><button class="btn outline" onclick="openCat()">+ Nova categoria</button>`;
+  html+=`<div class="page-title" style="margin-top:24px">Ferramentas</div>
+    <div class="card">
+      <div class="lrow" onclick="triggerImport()"><div class="dot">📥</div>
+      <div class="mid"><div class="t">Importar do Mobills</div><div class="s">Suba o arquivo CSV exportado do Mobills</div></div>
+      <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>
+    </div>`;
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v1<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
@@ -833,6 +840,114 @@ async function delCat(id){
   const {error}=await sb.from('categorias').delete().eq('id',id);
   if(error){toast('Erro: '+error.message);return;}
   closeSheet(); await loadAll(); toast('Excluída'); render();
+}
+
+// ============ IMPORTAÇÃO MOBILLS ============
+function triggerImport(){ $('mobillsFile').click(); }
+function splitCsvLine(line){
+  const out=[]; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(inQ){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=c; }
+    else { if(c==='"') inQ=true; else if(c===';'){ out.push(cur); cur=''; } else cur+=c; }
+  }
+  out.push(cur); return out;
+}
+function parseBRNumber(s){ s=(s||'').replace(/\s/g,''); if(s.includes(',')){ s=s.replace(/\./g,'').replace(',','.'); } return parseFloat(s); }
+function parseBRDate(s){ const m=(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m?`${m[3]}-${m[2]}-${m[1]}`:null; }
+
+function parseMobills(text){
+  text=text.replace(/^\uFEFF/,'');
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  let header=null; const out=[]; const contas=new Map(); const cats=new Map();
+  for(const line of lines){
+    const cells=splitCsvLine(line);
+    if(!header){ header=cells.map(c=>c.toLowerCase().trim()); continue; }
+    const get=name=>{const i=header.indexOf(name);return i>=0?(cells[i]||''):'';};
+    const dataStr=get('data').trim(), valRaw=get('valor').trim();
+    const contaNome=get('conta').trim(), catNome=get('categoria').trim();
+    let desc=get('descricao').trim();
+    if(!dataStr||!valRaw) continue;
+    const valor=parseBRNumber(valRaw); if(isNaN(valor)) continue;
+    const data=parseBRDate(dataStr); if(!data) continue;
+    const tipo=valor<0?'despesa':'receita';
+    let parcela=null,parcelas=null;
+    const m=desc.match(/\((\d+)\s*\/\s*(\d+)\)/);
+    if(m){ parcela=+m[1]; parcelas=+m[2]; desc=desc.replace(/\s*\(\d+\s*\/\s*\d+\)\s*$/,'').trim()||desc; }
+    if(contaNome) contas.set(contaNome,'pessoal');
+    if(catNome) cats.set(catNome,(cats.get(catNome)||0)+valor);
+    out.push({data,desc:desc||'(sem descrição)',valor:Math.abs(valor),tipo,conta:contaNome,cat:catNome,parcela,parcelas});
+  }
+  return {rows:out,contas,cats};
+}
+async function handleMobillsFile(ev){
+  const file=ev.target.files&&ev.target.files[0]; ev.target.value='';
+  if(!file) return;
+  let text; try{ text=await file.text(); }catch(e){ toast('Não consegui ler o arquivo'); return; }
+  let p; try{ p=parseMobills(text); }catch(e){ toast('Arquivo em formato inesperado'); return; }
+  if(!p.rows.length){ toast('Nenhuma transação encontrada no arquivo'); return; }
+  window._importData=p;
+  const nLanc=p.rows.length, nContas=p.contas.size, nCats=p.cats.size;
+  const rec=p.rows.filter(r=>r.tipo==='receita').reduce((a,r)=>a+r.valor,0);
+  const desp=p.rows.filter(r=>r.tipo==='despesa').reduce((a,r)=>a+r.valor,0);
+  const contasList=[...p.contas.keys()];
+  // quais já existem
+  const existing=new Set(DATA.contas.map(c=>c.nome.toLowerCase()));
+  const novas=contasList.filter(n=>!existing.has(n.toLowerCase()));
+  openSheet(`
+    <h2>Importar do Mobills</h2>
+    <div class="note">Encontrei no seu arquivo:</div>
+    <div class="card" style="margin-top:10px;margin-bottom:12px">
+      <div class="lrow"><div class="dot">🧾</div><div class="mid"><div class="t">${nLanc} transações</div><div class="s">${mesRangeLabel(p.rows)}</div></div></div>
+      <div class="lrow"><div class="dot" style="background:#e7f6ee">⬆️</div><div class="mid"><div class="t">Receitas</div><div class="s">${nCats} categorias no total</div></div><div class="amt g">${brl(rec)}</div></div>
+      <div class="lrow"><div class="dot" style="background:#fdeceb">⬇️</div><div class="mid"><div class="t">Despesas</div><div class="s">${nContas} contas</div></div><div class="amt r">${brl(desp)}</div></div>
+    </div>
+    <div class="note"><b>Contas que serão criadas:</b> ${novas.length?novas.map(esc).join(', '):'(nenhuma nova — todas já existem)'}</div>
+    <div class="note" style="margin-top:8px">As transações entram como <b>pagas</b>, na conta e categoria certas. Compras parceladas mostram o "x/y". Categorias e contas novas são criadas sozinhas.</div>
+    <div class="note" style="margin-top:8px;color:#a9701a">⚠️ O saldo de cada conta vai refletir só o que foi importado. Depois, em <b>Contas</b>, você ajusta o "saldo inicial" de cada uma pro valor real.</div>
+    <button class="btn" style="margin-top:14px" onclick="commitImport()">Importar ${nLanc} transações</button>
+    <button class="btn ghost" onclick="closeSheet()">Cancelar</button>
+  `);
+}
+function mesRangeLabel(rows){
+  const ds=rows.map(r=>r.data).sort();
+  if(!ds.length) return '';
+  const f=d=>new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+  return ds[0]===ds[ds.length-1]?f(ds[0]):`${f(ds[0])} a ${f(ds[ds.length-1])}`;
+}
+async function commitImport(){
+  const p=window._importData; if(!p) return;
+  closeSheet(); toast('Importando…');
+  // 1) contas
+  const contaId={}; DATA.contas.forEach(c=>contaId[c.nome.toLowerCase()]=c.id);
+  const novasContas=[...p.contas.keys()].filter(n=>!(n.toLowerCase() in contaId));
+  if(novasContas.length){
+    const rows=novasContas.map(n=>({user_id:USER.id,nome:n,tipo:'pessoal',saldo_inicial:0}));
+    const {data,error}=await sb.from('contas').insert(rows).select();
+    if(error){toast('Erro ao criar contas: '+error.message);return;}
+    data.forEach(c=>contaId[c.nome.toLowerCase()]=c.id);
+  }
+  // 2) categorias
+  const catId={}; DATA.categorias.forEach(c=>catId[c.nome.toLowerCase()]=c.id);
+  const novasCats=[...p.cats.entries()].filter(([n])=>!(n.toLowerCase() in catId));
+  if(novasCats.length){
+    const rows=novasCats.map(([n,sum])=>({user_id:USER.id,nome:n,tipo:sum>=0?'receita':'despesa'}));
+    const {data,error}=await sb.from('categorias').insert(rows).select();
+    if(error){toast('Erro ao criar categorias: '+error.message);return;}
+    data.forEach(c=>catId[c.nome.toLowerCase()]=c.id);
+  }
+  // 3) lançamentos (em lotes)
+  const rows=p.rows.map(r=>({
+    user_id:USER.id, tipo:r.tipo, descricao:r.desc, valor:r.valor, data:r.data, status:'pago',
+    conta_id: r.conta?(contaId[r.conta.toLowerCase()]||null):null,
+    categoria_id: r.cat?(catId[r.cat.toLowerCase()]||null):null,
+    parcela:r.parcela, parcelas:r.parcelas
+  }));
+  for(let i=0;i<rows.length;i+=200){
+    const {error}=await sb.from('lancamentos').insert(rows.slice(i,i+200));
+    if(error){toast('Erro ao importar: '+error.message);return;}
+  }
+  await loadAll(); toast('✅ '+rows.length+' transações importadas'); go('home');
 }
 
 // ============ INIT ============

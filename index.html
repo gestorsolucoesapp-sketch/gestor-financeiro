@@ -320,6 +320,15 @@ function apelidoDe(uid){const p=MYPARTNERS.find(p=>p.owner_id===uid);return p?p.
 function souDono(uid){return uid===USER.id;}
 function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
 function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));}
+function contasPrincipais(){return contasScope().filter(c=>c.incluir_principal!==false);}
+function contasFamiliares(){return contasScope().filter(c=>c.incluir_principal===false);}
+function cartoesPrincipais(){return cartoesScope().filter(c=>c.incluir_principal!==false);}
+function cartoesFamiliares(){return cartoesScope().filter(c=>c.incluir_principal===false);}
+function titularesSugeridos(){
+  const set=new Set(['Eu','Mãe','Pai','Irmão','Irmã','Filho','Filha','Esposa']);
+  DATA.contas.concat(DATA.cartoes).forEach(x=>{ if(x.titular && x.titular.trim()) set.add(x.titular.trim()); });
+  return Array.from(set);
+}
 function contaById(id){return DATA.contas.find(c=>c.id===id);}
 function cartaoById(id){return DATA.cartoes.find(c=>c.id===id);}
 function catById(id){return DATA.categorias.find(c=>c.id===id);}
@@ -340,7 +349,7 @@ function saldoConta(contaId){
   }
   return s;
 }
-function saldoTotal(){return contasScope().reduce((a,c)=>a+saldoConta(c.id),0);}
+function saldoTotal(){return contasPrincipais().reduce((a,c)=>a+saldoConta(c.id),0);}
 
 // ============ AUTH UI ============
 function showSignup(){$('loginForm').classList.add('hidden');$('signupForm').classList.remove('hidden');$('authMsg').innerHTML='';}
@@ -665,7 +674,7 @@ function renderHome(){
   </div>`;
 
   // minhas contas resumo
-  const cs=contasScope();
+  const cs=contasPrincipais();
   html+=`<div class="sec-head"><h3>Minhas contas</h3><a onclick="go('contas')">Ver todas</a></div><div class="card">`;
   if(!cs.length) html+=`<div class="empty"><div class="ico">🏦</div><p>Você ainda não tem contas.</p><button class="btn coral sm" onclick="openConta()">Criar conta</button></div>`;
   else cs.forEach(c=>{ html+=rowConta(c); });
@@ -728,18 +737,11 @@ function rowLanc(l){
 }
 
 // ============ CARTÕES ============
-function renderCartoes(){
-  const cs=cartoesScope();
-  let html=`<div class="page-title">Cartões de crédito</div>`;
-  if(!cs.length){
-    html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>Nenhum cartão cadastrado.</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
-    $('content').innerHTML=html;return;
-  }
-  cs.forEach(c=>{
-    const fat=faturaTotal(c.id,faturaMonth);
-    html+=`<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer">
+function cardCartaoHTML(c){
+  const fat=faturaTotal(c.id,faturaMonth);
+  return `<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div>
+        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
         <div class="dot" style="background:${c.cor||'#efeaf7'}">💳</div>
       </div>
@@ -747,7 +749,23 @@ function renderCartoes(){
         <div><div class="note">Fatura de ${mesNome(faturaMonth)}</div><div style="font-size:22px;font-weight:800;color:var(--coral)">${brl(fat)}</div></div>
         <div style="text-align:right"><div class="note">Limite</div><div style="font-weight:700">${brl(Number(c.limite))}</div></div>
       </div></div>`;
-  });
+}
+function renderCartoes(){
+  const all=cartoesScope();
+  const principais=cartoesPrincipais();
+  const familiares=cartoesFamiliares();
+  let html=`<div class="page-title">Cartões de crédito</div>`;
+  if(!all.length){
+    html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>Nenhum cartão cadastrado.</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
+    $('content').innerHTML=html;return;
+  }
+  principais.forEach(c=>html+=cardCartaoHTML(c));
+  if(familiares.length){
+    const grupos={};
+    familiares.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
+    html+=`<div class="page-title" style="margin-top:18px">👨‍👩‍👧 Cartões de familiares</div>`;
+    Object.keys(grupos).forEach(t=>{ html+=`<div class="note" style="margin:2px 2px 6px;font-weight:700;color:var(--ink)">${esc(t)}</div>`; grupos[t].forEach(c=>html+=cardCartaoHTML(c)); });
+  }
   html+=`<button class="btn outline" onclick="openCartao()">+ Adicionar cartão</button>`;
   const arqN=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id).length;
   if(arqN) html+=`<button class="btn ghost" onclick="abrirArquivados()">🗄️ Cartões arquivados (${arqN})</button>`;
@@ -824,13 +842,26 @@ async function confirmPagarFatura(cartaoId,tot){
 
 // ============ CONTAS ============
 function renderContas(){
-  const cs=DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && (scope==='tudo'||c.tipo===scope));
+  const principais=contasPrincipais();
+  const familiares=contasFamiliares();
   let html=`<div class="page-title">Contas</div>`;
-  html+=`<div class="card hero"><div class="lab">Saldo somado</div><div class="big">${brl(cs.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
+  html+=`<div class="card hero"><div class="lab">Saldo somado (principal)</div><div class="big">${brl(principais.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
   html+=`<div class="card">`;
-  if(!cs.length) html+=`<div class="empty"><div class="ico">🏦</div><p>Nenhuma conta.</p></div>`;
-  else cs.forEach(c=>html+=rowConta(c));
-  html+=`</div><button class="btn outline" onclick="openConta()">+ Adicionar conta</button>`;
+  if(!principais.length) html+=`<div class="empty"><div class="ico">🏦</div><p>Nenhuma conta principal.</p></div>`;
+  else principais.forEach(c=>html+=rowConta(c));
+  html+=`</div>`;
+  if(familiares.length){
+    const grupos={};
+    familiares.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
+    html+=`<div class="page-title" style="margin-top:18px">👨‍👩‍👧 Familiares <span class="note" style="font-weight:400">(separado do principal)</span></div>`;
+    Object.keys(grupos).forEach(t=>{
+      const arr=grupos[t], sub=arr.reduce((a,c)=>a+saldoConta(c.id),0);
+      html+=`<div class="card"><div class="lrow" style="border:none;padding:2px 0 8px"><div class="mid"><div class="t">${esc(t)}</div><div class="s">Saldo somado</div></div><div class="amt ${sub<0?'r':''}">${brl(sub)}</div></div>`;
+      arr.forEach(c=>html+=rowConta(c));
+      html+=`</div>`;
+    });
+  }
+  html+=`<button class="btn outline" onclick="openConta()">+ Adicionar conta</button>`;
   $('content').innerHTML=html;
 }
 
@@ -1507,15 +1538,22 @@ function openConta(id){
       <button id="cTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._contaTipo='negocio';$('cTipoN').classList.add('on');$('cTipoP').classList.remove('on')">Negócio</button>
     </div></div>
     <div class="field"><label>Saldo inicial (R$)</label><input id="cSaldo" type="number" inputmode="decimal" step="0.01" value="${e.saldo_inicial!=null?e.saldo_inicial:''}" placeholder="0,00"><div class="note">Quanto há nesta conta hoje. O app calcula o saldo atual a partir daqui.</div></div>
+    <div class="field"><label>Titular / quem usa</label><input id="cTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularList">
+      <datalist id="titularList">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
+    <div class="field"><label>Somar no saldo principal?</label>
+      <div class="seg2">
+        <button id="cInc1" class="${e.incluir_principal!==false?'on':''}" onclick="window._cInc=true;$('cInc1').classList.add('on');$('cInc0').classList.remove('on')">Sim, somar</button>
+        <button id="cInc0" class="${e.incluir_principal===false?'on':''}" onclick="window._cInc=false;$('cInc0').classList.add('on');$('cInc1').classList.remove('on')">Separado (familiar)</button>
+      </div><div class="note">"Separado" controla a conta sem misturar no seu saldo principal.</div></div>
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}
   `);
-  window._contaTipo=tipo;
+  window._contaTipo=tipo; window._cInc=e.incluir_principal!==false;
 }
 async function saveConta(id){
   const nome=$('cNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const saldo=parseFloat($('cSaldo').value)||0;
-  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo};
+  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false};
   let error;
   if(id)({error}=await sb.from('contas').update(row).eq('id',id));
   else ({error}=await sb.from('contas').insert(row));
@@ -1547,18 +1585,25 @@ function openCartao(id){
       <div class="field"><label>Dia de vencimento</label><input id="kVence" type="number" min="1" max="31" value="${e.dia_vencimento||''}" placeholder="ex: 5"></div>
     </div>
     <div class="note">Compras feitas até o dia de fechamento entram na fatura do mês; depois dele, vão para a próxima.</div>
+    <div class="field" style="margin-top:12px"><label>Titular / quem usa</label><input id="kTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularListK">
+      <datalist id="titularListK">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
+    <div class="field"><label>É um cartão de familiar?</label>
+      <div class="seg2">
+        <button id="kInc1" class="${e.incluir_principal!==false?'on':''}" onclick="window._kInc=true;$('kInc1').classList.add('on');$('kInc0').classList.remove('on')">Meu (principal)</button>
+        <button id="kInc0" class="${e.incluir_principal===false?'on':''}" onclick="window._kInc=false;$('kInc0').classList.add('on');$('kInc1').classList.remove('on')">De familiar (separado)</button>
+      </div></div>
     <button class="btn" style="margin-top:14px" onclick="saveCartao(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar cartão'}</button>
     ${id?`<button class="btn ghost" onclick="delCartao('${id}')">Remover cartão (vai p/ Arquivados)</button>`:''}
     ${id?`<button class="btn ghost" onclick="excluirCartaoDef('${id}')"><span class="danger">Excluir de vez (pede senha)</span></button>`:''}
   `);
-  window._cartaoTipo=tipo;
+  window._cartaoTipo=tipo; window._kInc=e.incluir_principal!==false;
 }
 async function saveCartao(id){
   const nome=$('kNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const fecha=parseInt($('kFecha').value), vence=parseInt($('kVence').value);
   if(!(fecha>=1&&fecha<=31)){toast('Dia de fechamento inválido');return;}
   if(!(vence>=1&&vence<=31)){toast('Dia de vencimento inválido');return;}
-  const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence};
+  const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false};
   let error;
   if(id)({error}=await sb.from('cartoes').update(row).eq('id',id));
   else ({error}=await sb.from('cartoes').insert(row));

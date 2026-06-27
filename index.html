@@ -45,7 +45,7 @@ input,select{font-family:inherit;font-size:16px}
 .auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
-.field input,.field select{width:100%;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:#fff;outline:none}
+.field input,.field select,.field textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:#fff;outline:none;font-family:inherit;font-size:15px}
 .field input:focus,.field select:focus{border-color:var(--mint)}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;
   background:var(--emerald);color:#fff;font-weight:700;font-size:15px;transition:filter .15s}
@@ -298,7 +298,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "2.7";
+const APP_VER = "2.8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1346,6 +1346,7 @@ function openAddMenu(){
       <button class="addopt card" onclick="closeSheet();openLanc(null,'despesa_cartao')"><span>💳</span>Despesa no cartão</button>
       <button class="addopt tr"   onclick="closeSheet();openLanc(null,'transferencia')"><span>🔁</span>Transferência</button>
     </div>
+    <button class="btn outline" style="margin-top:10px" onclick="closeSheet();openColarBanco()">🏦 Colar mensagem do banco</button>
   `);
 }
 function openLanc(id, preset){
@@ -1383,6 +1384,49 @@ function openLanc(id, preset){
   window._lancStatus=e.status||'pago';
   window._lancEdit=editing||null;
   renderLancDynamic(editing);
+  if(!editing && window._prefill){
+    if($('lDesc'))$('lDesc').value=window._prefill.desc||'';
+    if($('lValor'))$('lValor').value=(window._prefill.valor||'')+'';
+    if($('lData')&&window._prefill.data)$('lData').value=window._prefill.data;
+    window._prefill=null;
+    ajustaStatusData(); try{updateFaturaNote();}catch(e){}
+  }
+}
+function openColarBanco(){
+  openSheet(`
+    <h2>Colar do banco</h2>
+    <div class="note">Copie a mensagem do banco (notificação, SMS, Pix) e cole aqui. O app lê o valor, a data e o estabelecimento e preenche pra você confirmar.</div>
+    <div class="field" style="margin-top:10px"><textarea id="bancoTxt" rows="4" placeholder="Ex: Compra aprovada R$ 45,90 em PADARIA DOCE no cartão final 1234 em 27/06"></textarea></div>
+    <button class="btn outline" onclick="colarClipboard()">📋 Colar da área de transferência</button>
+    <button class="btn" onclick="lerBanco()">Ler e preencher</button>
+  `);
+}
+async function colarClipboard(){
+  try{ const t=await navigator.clipboard.readText(); if(t&&t.trim()){$('bancoTxt').value=t; toast('Colado ✅');} else toast('Nada copiado ainda'); }
+  catch(e){ toast('Segure no campo e toque em "Colar"'); }
+}
+function parseBanco(txt){
+  const t=txt.replace(/\s+/g,' ').trim();
+  let valor=0; const mv=t.match(/R\$\s*([\d.]+,\d{2})/); if(mv){valor=parseFloat(mv[1].replace(/\./g,'').replace(',','.'));}
+  let data=ymd(new Date()); const md=t.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
+  if(md){let y=md[3]?(md[3].length===2?'20'+md[3]:md[3]):String(new Date().getFullYear()); data=`${y}-${md[2]}-${md[1]}`;}
+  const tipo=/(receb|cr[ée]dito|entrada|dep[oó]sito|estorno|salário|salario)/i.test(t)?'receita':'despesa';
+  const isCard=/(cart[ãa]o|final\s*\d{4}|cr[ée]dito)/i.test(t) && !/pix|d[ée]bito autom/i.test(t);
+  let desc=''; let m;
+  if((m=t.match(/(?:em|no|na|para|de)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 .&'*\-]{2,40})/i))){
+    desc=m[1].trim().replace(/\s+(no cart[ãa]o.*|em \d.*|R\$.*|final.*)$/i,'').trim();
+  }
+  if(!desc || /^\d/.test(desc)) desc = tipo==='receita'?'Recebimento':'Compra';
+  return {valor, data, tipo, isCard, desc};
+}
+function lerBanco(){
+  const txt=($('bancoTxt')&&$('bancoTxt').value||'').trim(); if(!txt){toast('Cole a mensagem do banco');return;}
+  const p=parseBanco(txt);
+  if(!(p.valor>0)){toast('Não achei o valor (R$). Confira a mensagem.');return;}
+  window._prefill={desc:p.desc,valor:p.valor,data:p.data};
+  const preset = p.tipo==='receita' ? 'receita' : (p.isCard?'despesa_cartao':'despesa_conta');
+  closeSheet(); openLanc(null, preset);
+  toast('Confira e ajuste se precisar 👇');
 }
 function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);}
 function setStatus(s){window._lancStatus=s;$('stPago').classList.toggle('on',s==='pago');$('stPend').classList.toggle('on',s==='pendente');}

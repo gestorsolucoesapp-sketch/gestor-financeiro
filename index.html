@@ -270,6 +270,7 @@ input,select{font-family:inherit;font-size:16px}
 // ============ CONFIG ============
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
+const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -401,6 +402,9 @@ function updateBell(){
 function abrirNotificacoes(){
   const lista=partnerLancs().slice(0,40);
   let h=`<h2>Notificações</h2>`;
+  if(MYPARTNERS.length && pushSuportado()){
+    h+=`<button class="btn outline" style="margin-bottom:12px" onclick="ativarPush()">🔔 Ativar aviso na tela bloqueada</button>`;
+  }
   if(!MYPARTNERS.length){
     h+=`<div class="empty"><div class="ico">🔔</div><p>Conecte a conta da sua esposa para receber avisos quando ela lançar algo.</p><button class="btn coral sm" onclick="closeSheet();abrirConectar()">Conectar conta</button></div>`;
   }else if(!lista.length){
@@ -1430,7 +1434,6 @@ async function commitImport(){
 }
 
 // ============ INSTALAÇÃO (PWA) ============
-let _deferredPrompt=null, _promptAfterSignup=false;
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); _deferredPrompt=e; });
 function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
@@ -1466,6 +1469,35 @@ async function openInstallSheet(){
     <div class="card" style="margin-top:12px">${passos}</div>
     <button class="btn" onclick="closeSheet();dismissInstall()">Entendi</button>
   `);
+}
+
+// ============ PUSH (notificação na tela bloqueada) ============
+function urlB64ToUint8(base64){
+  const pad='='.repeat((4-base64.length%4)%4);
+  const b=(base64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b); const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+function pushSuportado(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+async function jaInscrito(){
+  try{ const reg=await navigator.serviceWorker.ready; const s=await reg.pushManager.getSubscription(); return !!s; }catch(e){ return false; }
+}
+async function ativarPush(){
+  if(!pushSuportado()){ toast('Este aparelho não suporta notificações push'); return; }
+  if(isIOS() && !isStandalone()){ toast('No iPhone, instale o app na tela de início primeiro'); openInstallSheet(); return; }
+  let perm=Notification.permission;
+  if(perm!=='granted') perm=await Notification.requestPermission();
+  if(perm!=='granted'){ toast('Permissão de notificação negada'); return; }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){ sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)}); }
+    const j=sub.toJSON();
+    const {error}=await sb.from('push_subs').upsert({user_id:USER.id, subscription:sub, endpoint:j.endpoint},{onConflict:'user_id,endpoint'});
+    if(error){ toast('Erro ao salvar: '+error.message); return; }
+    toast('Notificações ativadas 🔔'); if($('modalRoot').innerHTML) abrirNotificacoes();
+  }catch(e){ toast('Não consegui ativar: '+(e.message||e)); }
 }
 
 // ============ INIT ============

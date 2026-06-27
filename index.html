@@ -298,7 +298,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "2.8";
+const APP_VER = "2.9";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -509,6 +509,7 @@ async function afterLogin(){
   iniciarRealtime();
   go('home');
   maybeShowInstall();
+  checkBancoURL();
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----
 let _rtChannel=null;
@@ -1421,12 +1422,26 @@ function parseBanco(txt){
 }
 function lerBanco(){
   const txt=($('bancoTxt')&&$('bancoTxt').value||'').trim(); if(!txt){toast('Cole a mensagem do banco');return;}
+  closeSheet(); lerBancoTexto(txt);
+}
+function lerBancoTexto(txt){
   const p=parseBanco(txt);
   if(!(p.valor>0)){toast('Não achei o valor (R$). Confira a mensagem.');return;}
   window._prefill={desc:p.desc,valor:p.valor,data:p.data};
   const preset = p.tipo==='receita' ? 'receita' : (p.isCard?'despesa_cartao':'despesa_conta');
-  closeSheet(); openLanc(null, preset);
+  openLanc(null, preset);
   toast('Confira e ajuste se precisar 👇');
+}
+function checkBancoURL(){
+  try{
+    const u=new URL(location.href);
+    let txt=u.searchParams.get('banco');
+    if(!txt && location.hash.indexOf('banco=')>=0) txt=decodeURIComponent(location.hash.split('banco=')[1]||'');
+    if(txt && txt.trim()){
+      history.replaceState(null,'',location.pathname);
+      setTimeout(()=>lerBancoTexto(txt.trim()), 400);
+    }
+  }catch(e){}
 }
 function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);}
 function setStatus(s){window._lancStatus=s;$('stPago').classList.toggle('on',s==='pago');$('stPend').classList.toggle('on',s==='pendente');}

@@ -619,6 +619,10 @@ function renderConfig(){
     ${hubItem('🏷️','Categorias','Gerenciar categorias',"openCatList()")}
     ${hubItem('📥','Importar do Mobills','Suba o CSV exportado',"triggerImport()")}
   </div>`;
+  html+=`<div class="page-title" style="margin-top:20px">Zona de risco</div><div class="card">
+    ${hubItem('🧹','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()")}
+    ${hubItem('💣','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()")}
+  </div>`;
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v2<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
@@ -627,6 +631,24 @@ function hubItem(ic,t,s,act){
   return `<div class="lrow" onclick="${act}"><div class="dot">${ic}</div>
     <div class="mid"><div class="t">${t}</div><div class="s">${s}</div></div>
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
+}
+async function wipeValores(){
+  if(!confirm('Apagar TODAS as transações e orçamentos?\n\nSuas contas, cartões e categorias serão mantidos.'))return;
+  toast('Limpando…');
+  const e1=(await sb.from('lancamentos').delete().eq('user_id',USER.id)).error;
+  const e2=(await sb.from('orcamentos').delete().eq('user_id',USER.id)).error;
+  if(e1||e2){toast('Erro: '+((e1||e2).message));return;}
+  await loadAll(); toast('Valores limpos ✅'); go('home');
+}
+async function wipeTudo(){
+  if(!confirm('⚠️ ZERAR TUDO\n\nApaga transações, orçamentos, cartões, contas E categorias. Não dá pra desfazer.\n\nContinuar?'))return;
+  if(!confirm('Tem certeza mesmo? Vai apagar tudo e começar do zero.'))return;
+  toast('Zerando…');
+  for(const t of ['lancamentos','orcamentos','cartoes','contas','categorias']){
+    const {error}=await sb.from(t).delete().eq('user_id',USER.id);
+    if(error){toast('Erro em '+t+': '+error.message);return;}
+  }
+  DATA.categorias=[]; await loadAll(); await maybeSeedCategorias(); toast('Tudo zerado ✅'); go('home');
 }
 function openCatList(){
   const cats=DATA.categorias;

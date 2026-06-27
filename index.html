@@ -193,6 +193,16 @@ input,select{font-family:inherit;font-size:16px}
 .addopt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border-radius:16px;background:#fff;border:1.5px solid var(--line-2);font-weight:700;font-size:13px;color:var(--ink)}
 .addopt span{font-size:26px}
 .addopt.rec{border-color:#b6e6cf}.addopt.desp{border-color:#f3c6c0}.addopt.card{border-color:#cfc4ec}.addopt.tr{border-color:#bcd0f0}
+.saved-lbl{font-size:12px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px;margin:2px 0 8px}
+.saved-acc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);margin-bottom:8px;cursor:pointer}
+.saved-acc.last{border-color:var(--mint)}
+.saved-acc .sa-ic{font-size:20px}
+.saved-acc .sa-mid{flex:1;min-width:0}
+.saved-acc .sa-em{color:#fff;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-acc .sa-sub{font-size:11px;color:var(--mint)}
+.saved-acc .sa-x{color:rgba(255,255,255,.5);font-size:20px;width:28px;flex-shrink:0}
+.savepass-row{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.8);margin:2px 0 14px;cursor:pointer}
+.savepass-row input{width:18px;height:18px}
 </style>
 </head>
 <body>
@@ -209,8 +219,10 @@ input,select{font-family:inherit;font-size:16px}
     <div id="loginForm">
       <h2>Entrar</h2>
       <div class="sub">Acesse sua conta</div>
-      <div class="field"><label>E-mail</label><input id="liEmail" type="email" autocomplete="email" placeholder="voce@email.com"></div>
+      <div id="savedAccounts"></div>
+      <div class="field"><label>E-mail</label><input id="liEmail" type="email" autocomplete="username" placeholder="voce@email.com"></div>
       <div class="field"><label>Senha</label><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <label class="savepass-row"><input type="checkbox" id="liSavePass"> Salvar senha neste aparelho</label>
       <button class="btn" onclick="doLogin()">Entrar</button>
       <div class="auth-switch">Não tem conta? <b onclick="showSignup()">Criar agora</b></div>
     </div>
@@ -333,6 +345,38 @@ function saldoTotal(){return contasScope().reduce((a,c)=>a+saldoConta(c.id),0);}
 // ============ AUTH UI ============
 function showSignup(){$('loginForm').classList.add('hidden');$('signupForm').classList.remove('hidden');$('authMsg').innerHTML='';}
 function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').classList.remove('hidden');$('authMsg').innerHTML='';}
+// ===== contas salvas no login =====
+function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function getSavedEmails(){return lsGet('savedEmails',[]);}
+function rememberEmail(email){let arr=getSavedEmails().filter(e=>e!==email);arr.unshift(email);lsSet('savedEmails',arr.slice(0,6));lsSet('lastEmail',email);}
+function forgetEmail(email){lsSet('savedEmails',getSavedEmails().filter(e=>e!==email));try{localStorage.removeItem('savedPass:'+email);}catch(e){}if(lsGet('lastEmail','')===email)lsSet('lastEmail','');renderSavedAccounts();}
+function savePassFor(email,pass){try{localStorage.setItem('savedPass:'+email,btoa(unescape(encodeURIComponent(pass))));}catch(e){}}
+function getPassFor(email){try{const v=localStorage.getItem('savedPass:'+email);return v?decodeURIComponent(escape(atob(v))):'';}catch(e){return'';}}
+function selecionarConta(email){const p=getPassFor(email);$('liEmail').value=email;if(p){$('liPass').value=p;if($('liSavePass'))$('liSavePass').checked=true;}else{$('liPass').value='';$('liPass').focus();}}
+function renderSavedAccounts(){
+  const wrap=$('savedAccounts'); if(!wrap) return;
+  const arr=getSavedEmails(), last=lsGet('lastEmail','');
+  if(!arr.length){wrap.innerHTML='';return;}
+  let h='<div class="saved-lbl">Entrar com</div>';
+  arr.forEach(em=>{const hasPass=!!getPassFor(em);
+    h+=`<div class="saved-acc${em===last?' last':''}" onclick="selecionarConta('${esc(em)}')">
+      <div class="sa-ic">${hasPass?'🔓':'👤'}</div>
+      <div class="sa-mid"><div class="sa-em">${esc(em)}</div>${em===last?'<div class="sa-sub">último usado</div>':''}</div>
+      <button class="sa-x" onclick="event.stopPropagation();forgetEmail('${esc(em)}')">×</button></div>`;});
+  h+='<div class="saved-lbl" style="margin-top:10px">ou digite outro e-mail</div>';
+  wrap.innerHTML=h;
+}
+function initLoginUI(){
+  renderSavedAccounts();
+  const last=lsGet('lastEmail','');
+  if(last && $('liEmail') && !$('liEmail').value){
+    $('liEmail').value=last;
+    const p=getPassFor(last);
+    if(p){$('liPass').value=p; if($('liSavePass'))$('liSavePass').checked=true;}
+  }
+}
+
 function authErr(m){$('authMsg').innerHTML='<div class="msg err">'+esc(m)+'</div>';}
 function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>';}
 
@@ -341,7 +385,7 @@ async function doSignup(){
   if(!nome||!email||pass.length<6){authErr('Preencha nome, e-mail e senha (mín. 6 caracteres).');return;}
   const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{nome}}});
   if(error){authErr(traduzErro(error.message));return;}
-  if(data.session){ _promptAfterSignup=true; await afterLogin(); }
+  if(data.session){ rememberEmail(email); _promptAfterSignup=true; await afterLogin(); }
   else { authOk('Conta criada! Confirme o e-mail (se pedido) e faça login.'); showLogin(); }
 }
 async function doLogin(){
@@ -349,6 +393,9 @@ async function doLogin(){
   if(!email||!pass){authErr('Informe e-mail e senha.');return;}
   const {error}=await sb.auth.signInWithPassword({email,password:pass});
   if(error){authErr(traduzErro(error.message));return;}
+  rememberEmail(email);
+  if($('liSavePass')&&$('liSavePass').checked) savePassFor(email,pass);
+  else { try{localStorage.removeItem('savedPass:'+email);}catch(e){} }
   await afterLogin();
 }
 async function doLogout(){ await sb.auth.signOut(); location.reload(); }
@@ -1771,6 +1818,7 @@ async function ativarPush(){
 (async function init(){
   const {data:{session}}=await sb.auth.getSession();
   if(session){ await afterLogin(); }
+  else { initLoginUI(); }
 })();
 </script>
 </body>

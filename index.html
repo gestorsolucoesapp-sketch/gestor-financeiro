@@ -195,6 +195,10 @@ input,select{font-family:inherit;font-size:16px}
 .addopt.rec{border-color:#b6e6cf}.addopt.desp{border-color:#f3c6c0}.addopt.card{border-color:#cfc4ec}.addopt.tr{border-color:#bcd0f0}
 .saved-lbl{font-size:12px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px;margin:2px 0 8px}
 .brand .ver{font-size:12px;color:rgba(255,255,255,.45);margin-top:2px;letter-spacing:.3px}
+.tema-presets{display:flex;flex-direction:column;gap:8px}
+.tema-chip{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font-weight:600;font-size:14px;color:var(--ink)}
+.tema-chip .sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.1)}
+.cor-in{width:48px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
 .saved-acc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);margin-bottom:8px;cursor:pointer}
 .saved-acc.last{border-color:var(--mint)}
 .saved-acc .sa-ic{font-size:20px}
@@ -290,7 +294,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "2.5";
+const APP_VER = "2.6";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -391,6 +395,49 @@ function initLoginUI(){
 }
 
 function authErr(m){$('authMsg').innerHTML='<div class="msg err">'+esc(m)+'</div>';}
+
+// ===== TEMA / CORES =====
+const TEMA_DEFAULT={emerald:'#0d3b34',mint:'#1f9d8a',coral:'#e8654e',green:'#1f9d6b',red:'#d6473a',paper:'#f4f1ea',card:'#ffffff',ink:'#0c1c1a',muted:'#6f7d79',line:'#e6e1d6'};
+const TEMA_PRESETS={
+  'Esmeralda (padrão)':TEMA_DEFAULT,
+  'Logo (azul/roxo)':{emerald:'#1e2350',mint:'#5b8bff',coral:'#8b5cf6',green:'#22b07d',red:'#e0485a',paper:'#f2f3fb',card:'#ffffff',ink:'#161a2e',muted:'#6b7090',line:'#e3e5f2'},
+  'Roxo':{emerald:'#3b1d6e',mint:'#7c3aed',coral:'#ec4899',green:'#22b07d',red:'#e0485a',paper:'#f6f3fb',card:'#ffffff',ink:'#1f1733',muted:'#6f6a86',line:'#e9e3f3'},
+  'Azul oceano':{emerald:'#0b3d6e',mint:'#2563eb',coral:'#f59e0b',green:'#1f9d6b',red:'#d6473a',paper:'#eef3fa',card:'#ffffff',ink:'#0c1f33',muted:'#637084',line:'#dde6f0'},
+  'Escuro (beta)':{emerald:'#0f1a18',mint:'#2dd4bf',coral:'#fb7185',green:'#34d399',red:'#f87171',paper:'#11151a',card:'#1b2129',ink:'#e8edf2',muted:'#9aa6b2',line:'#2a323c'}
+};
+function getTema(){return Object.assign({},TEMA_DEFAULT,lsGet('tema',null)||{});}
+function _hx(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}
+function lighten(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r+(255-r)*amt)+_hx(g+(255-g)*amt)+_hx(b+(255-b)*amt);}
+function darken(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r*(1-amt))+_hx(g*(1-amt))+_hx(b*(1-amt));}
+function applyTema(t){
+  t=t||getTema(); const s=document.documentElement.style;
+  s.setProperty('--emerald',t.emerald); s.setProperty('--emerald-2',lighten(t.emerald,0.18));
+  s.setProperty('--mint',t.mint); s.setProperty('--coral',t.coral); s.setProperty('--coral-soft',lighten(t.coral,0.75));
+  s.setProperty('--green',t.green); s.setProperty('--red',t.red);
+  s.setProperty('--paper',t.paper); s.setProperty('--card',t.card);
+  s.setProperty('--ink',t.ink); s.setProperty('--muted',t.muted);
+  s.setProperty('--line',t.line); s.setProperty('--line-2',darken(t.line,0.06));
+}
+let _temaWork=null;
+function renderTema(){
+  _temaWork=getTema();
+  const row=(key,label)=>`<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
+    <input type="color" value="${_temaWork[key]}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
+  let html=`<div class="page-title">🎨 Cores do app</div>`;
+  html+=`<div class="card"><div class="note" style="margin-bottom:8px">Temas prontos (toque pra aplicar)</div><div class="tema-presets">`;
+  Object.keys(TEMA_PRESETS).forEach(nome=>{const p=TEMA_PRESETS[nome];
+    html+=`<button class="tema-chip" onclick="aplicarPreset('${nome}')"><span class="sw" style="background:${p.emerald}"></span><span class="sw" style="background:${p.mint}"></span><span class="sw" style="background:${p.coral}"></span>${nome}</button>`;});
+  html+=`</div></div>`;
+  html+=`<div class="note" style="margin:14px 2px 6px">Ajuste cada cor</div><div class="card">
+    ${row('emerald','Primária (topo, botões)')}${row('mint','Destaque (links, ativos)')}${row('coral','Alerta / botão +')}
+    ${row('green','Receita')}${row('red','Despesa')}${row('paper','Fundo do app')}${row('card','Cartões / caixas')}
+    ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}</div>`;
+  html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão</button>`;
+  $('content').innerHTML=html;
+}
+function setTemaCor(key,val){_temaWork[key]=val;lsSet('tema',_temaWork);applyTema(_temaWork);}
+function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);lsSet('tema',_temaWork);applyTema(_temaWork);renderTema();toast('Tema aplicado ✅');}
+function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);lsSet('tema',_temaWork);applyTema(_temaWork);renderTema();toast('Tema padrão restaurado');}
 function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>';}
 
 async function doSignup(){
@@ -556,6 +603,7 @@ function render(){
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='planejamento')renderPlanejamento();
   else if(tab==='investimentos')renderInvestimentos();
+  else if(tab==='tema')renderTema();
 }
 // ---- INVESTIMENTOS: cálculos ----
 function mesesDesde(dataStr){
@@ -881,6 +929,7 @@ function renderConfig(){
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
     ${hubItem('🏷️','Categorias','Gerenciar categorias',"openCatList()")}
+    ${hubItem('🎨','Cores do app','Personalize o tema e todas as cores',"go('tema')")}
     ${hubItem('📥','Importar do Mobills','Suba o CSV exportado',"triggerImport()")}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
@@ -1865,6 +1914,7 @@ async function ativarPush(){
 
 // ============ INIT ============
 (async function init(){
+  applyTema();
   const {data:{session}}=await sb.auth.getSession();
   if(session){ await afterLogin(); }
   else { initLoginUI(); }

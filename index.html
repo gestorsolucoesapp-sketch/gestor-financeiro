@@ -257,6 +257,7 @@ input,select{font-family:inherit;font-size:16px}
   <button data-tab="trans" onclick="go('trans')"><span class="i">↕️</span>Transações</button>
   <button data-tab="cartoes" onclick="go('cartoes')"><span class="i">💳</span>Cartões</button>
   <button data-tab="contas" onclick="go('contas')"><span class="i">🏦</span>Contas</button>
+  <button data-tab="investimentos" onclick="go('investimentos')"><span class="i">💰</span>Investir</button>
   <button data-tab="config" onclick="go('config')"><span class="i">⚙️</span>Mais</button>
 </div>
 
@@ -284,7 +285,7 @@ let MYSHARES=[];   // compartilhamentos onde eu sou dono
 let viewMonth=new Date(); viewMonth.setDate(1);
 let faturaMonth=new Date(); faturaMonth.setDate(1);
 let faturaCartaoId=null;
-let DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[]};
+let DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[],investimentos:[]};
 const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00cec9','#a29bfe','#fab1a0','#55efc4','#74b9ff','#ff7675','#81ecec','#ffeaa7','#fd79a8','#636e72'];
 
 // ============ HELPERS ============
@@ -447,6 +448,8 @@ async function loadAll(){
   DATA.contas=c1.data; DATA.categorias=c2.data; DATA.cartoes=c3.data; DATA.lancamentos=c4.data;
   const o=await sb.from('orcamentos').select('*');
   DATA.orcamentos = o.error ? [] : o.data;
+  const inv=await sb.from('investimentos').select('*');
+  DATA.investimentos = inv.error ? [] : inv.data;
   const sh=await sb.from('compartilhamentos').select('*');
   const shares = sh.error ? [] : sh.data;
   MYPARTNERS = shares.filter(s=>s.viewer_id===USER.id && s.status==='ativo').map(s=>({owner_id:s.owner_id, apelido:s.apelido||'Parceiro', id:s.id}));
@@ -492,6 +495,26 @@ function render(){
   else if(tab==='config')renderConfig();
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='planejamento')renderPlanejamento();
+  else if(tab==='investimentos')renderInvestimentos();
+}
+// ---- INVESTIMENTOS: cálculos ----
+function mesesDesde(dataStr){
+  const a=new Date(dataStr+'T00:00:00'), b=new Date();
+  let m=(b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(b.getDate()<a.getDate()) m-=1;
+  return Math.max(0,m);
+}
+function valorAtualInvest(inv){
+  const taxa=Number(inv.taxa_mensal)||0;
+  const meses=mesesDesde(inv.data_aplicacao);
+  return Number(inv.valor_aplicado||0)*Math.pow(1+taxa/100, meses);
+}
+function investimentosScope(){ return DATA.investimentos.filter(i=>!i.arquivado && srcOk(i.user_id)); }
+function totalInvestido(){ return investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }
+function patrimonioTotal(){
+  let s=saldoTotal();
+  investimentosScope().filter(i=>i.incluir_patrimonio).forEach(i=>s+=valorAtualInvest(i));
+  return s;
 }
 // agregações para gráficos/orçamento
 function noScope(l){
@@ -583,6 +606,7 @@ function renderHome(){
       <div class="b"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
       <div class="b"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
+    ${investimentosScope().filter(i=>i.incluir_patrimonio).length?`<div class="balrow"><div class="b" style="flex:1"><div class="l">💰 Patrimônio (com investimentos)</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
   // atalhos rápidos
@@ -743,6 +767,7 @@ function renderConfig(){
   html+=`<div class="card">
     ${hubItem('📊','Relatórios','Gráficos de gastos e evolução',"go('relatorios')")}
     ${hubItem('🎯','Planejamento','Orçamento por categoria',"go('planejamento')")}
+    ${hubItem('💰','Investimentos','Poupança, renda fixa e patrimônio',"go('investimentos')")}
     ${hubItem('🏦','Contas','Suas contas e saldos',"go('contas')")}
     ${hubItem('💳','Cartões','Faturas e limites',"go('cartoes')")}
   </div>`;
@@ -1018,6 +1043,93 @@ function barRecDesp(rec,desp){
 function barProg(g,lim,bg){
   const pct=lim?Math.min(100,g/lim*100):0; const over=g>lim;
   return `<div class="prog" style="margin-top:12px;background:rgba(255,255,255,.18)"><div class="progfill" style="width:${pct}%;background:${over?'#ffb4a8':'#a8f0c8'}"></div></div>`;
+}
+
+// ============ INVESTIMENTOS ============
+function renderInvestimentos(){
+  const lista=investimentosScope();
+  const totalAtual=lista.reduce((a,i)=>a+valorAtualInvest(i),0);
+  const totalAplic=lista.reduce((a,i)=>a+(Number(i.valor_aplicado)||0),0);
+  const rend=totalAtual-totalAplic;
+  const patr=patrimonioTotal();
+  let html=`<div class="page-title">Investimentos ${scope!=='tudo'?'':''}</div>`;
+  html+=`<div class="card hero">
+    <div class="lab">Total investido</div>
+    <div class="big">${brl(totalAtual)}</div>
+    <div class="balrow">
+      <div class="b"><div class="l">Aplicado</div><div class="v">${brl(totalAplic)}</div></div>
+      <div class="b"><div class="l">Rendimento</div><div class="v ${rend<0?'r':'g'}">${rend>=0?'+':''}${brl(rend)}</div></div>
+    </div>
+    <div class="balrow"><div class="b" style="flex:1"><div class="l">Patrimônio (contas + investimentos)</div><div class="v">${brl(patr)}</div></div></div>
+  </div>`;
+  html+=`<div class="card">`;
+  if(!lista.length){
+    html+=`<div class="empty"><div class="ico">💰</div><p>Cadastre seus investimentos (poupança, renda fixa…) e acompanhe render mês a mês.</p><button class="btn coral sm" onclick="openInvest()">Adicionar investimento</button></div>`;
+  }else{
+    lista.forEach(i=>{
+      const atual=valorAtualInvest(i), aplic=Number(i.valor_aplicado)||0, r=atual-aplic;
+      const ic = i.tipo==='poupanca'?'🐷':(i.tipo==='renda_fixa'?'📈':'💼');
+      const tx = Number(i.taxa_mensal)||0;
+      html+=`<div class="lrow" onclick="openInvest('${i.id}')">
+        <div class="dot" style="background:#e9f3f1">${ic}</div>
+        <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio?'':'<span class="pill neg">fora do patrimônio</span>'}</div>
+          <div class="s">${tx>0?tx.toString().replace('.',',')+'%/mês · ':''}rend ${r>=0?'+':''}${brl(r)}</div></div>
+        <div class="amt g">${brl(atual)}</div></div>`;
+    });
+  }
+  html+=`</div><button class="btn outline" onclick="openInvest()">+ Adicionar investimento</button>`;
+  $('content').innerHTML=html;
+}
+function openInvest(id){
+  const e=id?DATA.investimentos.find(x=>x.id===id):{};
+  if(id && e && !souDono(e.user_id)){ toast('👀 Somente leitura · '+apelidoDe(e.user_id)); return; }
+  const tipo=e.tipo||'renda_fixa';
+  const inclui=e.incluir_patrimonio!==false;
+  openSheet(`
+    <h2>${id?'Editar':'Novo'} investimento</h2>
+    <div class="field"><label>Nome</label><input id="iNome" value="${esc(e.nome||'')}" placeholder="Ex: Poupança Caixa, CDB Nubank…"></div>
+    <div class="field"><label>Tipo</label>
+      <div class="seg2">
+        <button id="iT0" class="${tipo==='poupanca'?'on':''}" onclick="setInvTipo('poupanca')">Poupança</button>
+        <button id="iT1" class="${tipo==='renda_fixa'?'on':''}" onclick="setInvTipo('renda_fixa')">Renda fixa</button>
+        <button id="iT2" class="${tipo==='outro'?'on':''}" onclick="setInvTipo('outro')">Outro</button>
+      </div></div>
+    <div class="row2">
+      <div class="field"><label>Valor aplicado (R$)</label><input id="iValor" type="number" inputmode="decimal" step="0.01" value="${e.valor_aplicado!=null?e.valor_aplicado:''}" placeholder="0,00"></div>
+      <div class="field"><label>Taxa por mês (%)</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder="ex: 0,5"></div>
+    </div>
+    <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
+    <div class="note">O valor atual é calculado com juros compostos pela taxa mensal, desde a data da aplicação. Deixe a taxa em branco/0 se quiser controlar o valor na mão.</div>
+    <div class="field" style="margin-top:12px"><label>Somar no patrimônio?</label>
+      <div class="seg2">
+        <button id="iInc1" class="${inclui?'on':''}" onclick="window._invInc=true;$('iInc1').classList.add('on');$('iInc0').classList.remove('on')">Sim, somar</button>
+        <button id="iInc0" class="${inclui?'':'on'}" onclick="window._invInc=false;$('iInc0').classList.add('on');$('iInc1').classList.remove('on')">Deixar separado</button>
+      </div></div>
+    <button class="btn" onclick="saveInvest(${id?`'${id}'`:'null'})">${id?'Salvar':'Adicionar'}</button>
+    ${id?`<button class="btn ghost" onclick="delInvest('${id}')"><span class="danger">Excluir investimento</span></button>`:''}
+  `);
+  window._invTipo=tipo; window._invInc=inclui;
+}
+function setInvTipo(t){window._invTipo=t;[['iT0','poupanca'],['iT1','renda_fixa'],['iT2','outro']].forEach(([bid,tt])=>$(bid)&&$(bid).classList.toggle('on',tt===t));
+  if(t==='poupanca' && $('iTaxa') && !$('iTaxa').value) $('iTaxa').value='0.5';
+}
+async function saveInvest(id){
+  const nome=$('iNome').value.trim(); if(!nome){toast('Informe o nome');return;}
+  const valor=parseFloat($('iValor').value)||0;
+  const taxa=parseFloat($('iTaxa').value)||0;
+  const data=$('iData').value||ymd(new Date());
+  const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false};
+  let error;
+  if(id)({error}=await sb.from('investimentos').update(row).eq('id',id));
+  else ({error}=await sb.from('investimentos').insert(row));
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast(id?'Investimento atualizado':'Investimento criado'); render();
+}
+async function delInvest(id){
+  if(!confirm('Excluir este investimento?'))return;
+  const {error}=await sb.from('investimentos').delete().eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast('Excluído'); render();
 }
 
 // ============ MONTH NAV ============

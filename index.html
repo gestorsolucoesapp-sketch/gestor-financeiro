@@ -322,8 +322,8 @@ function saldoConta(contaId){
     if(l.tipo==='receita' && l.conta_id===contaId) s+=v;
     else if(l.tipo==='despesa' && l.conta_id===contaId && !l.cartao_id) s-=v;
     else if(l.tipo==='transferencia'){
-      if(l.conta_id===contaId) s-=v;
-      if(l.conta_destino_id===contaId) s+=v;
+      if(l.conta_id===contaId && l.user_id===c.user_id) s-=v;
+      if(l.conta_destino_id===contaId && l.user_id===c.user_id) s+=v;
     }
   }
   return s;
@@ -1208,10 +1208,14 @@ function renderLancDynamic(e){
   const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo===(lancType==='receita'?'receita':'despesa'));
   let h='';
   if(lancType==='transferencia'){
-    h+=`<div class="row2">
-      <div class="field"><label>De (origem)</label><select id="lContaOrig">${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
-      <div class="field"><label>Para (destino)</label><select id="lContaDest">${contas.map(c=>`<option value="${c.id}" ${e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
-    </div>`;
+    const ownerSel = MYPARTNERS.length ? `<div class="field"><label>Transferir para</label>
+        <select id="lDestOwner" onchange="updateDestContas()">
+          <option value="${USER.id}">Minha conta</option>
+          ${MYPARTNERS.map(p=>`<option value="${p.owner_id}">Conta de ${esc(p.apelido)}</option>`).join('')}
+        </select></div>` : '';
+    h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
+      ${ownerSel}
+      <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
   } else {
     // pagamento: conta ou cartão
@@ -1227,11 +1231,18 @@ function renderLancDynamic(e){
       </div></div>`;
   }
   $('lancDynamic').innerHTML=h;
+  if(lancType==='transferencia'){ updateDestContas(e); }
   if(lancType!=='transferencia'){
     window._meio = e.cartao_id?'cartao':(window._presetMeio||'conta');
     window._catSel = e.categoria_id||null;
     renderMeio(e);
   }
+}
+function updateDestContas(e){
+  const sel=$('lContaDest'); if(!sel) return;
+  const ownerId = $('lDestOwner') ? $('lDestOwner').value : USER.id;
+  const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
+  sel.innerHTML = list.length ? list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('') : `<option value="">(sem contas)</option>`;
 }
 function setMeio(m){window._meio=m;document.getElementById('meioConta').classList.toggle('on',m==='conta');const mc=document.getElementById('meioCartao');if(mc)mc.classList.toggle('on',m==='cartao');renderMeio(window._lancEdit||{});}
 function renderMeio(e){
@@ -1326,6 +1337,13 @@ async function saveLanc(id){
 
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;
+    const destOwner = $('lDestOwner') ? $('lDestOwner').value : USER.id;
+    if(!d){toast('Selecione a conta de destino');return;}
+    if(destOwner!==USER.id){
+      const {error}=await sb.rpc('transferir_parceiro',{p_conta_origem:o,p_owner_destino:destOwner,p_conta_destino:d,p_valor:valor,p_descricao:desc,p_data:data});
+      if(error){toast('Erro: '+error.message);return;}
+      closeSheet(); await loadAll(); toast('Transferência enviada ✅'); render(); return;
+    }
     if(o===d){toast('Origem e destino devem ser diferentes');return;}
     const row={user_id:USER.id,tipo:'transferencia',descricao:desc,valor,data,status:window._lancStatus||'pago',conta_id:o,conta_destino_id:d};
     await upsertLanc(id,row); return;

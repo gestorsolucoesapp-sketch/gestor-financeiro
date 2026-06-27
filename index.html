@@ -678,6 +678,8 @@ function renderCartoes(){
       </div></div>`;
   });
   html+=`<button class="btn outline" onclick="openCartao()">+ Adicionar cartão</button>`;
+  const arqN=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id).length;
+  if(arqN) html+=`<button class="btn ghost" onclick="abrirArquivados()">🗄️ Cartões arquivados (${arqN})</button>`;
   $('content').innerHTML=html;
 }
 function faturaTotal(cartaoId,mes){
@@ -1323,8 +1325,7 @@ function openCartao(id){
     </div>
     <div class="note">Compras feitas até o dia de fechamento entram na fatura do mês; depois dele, vão para a próxima.</div>
     <button class="btn" style="margin-top:14px" onclick="saveCartao(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar cartão'}</button>
-    ${id?`<button class="btn ghost" onclick="arquivarCartao('${id}')">Arquivar cartão</button>`:''}
-    ${id?`<button class="btn ghost" onclick="delCartao('${id}')"><span class="danger">Excluir cartão de vez</span></button>`:''}
+    ${id?`<button class="btn ghost" onclick="delCartao('${id}')">Remover cartão (vai p/ Arquivados)</button>`:''}
   `);
   window._cartaoTipo=tipo;
 }
@@ -1348,10 +1349,27 @@ async function arquivarCartao(id){
 }
 async function delCartao(id){
   const c=cartaoById(id);
-  if(!confirm('Excluir o cartão "'+(c?c.nome:'')+'" de vez?\n\nIsso remove o cartão e TODOS os lançamentos dele. Não dá pra desfazer.'))return;
-  const {error}=await sb.from('cartoes').delete().eq('id',id);
+  if(!confirm('Remover o cartão "'+(c?c.nome:'')+'"?\n\nEle fica guardado em "Arquivados" e você pode restaurar quando quiser.'))return;
+  const {error}=await sb.from('cartoes').update({arquivado:true}).eq('id',id);
   if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Cartão excluído'); render();
+  closeSheet(); await loadAll(); toast('Cartão removido (recuperável em Arquivados)'); render();
+}
+async function restoreCartao(id){
+  const {error}=await sb.from('cartoes').update({arquivado:false}).eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  await loadAll(); toast('Cartão restaurado ✅'); abrirArquivados();
+}
+function abrirArquivados(){
+  const arq=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id);
+  let h=`<h2>Cartões arquivados</h2>`;
+  if(!arq.length){ h+=`<div class="empty"><div class="ico">🗄️</div><p>Nenhum cartão arquivado.</p></div>`; }
+  else{ h+=`<div class="card" style="margin-top:6px">`;
+    arq.forEach(c=>{ h+=`<div class="lrow"><div class="dot">💳</div>
+      <div class="mid"><div class="t">${esc(c.nome)}</div><div class="s">arquivado</div></div>
+      <button class="btn sm" onclick="restoreCartao('${c.id}')">Restaurar</button></div>`; });
+    h+=`</div>`;
+  }
+  openSheet(h);
 }
 
 // ---- CATEGORIA ----

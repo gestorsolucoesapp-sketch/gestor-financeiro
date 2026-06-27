@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0d3b34">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gestor">
 <title>Gestor Soluções · Financeiro</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -171,6 +177,18 @@ input,select{font-family:inherit;font-size:16px}
 .subhead span{color:var(--mint);font-weight:600;cursor:pointer;min-width:64px}
 .subhead b{font-size:16px}
 .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:10px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--emerald)}
+.installbanner{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 78px);z-index:35;max-width:540px;margin:0 auto;
+  background:var(--ink);color:#fff;border-radius:16px;padding:12px 12px 12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.installbanner .ib-ic{font-size:24px}
+.installbanner .ib-txt{flex:1;line-height:1.25}
+.installbanner .ib-txt b{display:block;font-size:14px}
+.installbanner .ib-txt span{font-size:12px;opacity:.75}
+.installbanner .ib-btn{background:var(--mint);color:#fff;font-weight:700;padding:9px 14px;border-radius:10px;font-size:13px}
+.installbanner .ib-x{color:rgba(255,255,255,.6);font-size:20px;width:26px}
+.istep{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.istep:last-child{border-bottom:none}
+.istep .n{width:26px;height:26px;border-radius:50%;background:var(--emerald);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.istep .st{font-size:14px}
 </style>
 </head>
 <body>
@@ -239,6 +257,12 @@ input,select{font-family:inherit;font-size:16px}
 </div>
 
 <input type="file" id="mobillsFile" accept=".csv,text/csv" style="display:none" onchange="handleMobillsFile(event)">
+<div id="installBanner" class="installbanner hidden">
+  <div class="ib-ic">📲</div>
+  <div class="ib-txt"><b>Instale o app</b><span>Tela cheia e com ícone, igual app de loja</span></div>
+  <button class="ib-btn" onclick="openInstallSheet()">Instalar</button>
+  <button class="ib-x" onclick="dismissInstall()">×</button>
+</div>
 <div id="modalRoot"></div>
 <div class="toast" id="toast"></div>
 
@@ -311,7 +335,7 @@ async function doSignup(){
   if(!nome||!email||pass.length<6){authErr('Preencha nome, e-mail e senha (mín. 6 caracteres).');return;}
   const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{nome}}});
   if(error){authErr(traduzErro(error.message));return;}
-  if(data.session){ await afterLogin(); }
+  if(data.session){ _promptAfterSignup=true; await afterLogin(); }
   else { authOk('Conta criada! Confirme o e-mail (se pedido) e faça login.'); showLogin(); }
 }
 async function doLogin(){
@@ -341,6 +365,7 @@ async function afterLogin(){
   updateBell();
   iniciarRealtime();
   go('home');
+  maybeShowInstall();
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----
 let _rtChannel=null;
@@ -1402,6 +1427,45 @@ async function commitImport(){
     if(error){toast('Erro ao importar: '+error.message);return;}
   }
   await loadAll(); toast('✅ '+rows.length+' transações importadas'); go('home');
+}
+
+// ============ INSTALAÇÃO (PWA) ============
+let _deferredPrompt=null, _promptAfterSignup=false;
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); _deferredPrompt=e; });
+function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
+function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+function installDismissed(){ try{ return localStorage.getItem('installDismiss')==='1'; }catch(e){ return false; } }
+function dismissInstall(){ try{ localStorage.setItem('installDismiss','1'); }catch(e){} const b=$('installBanner'); if(b)b.classList.add('hidden'); }
+function maybeShowInstall(){
+  if(isStandalone()) return;            // já instalado
+  if(_promptAfterSignup){ _promptAfterSignup=false; openInstallSheet(); return; }
+  if(installDismissed()) return;
+  const b=$('installBanner'); if(b) b.classList.remove('hidden');
+}
+async function openInstallSheet(){
+  // Android/desktop com prompt nativo
+  if(_deferredPrompt){
+    _deferredPrompt.prompt();
+    try{ await _deferredPrompt.userChoice; }catch(e){}
+    _deferredPrompt=null; dismissInstall(); return;
+  }
+  // iOS (e fallback): instruções
+  const passos = isIOS() ? `
+    <div class="istep"><div class="n">1</div><div class="st">Toque no botão <b>Compartilhar</b> (o quadradinho com a setinha pra cima ⬆️, na barra de baixo do Safari).</div></div>
+    <div class="istep"><div class="n">2</div><div class="st">Role e toque em <b>Adicionar à Tela de Início</b>.</div></div>
+    <div class="istep"><div class="n">3</div><div class="st">Toque em <b>Adicionar</b>. Pronto — o ícone do Gestor aparece na sua tela. 🎉</div></div>
+  ` : `
+    <div class="istep"><div class="n">1</div><div class="st">Toque no menu <b>⋮</b> do navegador (canto superior).</div></div>
+    <div class="istep"><div class="n">2</div><div class="st">Toque em <b>Instalar app</b> (ou "Adicionar à tela inicial").</div></div>
+    <div class="istep"><div class="n">3</div><div class="st">Confirme. O ícone do Gestor aparece na sua tela. 🎉</div></div>
+  `;
+  openSheet(`
+    <h2>Instalar na tela de início</h2>
+    <div class="note">Assim o app abre em tela cheia, com o ícone do Gestor — e libera as notificações na tela bloqueada.</div>
+    <div class="card" style="margin-top:12px">${passos}</div>
+    <button class="btn" onclick="closeSheet();dismissInstall()">Entendi</button>
+  `);
 }
 
 // ============ INIT ============

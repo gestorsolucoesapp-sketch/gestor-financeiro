@@ -29,12 +29,11 @@ input,select{font-family:inherit;font-size:16px}
 .hidden{display:none !important}
 
 /* ---------- AUTH ---------- */
-#auth{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:28px}
-.brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:30px}
-.brand .logo{width:62px;height:62px;border-radius:18px;background:linear-gradient(150deg,var(--emerald),var(--mint));
-  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;box-shadow:var(--shadow)}
-.brand h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.4px}
-.brand p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.3px}
+#auth{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:28px;
+  background:radial-gradient(120% 80% at 50% 18%, #0a1230 0%, #020111 60%)}
+.brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:22px;margin-top:-8px}
+.brand .logo-img{width:min(78vw,300px);height:auto;display:block;margin-bottom:-6px}
+.brand .tag{margin:0;color:#8fa0c8;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
 .auth-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;width:100%;max-width:380px}
 .auth-card h2{margin:0 0 4px;font-size:19px}
 .auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
@@ -154,9 +153,8 @@ input,select{font-family:inherit;font-size:16px}
 <!-- ================= AUTH ================= -->
 <div id="auth">
   <div class="brand">
-    <div class="logo">G</div>
-    <h1>Gestor Soluções</h1>
-    <p>CONTROLE FINANCEIRO</p>
+    <img class="logo-img" src="assets/logo.jpg" alt="Gestor Soluções">
+    <p class="tag">Controle Financeiro</p>
   </div>
   <div class="auth-card">
     <div id="authMsg"></div>

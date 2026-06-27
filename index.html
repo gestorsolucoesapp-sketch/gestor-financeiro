@@ -1242,7 +1242,7 @@ function renderMeio(e){
   if(window._meio==='cartao'){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
-      h+=`<div class="field"><label>Cartão</label><select id="lCartao">${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>`;
+      h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()">${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
       h+=`<div class="field"><label>Parcelas</label><select id="lParcelas">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${(e.parcelas||1)===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
     }
     // cartão não usa status pago/pendente (vira fatura)
@@ -1257,7 +1257,26 @@ function renderMeio(e){
     if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
   }
   $('meioWrap').innerHTML=h;
-  const lp=$('lParcelas'); if(lp){lp.addEventListener('change',updateParcNote);$('lValor').addEventListener('input',updateParcNote);updateParcNote();}
+  const lp=$('lParcelas'); if(lp){lp.addEventListener('change',()=>{updateParcNote();updateFaturaNote();});$('lValor').addEventListener('input',updateParcNote);updateParcNote();}
+  updateFaturaNote();
+}
+function updateFaturaNote(){
+  const el=$('faturaNote'); if(!el) return;
+  const sel=$('lCartao'); if(!sel){ el.innerHTML=''; return; }
+  const cartao=cartaoById(sel.value); if(!cartao){ el.innerHTML=''; return; }
+  const data=$('lData')?$('lData').value:ymd(new Date());
+  const n=parseInt($('lParcelas')?$('lParcelas').value:'1')||1;
+  const base=calcCompetencia(data, cartao.dia_fechamento);
+  const fmt=x=>x.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const dd=new Date(data+'T00:00:00');
+  let aviso='';
+  if(dd.getDate()>cartao.dia_fechamento){ aviso=`Fatura deste mês já fechou (dia ${cartao.dia_fechamento}), então `; }
+  if(n>1){
+    const ult=new Date(base.getFullYear(), base.getMonth()+n-1, 1);
+    el.innerHTML=`🧾 ${aviso}a 1ª parcela cai na fatura de <b>${fmt(base)}</b> e a última em <b>${fmt(ult)}</b>.`;
+  }else{
+    el.innerHTML=`🧾 ${aviso}entra na fatura de <b>${fmt(base)}</b> (vence dia ${cartao.dia_vencimento}).`;
+  }
 }
 function updateParcNote(){
   const n=parseInt($('lParcelas').value)||1, v=parseFloat($('lValor').value)||0;
@@ -1269,6 +1288,7 @@ function pickCat(id){window._catSel=(window._catSel===id?null:id);document.query
 function ajustaStatusData(){
   const d=$('lData')?$('lData').value:''; if(!d) return;
   if(d>ymd(new Date())){ if($('stPago')) setStatus('pendente'); }
+  updateFaturaNote();
 }
 async function criarCategoriaRapida(){
   const nome=prompt('Nome da nova categoria:'); if(!nome||!nome.trim()) return;

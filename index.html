@@ -1326,6 +1326,7 @@ function openCartao(id){
     <div class="note">Compras feitas até o dia de fechamento entram na fatura do mês; depois dele, vão para a próxima.</div>
     <button class="btn" style="margin-top:14px" onclick="saveCartao(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar cartão'}</button>
     ${id?`<button class="btn ghost" onclick="delCartao('${id}')">Remover cartão (vai p/ Arquivados)</button>`:''}
+    ${id?`<button class="btn ghost" onclick="excluirCartaoDef('${id}')"><span class="danger">Excluir de vez (pede senha)</span></button>`:''}
   `);
   window._cartaoTipo=tipo;
 }
@@ -1366,10 +1367,20 @@ function abrirArquivados(){
   else{ h+=`<div class="card" style="margin-top:6px">`;
     arq.forEach(c=>{ h+=`<div class="lrow"><div class="dot">💳</div>
       <div class="mid"><div class="t">${esc(c.nome)}</div><div class="s">arquivado</div></div>
-      <button class="btn sm" onclick="restoreCartao('${c.id}')">Restaurar</button></div>`; });
-    h+=`</div>`;
+      <button class="btn sm" onclick="restoreCartao('${c.id}')">Restaurar</button>
+      <button class="btn sm ghost" onclick="excluirCartaoDef('${c.id}')"><span class="danger">Excluir</span></button></div>`; });
+    h+=`</div><div class="note">Restaurar traz o cartão de volta. Excluir apaga de vez (pede senha) — use só pra limpar duplicados.</div>`;
   }
   openSheet(h);
+}
+function excluirCartaoDef(id){
+  const c=cartaoById(id);
+  pedirSenha('Excluir cartão de vez', async ()=>{
+    if(!confirm('Apagar "'+(c?c.nome:'')+'" PERMANENTEMENTE?\n\nIsso remove o cartão e os lançamentos dele. Não dá pra desfazer.')) return;
+    const {error}=await sb.from('cartoes').delete().eq('id',id);
+    if(error){toast('Erro: '+error.message);return;}
+    await loadAll(); toast('Cartão excluído'); go('cartoes');
+  });
 }
 
 // ---- CATEGORIA ----

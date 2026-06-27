@@ -194,6 +194,7 @@ input,select{font-family:inherit;font-size:16px}
 .addopt span{font-size:26px}
 .addopt.rec{border-color:#b6e6cf}.addopt.desp{border-color:#f3c6c0}.addopt.card{border-color:#cfc4ec}.addopt.tr{border-color:#bcd0f0}
 .saved-lbl{font-size:12px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px;margin:2px 0 8px}
+.brand .ver{font-size:12px;color:rgba(255,255,255,.45);margin-top:2px;letter-spacing:.3px}
 .saved-acc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);margin-bottom:8px;cursor:pointer}
 .saved-acc.last{border-color:var(--mint)}
 .saved-acc .sa-ic{font-size:20px}
@@ -212,6 +213,7 @@ input,select{font-family:inherit;font-size:16px}
   <div class="brand">
     <img class="logo-img" src="assets/logo.jpg" alt="Gestor Soluções">
     <p class="tag">Controle Financeiro</p>
+    <p class="ver" id="appVer"></p>
   </div>
   <div class="auth-card">
     <div id="authMsg"></div>
@@ -288,6 +290,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
+const APP_VER = "2.5";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -377,6 +380,7 @@ function renderSavedAccounts(){
   wrap.innerHTML=h;
 }
 function initLoginUI(){
+  const v=$('appVer'); if(v) v.textContent='versão '+APP_VER;
   renderSavedAccounts();
   const last=lsGet('lastEmail','');
   if(last && $('liEmail') && !$('liEmail').value){
@@ -887,7 +891,7 @@ function renderConfig(){
     ${hubItem('🧹','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()")}
     ${hubItem('💣','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()")}
   </div>`;
-  html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v2<br>Conta: ${esc(USER.email)}</div>`;
+  html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
 }

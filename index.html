@@ -201,6 +201,23 @@ input,select{font-family:inherit;font-size:16px}
 .cor-in{width:48px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
 .opsrow{display:flex;gap:6px;margin:-4px 0 12px}
 .sheet-back{display:inline-flex;align-items:center;gap:2px;color:var(--mint);font-weight:700;font-size:15px;margin:-4px 0 6px;cursor:pointer}
+.bigval{background:var(--emerald);color:#fff;border-radius:16px;padding:16px 18px;margin:4px 0 14px;cursor:pointer}
+.bigval .bv-lab{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.3px}
+.bigval .bv-num{font-size:32px;font-weight:800;margin-top:4px}
+.datechips{display:flex;gap:8px}
+.datechips button{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:14px;color:var(--muted)}
+.datechips button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
+.calcpad{position:fixed;left:0;right:0;bottom:0;z-index:120;background:#15181c;border-radius:20px 20px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .22s ease;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
+.calcpad.show{transform:translateY(0)}
+.calc-disp{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:#fff;font-size:30px;font-weight:700;padding:10px 8px 16px}
+.calc-disp .cur{font-size:16px;opacity:.6;margin-right:auto}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.calc-grid button{padding:18px 0;border-radius:12px;background:#23272d;color:#fff;font-size:22px;font-weight:700}
+.calc-grid button.op{background:#2f3a39;color:var(--mint)}
+.calc-actions{display:flex;gap:8px;margin-top:10px;align-items:center}
+.calc-actions .calc-back{width:54px;padding:14px 0;border-radius:12px;background:#23272d;color:#fff;font-size:18px}
+.calc-actions .calc-cancel{flex:1;padding:14px;border-radius:12px;background:#23272d;color:#fff;font-weight:700}
+.calc-actions .calc-ok{flex:1;padding:14px;border-radius:12px;background:var(--mint);color:#fff;font-weight:800}
 .opsrow button{flex:1;padding:9px 0;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-size:18px;font-weight:700;color:var(--ink)}
 .opsrow button.eq{background:var(--mint);color:#fff;border-color:var(--mint)}
 .ctxrow{display:flex;gap:6px;margin-bottom:12px}
@@ -295,6 +312,20 @@ input,select{font-family:inherit;font-size:16px}
   <button class="ib-x" onclick="dismissInstall()">×</button>
 </div>
 <div id="modalRoot"></div>
+<div id="calcPad" class="calcpad">
+  <div class="calc-disp"><span class="cur">R$</span><span id="calcDisplay">0</span></div>
+  <div class="calc-grid">
+    <button onclick="calcPress('7')">7</button><button onclick="calcPress('8')">8</button><button onclick="calcPress('9')">9</button><button class="op" onclick="calcPress('+')">+</button>
+    <button onclick="calcPress('4')">4</button><button onclick="calcPress('5')">5</button><button onclick="calcPress('6')">6</button><button class="op" onclick="calcPress('-')">−</button>
+    <button onclick="calcPress('1')">1</button><button onclick="calcPress('2')">2</button><button onclick="calcPress('3')">3</button><button class="op" onclick="calcPress('*')">×</button>
+    <button onclick="calcPress(',')">,</button><button onclick="calcPress('0')">0</button><button class="op" onclick="calcPress('=')">=</button><button class="op" onclick="calcPress('/')">÷</button>
+  </div>
+  <div class="calc-actions">
+    <button class="calc-back" onclick="calcPress('back')">⌫</button>
+    <button class="calc-cancel" onclick="fecharCalc()">Cancelar</button>
+    <button class="calc-ok" onclick="calcPronto()">Pronto</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -302,7 +333,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.8";
+const APP_VER = "4.0";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1394,16 +1425,18 @@ function openLanc(id, preset){
       <button id="ttTransf" class="${lancType==='transferencia'?'on transf':''}" onclick="setLancType('transferencia')">Transfer.</button>
     </div>
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…"></div>
-    <div class="row2">
-      <div class="field"><label>Valor (R$)</label><input id="lValor" type="text" inputmode="decimal" value="${e.valor||''}" placeholder="0,00" oninput="window._valDirty=true"></div>
-      <div class="field"><label>Data</label><input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData()"></div>
+    <div class="bigval" onclick="abrirCalc()">
+      <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
+      <div class="bv-num" id="lValDisplay">R$ 0,00</div>
     </div>
-    <div class="opsrow">
-      <button type="button" onclick="insValOp('+')">+</button>
-      <button type="button" onclick="insValOp('-')">−</button>
-      <button type="button" onclick="insValOp('*')">×</button>
-      <button type="button" onclick="insValOp('/')">÷</button>
-      <button type="button" class="eq" onclick="calcVal()">=</button>
+    <input type="hidden" id="lValor" value="${e.valor||''}">
+    <div class="field"><label>Data</label>
+      <div class="datechips">
+        <button type="button" id="dcHoje" onclick="setData(0)">Hoje</button>
+        <button type="button" id="dcOntem" onclick="setData(-1)">Ontem</button>
+        <button type="button" id="dcOutros" onclick="abrirDataPicker()">Outros</button>
+      </div>
+      <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip()" style="margin-top:8px">
     </div>
     <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>
@@ -1416,12 +1449,14 @@ function openLanc(id, preset){
   window._lancStatus=e.status||null;
   window._lancEdit=editing||null;
   renderLancDynamic(editing);
+  setLancValor(parseFloat(e.valor)||0);
+  marcaDataChip();
   if(!editing && window._prefill){
     if($('lDesc'))$('lDesc').value=window._prefill.desc||'';
-    if($('lValor'))$('lValor').value=(window._prefill.valor||'')+'';
-    if($('lData')&&window._prefill.data)$('lData').value=window._prefill.data;
+    if(window._prefill.valor) setLancValor(window._prefill.valor);
+    if($('lData')&&window._prefill.data){$('lData').value=window._prefill.data; marcaDataChip();}
     window._prefill=null;
-    ajustaStatusData(); try{updateFaturaNote();}catch(e){}
+    try{updateFaturaNote();}catch(e){}
   }
 }
 function evalValor(str){
@@ -1432,8 +1467,29 @@ function evalValor(str){
   if(!/^[-+*/.()0-9]+$/.test(s)) return NaN;
   try{ const v=Function('"use strict";return ('+s+')')(); return (typeof v==='number'&&isFinite(v))?Math.round(v*100)/100:NaN; }catch(e){ return NaN; }
 }
-function insValOp(op){ const el=$('lValor'); if(!el) return; el.value=(el.value||'')+op; el.focus(); }
-function calcVal(){ const el=$('lValor'); if(!el) return; const v=evalValor(el.value); if(isNaN(v)){toast('Conta inválida');return;} el.value=String(v).replace('.',','); try{updateParcNote();updateFaturaNote();}catch(e){} }
+function fmtBRLnum(n){ return 'R$ '+(Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function setLancValor(n){ const v=Math.round((Number(n)||0)*100)/100; if($('lValor'))$('lValor').value=v||''; if($('lValDisplay'))$('lValDisplay').textContent=fmtBRLnum(v); try{updateParcNote();updateFaturaNote();}catch(e){} }
+function abrirCalc(){
+  const cur = $('lValor')&&parseFloat($('lValor').value);
+  window._calcExpr = (cur>0)? String(cur).replace('.',',') : '';
+  renderCalc(); $('calcPad').classList.add('show');
+}
+function fecharCalc(){ $('calcPad').classList.remove('show'); }
+function renderCalc(){ const d=$('calcDisplay'); if(d) d.textContent=(window._calcExpr||'0').replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−'); }
+function calcPress(ch){
+  if(ch==='back'){ window._calcExpr=(window._calcExpr||'').slice(0,-1); }
+  else if(ch==='='){ const v=evalValor(window._calcExpr); if(!isNaN(v)) window._calcExpr=String(v).replace('.',','); }
+  else { window._calcExpr=(window._calcExpr||'')+ch; }
+  renderCalc();
+}
+function calcPronto(){ const v=evalValor(window._calcExpr||'0'); if(isNaN(v)){toast('Conta inválida');return;} setLancValor(v); fecharCalc(); }
+function setData(off){ const d=new Date(); d.setDate(d.getDate()+off); if($('lData'))$('lData').value=ymd(d); marcaDataChip(); }
+function abrirDataPicker(){ const el=$('lData'); if(!el)return; if(el.showPicker){try{el.showPicker();}catch(e){el.focus();}} else el.focus(); }
+function marcaDataChip(){
+  const v=$('lData')?$('lData').value:''; const hoje=ymd(new Date());
+  const o=new Date(); o.setDate(o.getDate()-1); const ontem=ymd(o);
+  [['dcHoje',v===hoje],['dcOntem',v===ontem],['dcOutros',v!==hoje&&v!==ontem]].forEach(([id,on])=>{const b=$(id);if(b)b.classList.toggle('on',!!on);});
+}
 function openColarBanco(){
   openSheet(`
     <h2>Colar do banco</h2>

@@ -46,7 +46,9 @@ input,select{font-family:inherit;font-size:16px}
 .auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
-.field input,.field select,.field textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:#fff;outline:none;font-family:inherit;font-size:15px}
+.field input,.field select,.field textarea{width:100%;max-width:100%;min-width:0;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:#fff;outline:none;font-family:inherit;font-size:15px}
+body.modal-open{overflow:hidden}
+.field select{text-overflow:ellipsis}
 .field input:focus,.field select:focus{border-color:var(--mint)}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;
   background:var(--emerald);color:#fff;font-weight:700;font-size:15px;transition:filter .15s}
@@ -122,8 +124,8 @@ input,select{font-family:inherit;font-size:16px}
   display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(232,101,78,.45)}
 
 /* sheet / modal */
-.overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;
+.overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
+.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
   padding:8px 18px calc(env(safe-area-inset-bottom) + 24px);animation:up .22s ease}
 @keyframes up{from{transform:translateY(40px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .grip{width:40px;height:4px;border-radius:4px;background:var(--line-2);margin:8px auto 6px}
@@ -334,7 +336,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.1";
+const APP_VER = "4.2";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1388,8 +1390,9 @@ function shiftMonth(ctx,dir){
 // ============ SHEETS / MODALS ============
 function openSheet(inner){
   $('modalRoot').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grip"></div>${inner}</div></div>`;
+  document.body.classList.add('modal-open');
 }
-function closeSheet(){$('modalRoot').innerHTML='';}
+function closeSheet(){$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');}
 
 // ---- LANÇAMENTO ----
 let lancType='despesa';

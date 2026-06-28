@@ -301,7 +301,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.1";
+const APP_VER = "3.2";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -845,6 +845,7 @@ function renderCartoes(){
   const cs=cartoesScope();
   const fam = scope==='familia';
   let html=`<div class="page-title">${fam?'👨‍👩‍👧 Cartões de familiares':'Cartões de crédito'}</div>`;
+  html+=monthNav('cartoes');
   if(!cs.length){
     html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
     $('content').innerHTML=html;return;
@@ -1326,11 +1327,12 @@ async function delInvest(id){
 function monthNav(ctx){
   return `<div class="monthnav">
     <button onclick="shiftMonth('${ctx}',-1)">‹</button>
-    <div class="m">${mesNome(ctx==='fatura'?faturaMonth:viewMonth)}</div>
+    <div class="m">${mesNome((ctx==='fatura'||ctx==='cartoes')?faturaMonth:viewMonth)}</div>
     <button onclick="shiftMonth('${ctx}',1)">›</button></div>`;
 }
 function shiftMonth(ctx,dir){
   if(ctx==='fatura'){faturaMonth.setMonth(faturaMonth.getMonth()+dir);renderFatura();}
+  else if(ctx==='cartoes'){faturaMonth.setMonth(faturaMonth.getMonth()+dir);renderCartoes();}
   else{viewMonth.setMonth(viewMonth.getMonth()+dir);render();}
 }
 

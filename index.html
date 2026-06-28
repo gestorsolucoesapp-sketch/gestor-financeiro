@@ -301,7 +301,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.4";
+const APP_VER = "3.5";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -726,6 +726,20 @@ function balancoMes(d){
   }
   return {rec,desp,saldo:rec-desp};
 }
+function gastoCartaoMes(d){
+  const ym=ymd(firstOfMonth(d)).slice(0,7);
+  let s=0;
+  for(const l of DATA.lancamentos){
+    if(!l.cartao_id) continue;
+    if(!l.competencia || l.competencia.slice(0,7)!==ym) continue;
+    if(!srcOk(l.user_id)) continue;
+    const cart=cartaoById(l.cartao_id);
+    if(scope==='familia'){ if(!(cart&&cart.incluir_principal===false)) continue; }
+    else { if(cart&&cart.incluir_principal===false) continue; if(scope!=='tudo' && (!cart||cart.tipo!==scope)) continue; }
+    s += (l.tipo==='receita'?-1:1)*(Number(l.valor)||0);
+  }
+  return s;
+}
 function renderHome(){
   const tot=saldoTotal();
   const b=balancoMes(viewMonth);
@@ -752,6 +766,7 @@ function renderHome(){
       <div class="b"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
       <div class="b"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
+    ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">💳 Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
     ${investimentosScope().filter(i=>i.incluir_patrimonio).length?`<div class="balrow"><div class="b" style="flex:1"><div class="l">💰 Patrimônio (com investimentos)</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
@@ -789,7 +804,6 @@ function rowConta(c){
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
   let list=DATA.lancamentos.filter(l=>{
-    if(l.cartao_id) return false; // cartão aparece na fatura
     if(!srcOk(l.user_id)) return false;
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) return false;
@@ -797,8 +811,9 @@ function renderTrans(){
     if(lancFamiliar(l)) return false;
     if(scope==='tudo') return true;
     if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
-    const conta=contaById(l.conta_id); return conta&&conta.tipo===scope;
+    const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id); return conta&&conta.tipo===scope;
   });
+  list.sort((a,b)=> (a.data<b.data?1:a.data>b.data?-1:0));
   let html=monthNav('trans');
   html+=`<div class="card">`;
   if(!list.length) html+=`<div class="empty"><div class="ico">🧾</div><p>Nenhuma transação em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;

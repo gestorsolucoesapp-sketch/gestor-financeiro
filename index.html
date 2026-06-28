@@ -301,7 +301,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.2";
+const APP_VER = "3.3";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -741,7 +741,8 @@ function renderHome(){
     return true;
   }).slice(0,6);
 
-  let html=`
+  let html=monthNav('home');
+  html+=`
   <div class="card hero">
     <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>

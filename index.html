@@ -208,8 +208,11 @@ body.modal-open{overflow:hidden}
 .bigval .bv-lab{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.3px}
 .bigval .bv-num{font-size:32px;font-weight:800;margin-top:4px}
 .datechips{display:flex;gap:8px}
-.datechips button{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:14px;color:var(--muted)}
-.datechips button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
+.datechips button,.datechips .dc-outros{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:14px;color:var(--muted);display:flex;align-items:center;justify-content:center;text-align:center}
+.datechips button.on,.datechips .dc-outros.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
+.dc-outros{position:relative;cursor:pointer;overflow:hidden}
+.dc-outros input{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0}
+.datashow{margin-top:8px;font-size:14px;color:var(--muted);font-weight:600}
 .calcpad{position:fixed;left:0;right:0;bottom:0;z-index:120;background:#15181c;border-radius:20px 20px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .22s ease;box-shadow:0 -8px 30px rgba(0,0,0,.4);pointer-events:none}
 .calcpad.show{transform:translateY(0);pointer-events:auto}
 .calc-disp{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:#fff;font-size:30px;font-weight:700;padding:10px 8px 16px}
@@ -336,7 +339,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.4";
+const APP_VER = "4.5";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1439,9 +1442,9 @@ function openLanc(id, preset){
       <div class="datechips">
         <button type="button" id="dcHoje" onclick="setData(0)">Hoje</button>
         <button type="button" id="dcOntem" onclick="setData(-1)">Ontem</button>
-        <button type="button" id="dcOutros" onclick="abrirDataPicker()">Outros</button>
+        <label id="dcOutros" class="dc-outros">Outros<input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip()"></label>
       </div>
-      <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip()" style="margin-top:8px">
+      <div class="datashow" id="dataShow"></div>
     </div>
     <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>
@@ -1494,6 +1497,7 @@ function marcaDataChip(){
   const v=$('lData')?$('lData').value:''; const hoje=ymd(new Date());
   const o=new Date(); o.setDate(o.getDate()-1); const ontem=ymd(o);
   [['dcHoje',v===hoje],['dcOntem',v===ontem],['dcOutros',v!==hoje&&v!==ontem]].forEach(([id,on])=>{const b=$(id);if(b)b.classList.toggle('on',!!on);});
+  const ds=$('dataShow'); if(ds){ ds.textContent = v ? '📅 '+new Date(v+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}) : ''; }
 }
 function openColarBanco(){
   openSheet(`

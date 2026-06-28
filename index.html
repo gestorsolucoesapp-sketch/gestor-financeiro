@@ -200,6 +200,7 @@ input,select{font-family:inherit;font-size:16px}
 .tema-chip .sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.1)}
 .cor-in{width:48px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
 .opsrow{display:flex;gap:6px;margin:-4px 0 12px}
+.sheet-back{display:inline-flex;align-items:center;gap:2px;color:var(--mint);font-weight:700;font-size:15px;margin:-4px 0 6px;cursor:pointer}
 .opsrow button{flex:1;padding:9px 0;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-size:18px;font-weight:700;color:var(--ink)}
 .opsrow button.eq{background:var(--mint);color:#fff;border-color:var(--mint)}
 .ctxrow{display:flex;gap:6px;margin-bottom:12px}
@@ -301,7 +302,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.6";
+const APP_VER = "3.7";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1385,6 +1386,7 @@ function openLanc(id, preset){
   }
   const e=editing||{};
   openSheet(`
+    <div class="sheet-back" onclick="closeSheet()">‹ Voltar</div>
     <h2>${editing?'Editar':'Nova'} transação</h2>
     <div class="typetabs">
       <button id="ttRec" class="${lancType==='receita'?'on rec':''}" onclick="setLancType('receita')">Receita</button>
@@ -1404,14 +1406,14 @@ function openLanc(id, preset){
       <button type="button" class="eq" onclick="calcVal()">=</button>
     </div>
     <div id="lancDynamic"></div>
-    <div id="lancStatusWrap" class="field"><label>Status</label>
-      <div class="seg2"><button id="stPago" class="${(e.status||'pago')==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
+    <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>
+      <div class="seg2"><button id="stPago" class="${e.status==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
       <button id="stPend" class="${e.status==='pendente'?'on':''}" onclick="setStatus('pendente')">Pendente</button></div>
     </div>
     <button class="btn" onclick="saveLanc(${editing?`'${id}'`:'null'})">${editing?'Salvar alterações':'Adicionar'}</button>
     ${editing?`<button class="btn ghost" onclick="delLanc('${id}')"><span class="danger">Excluir transação</span></button>`:''}
   `);
-  window._lancStatus=e.status||'pago';
+  window._lancStatus=e.status||null;
   window._lancEdit=editing||null;
   renderLancDynamic(editing);
   if(!editing && window._prefill){
@@ -1508,10 +1510,12 @@ function renderLancDynamic(e){
       ${lancType==='despesa'?`<button id="meioCartao" class="${isCard?'on':''}" onclick="setMeio('cartao')">Cartão</button>`:''}</div></div>`;
     h+=`<div id="meioWrap"></div>`;
     // categoria
-    h+=`<div class="field"><label>Categoria</label><div class="chiprow" id="catChips">
-      ${cats.map(c=>`<button class="chip ${e.categoria_id===c.id?'on':''}" data-cat="${c.id}" onclick="pickCat('${c.id}')">${c.icone||''} ${esc(c.nome)}</button>`).join('')}
-      <button class="chip" style="border-style:dashed" onclick="criarCategoriaRapida()">➕ Escrever categoria</button>
-      </div></div>`;
+    h+=`<div class="field"><label>Categoria</label>
+      <select id="lCatSel" onchange="onCatSelect(this.value)">
+        <option value="" ${!e.categoria_id?'selected':''}>Selecione…</option>
+        ${cats.map(c=>`<option value="${c.id}" ${e.categoria_id===c.id?'selected':''}>${c.icone?c.icone+' ':''}${esc(c.nome)}</option>`).join('')}
+        <option value="__nova__">➕ Escrever nova categoria</option>
+      </select></div>`;
   }
   $('lancDynamic').innerHTML=h;
   if(lancType==='transferencia'){ updateDestContas(e); }
@@ -1587,6 +1591,10 @@ function updateParcNote(){
   else $('parcNote').textContent='';
 }
 function pickCat(id){window._catSel=(window._catSel===id?null:id);document.querySelectorAll('#catChips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===window._catSel));}
+function onCatSelect(v){
+  if(v==='__nova__'){ if($('lCatSel'))$('lCatSel').value=window._catSel||''; criarCategoriaRapida(); return; }
+  window._catSel = v||null;
+}
 function ajustaStatusData(){
   const d=$('lData')?$('lData').value:''; if(!d) return;
   if(d>ymd(new Date())){ if($('stPago')) setStatus('pendente'); }
@@ -1598,16 +1606,15 @@ async function criarCategoriaRapida(){
   const {data,error}=await sb.from('categorias').insert({user_id:USER.id,nome:nome.trim(),tipo}).select().single();
   if(error){toast('Erro: '+error.message);return;}
   DATA.categorias.push(data);
-  const wrap=$('catChips');
-  if(wrap){
-    const btn=document.createElement('button');
-    btn.className='chip on'; btn.dataset.cat=data.id;
-    btn.textContent=(data.icone?data.icone+' ':'')+data.nome;
-    btn.setAttribute('onclick',`pickCat('${data.id}')`);
-    wrap.insertBefore(btn, wrap.lastElementChild);
+  const sel=$('lCatSel');
+  if(sel){
+    const opt=document.createElement('option');
+    opt.value=data.id; opt.textContent=(data.icone?data.icone+' ':'')+data.nome;
+    const novaOpt=sel.querySelector('option[value="__nova__"]');
+    sel.insertBefore(opt, novaOpt);
+    sel.value=data.id;
   }
   window._catSel=data.id;
-  document.querySelectorAll('#catChips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===data.id));
   toast('Categoria "'+data.nome+'" criada');
 }
 
@@ -1626,6 +1633,8 @@ async function saveLanc(id){
   if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
   if(!(valor>0)){toast('Informe um valor válido');return;}
   if(!data){toast('Informe a data');return;}
+  const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
+  if(!isCardPurchase && !window._lancStatus){toast('Toque em Pago ou Pendente pra confirmar');return;}
 
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;

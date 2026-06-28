@@ -199,6 +199,9 @@ input,select{font-family:inherit;font-size:16px}
 .tema-chip{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font-weight:600;font-size:14px;color:var(--ink)}
 .tema-chip .sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.1)}
 .cor-in{width:48px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
+.opsrow{display:flex;gap:6px;margin:-4px 0 12px}
+.opsrow button{flex:1;padding:9px 0;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-size:18px;font-weight:700;color:var(--ink)}
+.opsrow button.eq{background:var(--mint);color:#fff;border-color:var(--mint)}
 .ctxrow{display:flex;gap:6px;margin-bottom:12px}
 .ctxrow button{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:13px;color:var(--muted)}
 .ctxrow button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
@@ -298,7 +301,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "2.9";
+const APP_VER = "3.0";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1371,8 +1374,15 @@ function openLanc(id, preset){
     </div>
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…"></div>
     <div class="row2">
-      <div class="field"><label>Valor (R$)</label><input id="lValor" type="number" inputmode="decimal" step="0.01" value="${e.valor||''}" placeholder="0,00"></div>
+      <div class="field"><label>Valor (R$)</label><input id="lValor" type="text" inputmode="decimal" value="${e.valor||''}" placeholder="0,00" oninput="window._valDirty=true"></div>
       <div class="field"><label>Data</label><input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData()"></div>
+    </div>
+    <div class="opsrow">
+      <button type="button" onclick="insValOp('+')">+</button>
+      <button type="button" onclick="insValOp('-')">−</button>
+      <button type="button" onclick="insValOp('*')">×</button>
+      <button type="button" onclick="insValOp('/')">÷</button>
+      <button type="button" class="eq" onclick="calcVal()">=</button>
     </div>
     <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status</label>
@@ -1393,6 +1403,16 @@ function openLanc(id, preset){
     ajustaStatusData(); try{updateFaturaNote();}catch(e){}
   }
 }
+function evalValor(str){
+  if(str==null) return NaN;
+  let s=(''+str).replace(/\s/g,'').replace(/[xX]/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+  if(s.indexOf(',')>=0 && s.indexOf('.')>=0){ s=s.replace(/\./g,'').replace(/,/g,'.'); } // 1.234,56 -> 1234.56
+  else if(s.indexOf(',')>=0){ s=s.replace(/,/g,'.'); }                                    // 12,90 -> 12.90
+  if(!/^[-+*/.()0-9]+$/.test(s)) return NaN;
+  try{ const v=Function('"use strict";return ('+s+')')(); return (typeof v==='number'&&isFinite(v))?Math.round(v*100)/100:NaN; }catch(e){ return NaN; }
+}
+function insValOp(op){ const el=$('lValor'); if(!el) return; el.value=(el.value||'')+op; el.focus(); }
+function calcVal(){ const el=$('lValor'); if(!el) return; const v=evalValor(el.value); if(isNaN(v)){toast('Conta inválida');return;} el.value=String(v).replace('.',','); try{updateParcNote();updateFaturaNote();}catch(e){} }
 function openColarBanco(){
   openSheet(`
     <h2>Colar do banco</h2>
@@ -1497,13 +1517,13 @@ function renderMeio(e){
   if(window._meio==='cartao'){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
-      h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()">${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
-      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${(e.parcelas||1)===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
+      h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
+      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="updateFaturaNote()"><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option>${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${!e.recorrente&&(e.parcelas||1)===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
     }
     // cartão não usa status pago/pendente (vira fatura)
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
   }else{
-    h+=`<div class="field"><label>Conta</label><select id="lConta">${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
+    h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
       h+=`<div class="field"><label>Repetir mensalmente</label>
         <select id="lRecorr"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option></select>
@@ -1520,12 +1540,17 @@ function updateFaturaNote(){
   const sel=$('lCartao'); if(!sel){ el.innerHTML=''; return; }
   const cartao=cartaoById(sel.value); if(!cartao){ el.innerHTML=''; return; }
   const data=$('lData')?$('lData').value:ymd(new Date());
-  const n=parseInt($('lParcelas')?$('lParcelas').value:'1')||1;
+  const pv=$('lParcelas')?$('lParcelas').value:'1';
   const base=calcCompetencia(data, cartao.dia_fechamento);
   const fmt=x=>x.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const dd=new Date(data+'T00:00:00');
   let aviso='';
   if(dd.getDate()>cartao.dia_fechamento){ aviso=`Fatura deste mês já fechou (dia ${cartao.dia_fechamento}), então `; }
+  if(pv==='rec'){
+    el.innerHTML=`🔁 ${aviso}entra <b>todo mês</b> a partir da fatura de <b>${fmt(base)}</b> (cria 12 meses).`;
+    return;
+  }
+  const n=parseInt(pv)||1;
   if(n>1){
     const ult=new Date(base.getFullYear(), base.getMonth()+n-1, 1);
     el.innerHTML=`🧾 ${aviso}a 1ª parcela cai na fatura de <b>${fmt(base)}</b> e a última em <b>${fmt(ult)}</b>.`;
@@ -1534,8 +1559,11 @@ function updateFaturaNote(){
   }
 }
 function updateParcNote(){
-  const n=parseInt($('lParcelas').value)||1, v=parseFloat($('lValor').value)||0;
   if(!$('parcNote'))return;
+  const pv=$('lParcelas')?$('lParcelas').value:'1';
+  const v=evalValor($('lValor').value)||0;
+  if(pv==='rec'){ $('parcNote').innerHTML = v>0?`🔁 <b>${brl(v)}</b> todo mês`:''; return; }
+  const n=parseInt(pv)||1;
   if(n>1&&v>0){const each=Math.floor(v/n*100)/100;$('parcNote').innerHTML=`${n}x de aprox. <b>${brl(each)}</b> · entra na fatura de cada mês`;}
   else $('parcNote').textContent='';
 }
@@ -1573,9 +1601,10 @@ function calcCompetencia(dataStr,diaFechamento){
 }
 async function saveLanc(id){
   const desc=$('lDesc').value.trim();
-  const valor=parseFloat($('lValor').value);
+  const valor=evalValor($('lValor').value);
   const data=$('lData').value;
   if(!desc){toast('Informe a descrição');return;}
+  if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
   if(!(valor>0)){toast('Informe um valor válido');return;}
   if(!data){toast('Informe a data');return;}
 
@@ -1595,31 +1624,43 @@ async function saveLanc(id){
 
   if(window._meio==='cartao'){
     const cartaoId=$('lCartao')?$('lCartao').value:null;
-    if(!cartaoId){toast('Selecione um cartão');return;}
-    const n=parseInt($('lParcelas').value)||1;
+    if(!cartaoId){toast('Selecione o cartão');return;}
+    const pv=$('lParcelas')?$('lParcelas').value:'1';
+    const rec = pv==='rec';
+    const n = rec?12:(parseInt(pv)||1);
     const cartao=cartaoById(cartaoId);
-    // se editando uma compra de cartão, removemos o grupo antigo e recriamos
     if(id){const old=DATA.lancamentos.find(l=>l.id===id); if(old&&old.grupo_id){await sb.from('lancamentos').delete().eq('grupo_id',old.grupo_id);} else {await sb.from('lancamentos').delete().eq('id',id);} }
     const grupo=uuid();
     const baseComp=calcCompetencia(data,cartao.dia_fechamento);
-    const centavos=Math.round(valor*100);
-    const each=Math.floor(centavos/n);
-    const resto=centavos-each*n;
     const rows=[];
-    for(let i=0;i<n;i++){
-      const comp=new Date(baseComp.getFullYear(),baseComp.getMonth()+i,1);
-      let cent=each; if(i===n-1) cent+=resto; // última parcela absorve o arredondamento
-      rows.push({user_id:USER.id,tipo:'despesa',descricao:desc,valor:cent/100,data,status:'pago',
-        cartao_id:cartaoId,categoria_id:window._catSel||null,competencia:ymd(comp),
-        grupo_id:n>1?grupo:null,parcela:n>1?i+1:null,parcelas:n>1?n:null});
+    if(rec){
+      // cobrança fixa todo mês (12 meses à frente)
+      for(let i=0;i<12;i++){
+        const comp=new Date(baseComp.getFullYear(),baseComp.getMonth()+i,1);
+        rows.push({user_id:USER.id,tipo:'despesa',descricao:desc,valor,data,status:'pago',
+          cartao_id:cartaoId,categoria_id:window._catSel||null,competencia:ymd(comp),
+          grupo_id:grupo});
+      }
+    }else{
+      const centavos=Math.round(valor*100);
+      const each=Math.floor(centavos/n);
+      const resto=centavos-each*n;
+      for(let i=0;i<n;i++){
+        const comp=new Date(baseComp.getFullYear(),baseComp.getMonth()+i,1);
+        let cent=each; if(i===n-1) cent+=resto;
+        rows.push({user_id:USER.id,tipo:'despesa',descricao:desc,valor:cent/100,data,status:'pago',
+          cartao_id:cartaoId,categoria_id:window._catSel||null,competencia:ymd(comp),
+          grupo_id:n>1?grupo:null,parcela:n>1?i+1:null,parcelas:n>1?n:null});
+      }
     }
     const {error}=await sb.from('lancamentos').insert(rows);
     if(error){toast('Erro: '+error.message);return;}
-    closeSheet(); await loadAll(); toast(id?'Compra atualizada':'Compra registrada'); render(); return;
+    closeSheet(); await loadAll(); toast(rec?'Recorrência criada (12 meses)':(id?'Compra atualizada':'Compra registrada')); render(); return;
   }
 
   // conta normal
   const contaId=$('lConta').value;
+  if(!contaId){toast('Selecione a conta');return;}
   const recorr = $('lRecorr') ? (parseInt($('lRecorr').value)||0) : 0;
   if(!id && recorr>1){
     const grupo=uuid();

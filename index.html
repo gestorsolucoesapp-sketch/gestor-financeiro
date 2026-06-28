@@ -126,7 +126,7 @@ body.modal-open{overflow:hidden}
 /* sheet / modal */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
 .sheet{background:var(--paper);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;animation:up .22s ease}
-.sheet-scroll{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 18px calc(env(safe-area-inset-bottom) + 24px)}
+.sheet-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 18px calc(env(safe-area-inset-bottom) + 24px)}
 @keyframes up{from{transform:translateY(40px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .grip{width:40px;height:4px;border-radius:4px;background:var(--line-2);margin:8px auto 6px}
 .sheet h2{font-size:18px;margin:6px 2px 16px}
@@ -336,7 +336,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.3";
+const APP_VER = "4.4";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -871,10 +871,11 @@ function rowLanc(l){
   }
   const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
   const parc=(l.parcelas&&l.parcelas>1)?` <span class="pill neg">${l.parcela}/${l.parcelas}</span>`:'';
+  const fixo=(l.grupo_id&&!(l.parcelas>1)&&l.tipo!=='transferencia')?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">🔁 fixo</span>`:'';
   const pend=l.status==='pendente'?' <span class="pill pend">pendente</span>':'';
   return `<div class="lrow" onclick="openLanc('${l.id}')">
     <div class="dot">${icon||'•'}</div>
-    <div class="mid"><div class="t">${esc(l.descricao)}${parc}${pend}</div><div class="s">${dt} · ${sub}</div></div>
+    <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt} · ${sub}</div></div>
     <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div></div>`;
 }
 
@@ -1609,8 +1610,8 @@ function renderMeio(e){
     h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
       h+=`<div class="field"><label>Repetir mensalmente</label>
-        <select id="lRecorr"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option></select>
-        <div class="note">Cria a transação repetida nos próximos meses (ex: assinatura, aluguel, salário). As futuras entram como pendentes.</div></div>`;
+        <select id="lRecorr"><option value="0">Não repetir</option><option value="fixo">🔁 Todo mês (fixo)</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option></select>
+        <div class="note">Cria a transação repetida nos próximos meses (ex: assinatura, aluguel, salário). "Todo mês (fixo)" cria 24 meses à frente. As futuras entram como pendentes.</div></div>`;
     }
     if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
   }
@@ -1714,17 +1715,18 @@ async function saveLanc(id){
     if(!cartaoId){toast('Selecione o cartão');return;}
     const pv=$('lParcelas')?$('lParcelas').value:'1';
     const rec = pv==='rec';
-    const n = rec?12:(parseInt(pv)||1);
+    const n = rec?24:(parseInt(pv)||1);
     const cartao=cartaoById(cartaoId);
     if(id){const old=DATA.lancamentos.find(l=>l.id===id); if(old&&old.grupo_id){await sb.from('lancamentos').delete().eq('grupo_id',old.grupo_id);} else {await sb.from('lancamentos').delete().eq('id',id);} }
     const grupo=uuid();
     const baseComp=calcCompetencia(data,cartao.dia_fechamento);
     const rows=[];
     if(rec){
-      // cobrança fixa todo mês (12 meses à frente)
-      for(let i=0;i<12;i++){
-        const comp=new Date(baseComp.getFullYear(),baseComp.getMonth()+i,1);
-        rows.push({user_id:USER.id,tipo:'despesa',descricao:desc,valor,data,status:'pago',
+      // cobrança fixa todo mês (24 meses à frente), cada mês com sua data e competência
+      for(let i=0;i<24;i++){
+        const dataI=addMonths(data,i);
+        const comp=calcCompetencia(dataI,cartao.dia_fechamento);
+        rows.push({user_id:USER.id,tipo:'despesa',descricao:desc,valor,data:dataI,status:'pago',
           cartao_id:cartaoId,categoria_id:window._catSel||null,competencia:ymd(comp),
           grupo_id:grupo});
       }
@@ -1742,13 +1744,14 @@ async function saveLanc(id){
     }
     const {error}=await sb.from('lancamentos').insert(rows);
     if(error){toast('Erro: '+error.message);return;}
-    closeSheet(); await loadAll(); toast(rec?'Recorrência criada (12 meses)':(id?'Compra atualizada':'Compra registrada')); render(); return;
+    closeSheet(); await loadAll(); toast(rec?'Recorrência criada (24 meses) 🔁':(id?'Compra atualizada':'Compra registrada')); render(); return;
   }
 
   // conta normal
   const contaId=$('lConta').value;
   if(!contaId){toast('Selecione a conta');return;}
-  const recorr = $('lRecorr') ? (parseInt($('lRecorr').value)||0) : 0;
+  const recVal = $('lRecorr') ? $('lRecorr').value : '0';
+  const recorr = recVal==='fixo' ? 24 : (parseInt(recVal)||0);
   if(!id && recorr>1){
     const grupo=uuid();
     const rows=[];

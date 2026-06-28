@@ -302,7 +302,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "3.7";
+const APP_VER = "3.8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1596,9 +1596,8 @@ function onCatSelect(v){
   window._catSel = v||null;
 }
 function ajustaStatusData(){
-  const d=$('lData')?$('lData').value:''; if(!d) return;
-  if(d>ymd(new Date())){ if($('stPago')) setStatus('pendente'); }
-  updateFaturaNote();
+  // status é 100% manual: a data não mexe mais no Pago/Pendente
+  try{updateFaturaNote();}catch(e){}
 }
 async function criarCategoriaRapida(){
   const nome=prompt('Nome da nova categoria:'); if(!nome||!nome.trim()) return;

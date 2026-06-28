@@ -125,8 +125,8 @@ body.modal-open{overflow:hidden}
 
 /* sheet / modal */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
-.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
-  padding:8px 18px calc(env(safe-area-inset-bottom) + 24px);animation:up .22s ease}
+.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;animation:up .22s ease}
+.sheet-scroll{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 18px calc(env(safe-area-inset-bottom) + 24px)}
 @keyframes up{from{transform:translateY(40px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .grip{width:40px;height:4px;border-radius:4px;background:var(--line-2);margin:8px auto 6px}
 .sheet h2{font-size:18px;margin:6px 2px 16px}
@@ -210,8 +210,8 @@ body.modal-open{overflow:hidden}
 .datechips{display:flex;gap:8px}
 .datechips button{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:14px;color:var(--muted)}
 .datechips button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
-.calcpad{position:fixed;left:0;right:0;bottom:0;z-index:120;background:#15181c;border-radius:20px 20px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .22s ease;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
-.calcpad.show{transform:translateY(0)}
+.calcpad{position:fixed;left:0;right:0;bottom:0;z-index:120;background:#15181c;border-radius:20px 20px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .22s ease;box-shadow:0 -8px 30px rgba(0,0,0,.4);pointer-events:none}
+.calcpad.show{transform:translateY(0);pointer-events:auto}
 .calc-disp{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:#fff;font-size:30px;font-weight:700;padding:10px 8px 16px}
 .calc-disp .cur{font-size:16px;opacity:.6;margin-right:auto}
 .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -336,7 +336,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.2";
+const APP_VER = "4.3";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1389,7 +1389,7 @@ function shiftMonth(ctx,dir){
 
 // ============ SHEETS / MODALS ============
 function openSheet(inner){
-  $('modalRoot').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grip"></div>${inner}</div></div>`;
+  $('modalRoot').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grip"></div><div class="sheet-scroll">${inner}</div></div></div>`;
   document.body.classList.add('modal-open');
 }
 function closeSheet(){$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');}

@@ -24,7 +24,8 @@
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;overflow-x:hidden;width:100%;max-width:100%;overscroll-behavior-x:none}
+*{box-sizing:border-box}
 body{
   font-family:var(--font); background:var(--paper); color:var(--ink);
   font-size:15px; line-height:1.4; -webkit-font-smoothing:antialiased;
@@ -61,7 +62,7 @@ input,select{font-family:inherit;font-size:16px}
 .msg.ok{background:#e7f6ee;color:#1a7a4f}
 
 /* ---------- APP SHELL ---------- */
-#app{min-height:100dvh;display:flex;flex-direction:column}
+#app{min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;width:100%;max-width:100%}
 .topbar{position:sticky;top:0;z-index:30;background:var(--emerald);color:#fff;
   padding:calc(env(safe-area-inset-top) + 14px) 16px 14px}
 .topbar .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -73,7 +74,7 @@ input,select{font-family:inherit;font-size:16px}
 .seg button{flex:1;padding:8px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
-.content{flex:1;padding:16px;padding-bottom:96px;max-width:560px;width:100%;margin:0 auto}
+.content{flex:1;padding:16px;padding-bottom:96px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
 /* cards */
@@ -333,7 +334,7 @@ input,select{font-family:inherit;font-size:16px}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.0";
+const APP_VER = "4.1";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============

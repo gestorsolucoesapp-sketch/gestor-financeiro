@@ -1563,7 +1563,7 @@ function openLanc(id, preset){
       <div class="datechips">
         <button type="button" id="dcHoje" onclick="setData(0)">Hoje</button>
         <button type="button" id="dcOntem" onclick="setData(-1)">Ontem</button>
-        <label id="dcOutros" class="dc-outros">Outros<input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip()"></label>
+        <label id="dcOutros" class="dc-outros">Outros<input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip();if(typeof updateRecorrNote==='function')updateRecorrNote()"></label>
       </div>
       <div class="datashow" id="dataShow"></div>
     </div>
@@ -1671,6 +1671,25 @@ function checkBancoURL(){
   }catch(e){}
 }
 function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);}
+function onRecorrChange(){
+  const sel=$('lRecorr'); const inp=$('lRecorrN'); if(!sel)return;
+  if(inp) inp.style.display = sel.value==='custom' ? 'block' : 'none';
+  updateRecorrNote();
+}
+function updateRecorrNote(){
+  const nt=$('recorrNote'); const sel=$('lRecorr'); if(!nt||!sel)return;
+  let n=0;
+  if(sel.value==='fixo') n=24; else if(sel.value==='custom') n=parseInt($('lRecorrN')?$('lRecorrN').value:'')||0; else n=parseInt(sel.value)||0;
+  const dini=$('lData')?$('lData').value:'';
+  if(n>1 && dini){
+    const di=new Date(dini+'T00:00:00');
+    const fim=new Date(di.getFullYear(), di.getMonth()+n-1, di.getDate());
+    const f=x=>x.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    nt.innerHTML=`Cria <b>${n}</b> lançamentos <b>pendentes</b>, 1 por mês — de <b>${f(di)}</b> até <b>${f(fim)}</b>. Cada um aparece em "Contas a pagar" na sua vez.`;
+  }else{
+    nt.innerHTML=`Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.`;
+  }
+}
 function setStatus(s){window._lancStatus=s;$('stPago').classList.toggle('on',s==='pago');$('stPend').classList.toggle('on',s==='pendente');}
 function renderLancDynamic(e){
   e=e||{};
@@ -1735,8 +1754,9 @@ function renderMeio(e){
     h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
       h+=`<div class="field"><label>Repetir mensalmente</label>
-        <select id="lRecorr"><option value="0">Não repetir</option><option value="fixo">🔁 Todo mês (fixo)</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option></select>
-        <div class="note">Cria a transação repetida nos próximos meses (ex: assinatura, aluguel, salário). "Todo mês (fixo)" cria 24 meses à frente. As futuras entram como pendentes.</div></div>`;
+        <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="fixo">🔁 Todo mês (fixo · 24 meses)</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
+        <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
+        <div class="note" id="recorrNote">Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.</div></div>`;
     }
     if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
   }
@@ -1885,7 +1905,7 @@ async function saveLanc(id){
   const contaId=$('lConta').value;
   if(!contaId){toast('Selecione a conta');return;}
   const recVal = $('lRecorr') ? $('lRecorr').value : '0';
-  const recorr = recVal==='fixo' ? 24 : (parseInt(recVal)||0);
+  const recorr = recVal==='fixo' ? 24 : (recVal==='custom' ? (Math.min(120,Math.max(0,parseInt($('lRecorrN')?$('lRecorrN').value:'')||0))) : (parseInt(recVal)||0));
   if(!id && recorr>1){
     const grupo=uuid();
     const rows=[];

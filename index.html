@@ -1582,6 +1582,7 @@ function openLanc(id, preset){
     window._prefill=null;
     try{updateFaturaNote();}catch(e){}
   }
+  if(!editing) ajustaStatusData();
 }
 function evalValor(str){
   if(str==null) return NaN;
@@ -1665,7 +1666,7 @@ function checkBancoURL(){
     }
   }catch(e){}
 }
-function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);}
+function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);if(!window._lancEdit)ajustaStatusData();}
 function onRecorrChange(){
   const sel=$('lRecorr'); const inp=$('lRecorrN'); if(!sel)return;
   if(inp) inp.style.display = sel.value==='custom' ? 'block' : 'none';
@@ -1805,7 +1806,11 @@ function onCatSelect(v){
   window._catSel = v||null;
 }
 function ajustaStatusData(){
-  // status é 100% manual: a data não mexe mais no Pago/Pendente
+  const d=$('lData')?$('lData').value:'';
+  if(d && lancType!=='transferencia'){
+    const hoje=ymd(new Date());
+    setStatus(d>hoje ? 'pendente' : 'pago');
+  }
   try{updateFaturaNote();}catch(e){}
 }
 async function criarCategoriaRapida(){

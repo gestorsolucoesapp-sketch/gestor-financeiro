@@ -105,6 +105,14 @@ body.modal-open{overflow:hidden}
 .dot svg{display:block}
 .limbar{height:6px;border-radius:6px;background:#e9e4dc;overflow:hidden;margin-top:10px}
 .limbar-fill{height:100%;border-radius:6px;background:var(--mint);transition:width .3s}
+.lnk{color:var(--emerald);font-weight:700;font-size:13px}
+.pend-alert{display:flex;align-items:center;gap:12px;margin-bottom:14px;cursor:pointer}
+.pend-g{font-size:12px;font-weight:700;color:var(--muted);text-transform:capitalize;padding:10px 2px 4px}
+.pend-row{cursor:pointer;border-radius:10px}
+.pend-row.sel{background:#fdecec}
+.pend-chk{width:24px;height:24px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:8px}
+.pend-chk.on{background:var(--coral);border-color:var(--coral)}
+.pendbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 60px);z-index:25;width:calc(100% - 24px);max-width:536px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(0,0,0,.12);border-radius:16px;padding:10px 14px}
 .lrow .mid{flex:1;min-width:0}
 .lrow .mid .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lrow .mid .s{font-size:12px;color:var(--muted);margin-top:1px}
@@ -346,7 +354,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.8";
+const APP_VER = "4.9";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -696,6 +704,7 @@ function render(){
   else if(tab==='config')renderConfig();
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='planejamento')renderPlanejamento();
+  else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='tema')renderTema();
 }
@@ -835,8 +844,12 @@ function renderHome(){
     <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
     <div class="quick" onclick="go('planejamento')"><div class="qi">${ICON('target',22)}</div><div>Planejar</div></div>
     <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
-    <div class="quick" onclick="go('trans')"><div class="qi">${ICON('receipt',22)}</div><div>Extrato</div></div>
   </div>`;
+  const np=pendentesList().length;
+  if(np){ html+=`<div class="card pend-alert" onclick="go('pendencias')">
+    <div class="dot" style="background:#fdecec;color:var(--coral)">${ICON('receipt',20)}</div>
+    <div style="flex:1"><div style="font-weight:700">${np} pendência${np>1?'s':''} a pagar</div><div class="note">Toque pra dar baixa e abater do saldo</div></div>
+    <span style="color:var(--muted);font-size:20px">›</span></div>`; }
 
   // minhas contas resumo
   const cs=contasPrincipais();
@@ -861,6 +874,72 @@ function rowConta(c){
 }
 
 // ============ TRANSAÇÕES ============
+function lancScopeOk(l){
+  if(scope==='familia') return lancFamiliar(l);
+  if(lancFamiliar(l)) return false;
+  if(scope==='tudo') return true;
+  if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
+  const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id); return conta&&conta.tipo===scope;
+}
+function pendentesList(){
+  return DATA.lancamentos
+    .filter(l=>l.status==='pendente' && !l.cartao_id)
+    .filter(l=>srcOk(l.user_id))
+    .filter(lancScopeOk)
+    .sort((a,b)=> a.data<b.data?1:(a.data>b.data?-1:0));
+}
+window._pendSel = window._pendSel || new Set();
+function renderPendencias(){
+  const list=pendentesList();
+  let html=`<div class="lrow" style="border:none;padding:4px 0 10px;cursor:pointer" onclick="go('home')"><span style="font-size:20px;margin-right:4px">‹</span><b>Pendências a pagar</b></div>`;
+  if(!list.length){
+    html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',32)}</div><p>Nenhuma pendência. Está tudo em dia! 🎉</p></div></div>`;
+    $('content').innerHTML=html; return;
+  }
+  const allSel=list.every(l=>window._pendSel.has(l.id));
+  html+=`<div class="note" style="margin-bottom:8px">Marque o que já pagou e toque em <b>Dar baixa</b> — o valor sai do saldo da conta.</div>`;
+  html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+    <div><b>${window._pendSel.size}</b> selecionada(s)</div>
+    <button class="lnk" onclick="pendSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
+  let lastG='';
+  html+=`<div class="card">`;
+  list.forEach(l=>{
+    const g=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'short'});
+    if(g!==lastG){ html+=`<div class="pend-g">${g.charAt(0).toUpperCase()+g.slice(1)}</div>`; lastG=g; }
+    const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
+    const isRec=l.tipo==='receita';
+    const sub=`${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
+    const sel=window._pendSel.has(l.id);
+    html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
+      <div class="dot">${cat?cat.icone:'•'}</div>
+      <div class="mid"><div class="t">${esc(l.descricao)}</div><div class="s">${sub}</div></div>
+      <div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>
+      <div class="pend-chk ${sel?'on':''}">${sel?'✓':''}</div></div>`;
+  });
+  html+=`</div><div style="height:80px"></div>`;
+  const tot=list.filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+Number(l.valor),0);
+  html+=`<div class="pendbar ${window._pendSel.size?'':'hidden'}" id="pendBar">
+    <div><div class="note">Total selecionado</div><div style="font-weight:800;font-size:17px">${brl(tot)}</div></div>
+    <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Dar baixa (${window._pendSel.size})</button></div>`;
+  $('content').innerHTML=html;
+}
+function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); renderPendencias(); }
+function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>window._pendSel.has(l.id)); if(allSel)window._pendSel.clear(); else list.forEach(l=>window._pendSel.add(l.id)); renderPendencias(); }
+function efetivarPendencias(){
+  const ids=[...window._pendSel]; if(!ids.length)return;
+  const tot=pendentesList().filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+Number(l.valor),0);
+  openSheet(`<h2 style="text-align:center;margin-top:6px">Dar baixa</h2>
+    <p class="note" style="text-align:center;font-size:14px">Ao efetivar, <b>${ids.length}</b> lançamento(s) (${brl(tot)}) serão marcados como <b>pagos</b> e abatidos do saldo da conta. Deseja confirmar?</p>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Não</button>
+      <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, dar baixa</button></div>`);
+}
+async function efetivarConfirma(){
+  const ids=[...window._pendSel]; if(!ids.length){closeSheet();return;}
+  const {error}=await sb.from('lancamentos').update({status:'pago'}).in('id',ids);
+  if(error){toast('Erro: '+error.message);return;}
+  window._pendSel.clear(); closeSheet(); await loadAll(); toast(ids.length+' baixa(s) efetivada(s) ✅'); render();
+}
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
   let list=DATA.lancamentos.filter(l=>{

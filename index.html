@@ -1560,12 +1560,7 @@ function openLanc(id, preset){
     </div>
     <input type="hidden" id="lValor" value="${e.valor||''}">
     <div class="field"><label>Data</label>
-      <div class="datechips">
-        <button type="button" id="dcHoje" onclick="setData(0)">Hoje</button>
-        <button type="button" id="dcOntem" onclick="setData(-1)">Ontem</button>
-        <label id="dcOutros" class="dc-outros">Outros<input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();marcaDataChip();if(typeof updateRecorrNote==='function')updateRecorrNote()"></label>
-      </div>
-      <div class="datashow" id="dataShow"></div>
+      <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
     </div>
     <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>

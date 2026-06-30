@@ -145,13 +145,13 @@ body.modal-open{overflow:hidden}
 .grip{width:40px;height:4px;border-radius:4px;background:var(--line-2);margin:8px auto 6px}
 .sheet h2{font-size:18px;margin:6px 2px 16px}
 .typetabs{display:flex;gap:8px;margin-bottom:16px}
-.typetabs button{flex:1;padding:11px;border-radius:12px;background:#fff;border:1.5px solid var(--line-2);font-weight:700;font-size:13px;color:var(--muted)}
+.typetabs button{flex:1;padding:12px 8px;border-radius:11px;background:#fff;border:1.5px solid var(--line-2);font-weight:700;font-size:13.5px;color:var(--muted)}
 .typetabs button.on.rec{background:var(--green);border-color:var(--green);color:#fff}
 .typetabs button.on.desp{background:var(--red);border-color:var(--red);color:#fff}
 .typetabs button.on.transf{background:var(--blue);border-color:var(--blue);color:#fff}
 .row2{display:flex;gap:10px}.row2>*{flex:1}
-.seg2{display:flex;background:#fff;border:1.5px solid var(--line-2);border-radius:12px;padding:3px;gap:3px}
-.seg2 button{flex:1;padding:9px;border-radius:9px;font-weight:600;font-size:13px;color:var(--muted)}
+.seg2{display:flex;background:#fff;border:1.5px solid var(--line-2);border-radius:13px;padding:3px;gap:4px}
+.seg2 button{flex:1;padding:11px 8px;border-radius:10px;font-weight:700;font-size:13.5px;color:var(--muted)}
 .seg2 button.on{background:var(--emerald);color:#fff}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .chip{padding:8px 13px;border-radius:20px;background:#fff;border:1.5px solid var(--line-2);font-size:13px;font-weight:600;color:var(--muted)}
@@ -1703,11 +1703,14 @@ function renderLancDynamic(e){
       <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
   } else {
-    // pagamento: conta ou cartão
-    const isCard=!!e.cartao_id;
-    h+=`<div class="field"><label>Pagar/receber com</label>
-      <div class="seg2"><button id="meioConta" class="${!isCard?'on':''}" onclick="setMeio('conta')">Conta</button>
-      ${lancType==='despesa'?`<button id="meioCartao" class="${isCard?'on':''}" onclick="setMeio('cartao')">Cartão</button>`:''}</div></div>`;
+    // define o meio ANTES de montar (sem sugestão na despesa)
+    if(lancType==='receita'){ window._meio='conta'; }
+    else { window._meio = e.cartao_id?'cartao':(window._presetMeio||null); }
+    if(lancType==='despesa'){
+      h+=`<div class="field"><label>Pagar com</label>
+        <div class="seg2"><button id="meioConta" class="${window._meio==='conta'?'on':''}" onclick="setMeio('conta')">Conta</button>
+        <button id="meioCartao" class="${window._meio==='cartao'?'on':''}" onclick="setMeio('cartao')">Cartão</button></div></div>`;
+    }
     h+=`<div id="meioWrap"></div>`;
     // categoria
     h+=`<div class="field"><label>Categoria</label>
@@ -1720,7 +1723,6 @@ function renderLancDynamic(e){
   $('lancDynamic').innerHTML=h;
   if(lancType==='transferencia'){ updateDestContas(e); }
   if(lancType!=='transferencia'){
-    window._meio = e.cartao_id?'cartao':(window._presetMeio||'conta');
     window._catSel = e.categoria_id||null;
     renderMeio(e);
   }
@@ -1737,6 +1739,11 @@ function renderMeio(e){
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
   const cartoes=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id);
   let h='';
+  if(!window._meio){
+    if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
+    $('meioWrap').innerHTML=`<div class="note" style="padding:6px 2px 2px">👆 Escolha <b>Conta</b> ou <b>Cartão</b> acima pra continuar.</div>`;
+    return;
+  }
   if(window._meio==='cartao'){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
@@ -1749,7 +1756,7 @@ function renderMeio(e){
     h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
       h+=`<div class="field"><label>Repetir mensalmente</label>
-        <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="fixo">🔁 Todo mês (fixo · 24 meses)</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="24">Por 24 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
+        <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
         <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
         <div class="note" id="recorrNote">Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.</div></div>`;
     }
@@ -1842,6 +1849,7 @@ async function saveLanc(id){
   if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
   if(!(valor>0)){toast('Informe um valor válido');return;}
   if(!data){toast('Informe a data');return;}
+  if(lancType!=='transferencia' && !window._meio){toast('Escolha Conta ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
   if(!isCardPurchase && !window._lancStatus){toast('Toque em Pago ou Pendente pra confirmar');return;}
 

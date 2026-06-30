@@ -73,6 +73,9 @@ body.modal-open{overflow:hidden}
 .iconbtn{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:18px}
 .seg{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:3px;gap:3px}
+.segcap{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.5);font-weight:700;margin:10px 0 4px 4px}
+.seg-sec{background:rgba(255,255,255,.07)}
+.seg-sec button{font-size:13px;padding:7px}
 .seg button{flex:1;padding:8px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
@@ -99,6 +102,9 @@ body.modal-open{overflow:hidden}
 .lrow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .lrow:last-child{border-bottom:none}
 .dot{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:var(--coral-soft)}
+.dot svg{display:block}
+.limbar{height:6px;border-radius:6px;background:#e9e4dc;overflow:hidden;margin-top:10px}
+.limbar-fill{height:100%;border-radius:6px;background:var(--mint);transition:width .3s}
 .lrow .mid{flex:1;min-width:0}
 .lrow .mid .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lrow .mid .s{font-size:12px;color:var(--muted);margin-top:1px}
@@ -153,7 +159,7 @@ body.modal-open{overflow:hidden}
 @keyframes sp{to{transform:rotate(360deg)}}
 .monthnav{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:14px;padding:8px 6px;box-shadow:var(--shadow);margin-bottom:14px}
 .monthnav button{width:36px;height:36px;border-radius:10px;font-size:18px;color:var(--emerald)}
-.monthnav .m{font-weight:700;font-size:14px;text-transform:capitalize}
+.monthnav .m{font-weight:700;font-size:14px}
 .facard{background:linear-gradient(155deg,#2a2440,#3d3460);color:#fff}
 
 /* atalhos rápidos */
@@ -281,10 +287,11 @@ body.modal-open{overflow:hidden}
     <div class="row1">
       <div class="hi">Olá,<b id="userName">—</b></div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="iconbtn" id="bellBtn" onclick="abrirNotificacoes()" style="position:relative">🔔<span id="bellBadge" class="badge hidden">0</span></button>
-        <button class="iconbtn" onclick="doLogout()" title="Sair">⏻</button>
+        <button class="iconbtn" id="bellBtn" onclick="abrirNotificacoes()" style="position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellBadge" class="badge hidden">0</span></button>
+        <button class="iconbtn" onclick="doLogout()" title="Sair"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
     </div>
+    <div class="segcap">Carteira</div>
     <div class="seg" id="scopeSeg">
       <button data-scope="tudo" class="on" onclick="setScope('tudo')">Tudo</button>
       <button data-scope="pessoal" onclick="setScope('pessoal')">Pessoal</button>
@@ -302,12 +309,12 @@ body.modal-open{overflow:hidden}
 <button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
 
 <div class="tabbar hidden" id="tabbar">
-  <button data-tab="home" class="on" onclick="go('home')"><span class="i">🏠</span>Início</button>
-  <button data-tab="trans" onclick="go('trans')"><span class="i">↕️</span>Transações</button>
-  <button data-tab="cartoes" onclick="go('cartoes')"><span class="i">💳</span>Cartões</button>
-  <button data-tab="contas" onclick="go('contas')"><span class="i">🏦</span>Contas</button>
-  <button data-tab="investimentos" onclick="go('investimentos')"><span class="i">💰</span>Investir</button>
-  <button data-tab="config" onclick="go('config')"><span class="i">⚙️</span>Mais</button>
+  <button data-tab="home" class="on" onclick="go('home')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Início</button>
+  <button data-tab="trans" onclick="go('trans')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>Transações</button>
+  <button data-tab="cartoes" onclick="go('cartoes')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="4.5" width="21" height="15" rx="2.5"/><line x1="1.5" y1="10" x2="22.5" y2="10"/></svg></span>Cartões</button>
+  <button data-tab="contas" onclick="go('contas')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/></svg></span>Contas</button>
+  <button data-tab="investimentos" onclick="go('investimentos')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Investir</button>
+  <button data-tab="config" onclick="go('config')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1.5" y1="14" x2="6.5" y2="14"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="17.5" y1="16" x2="22.5" y2="16"/></svg></span>Mais</button>
 </div>
 
 <input type="file" id="mobillsFile" accept=".csv,text/csv" style="display:none" onchange="handleMobillsFile(event)">
@@ -339,7 +346,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.7";
+const APP_VER = "4.8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -355,7 +362,22 @@ const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00ce
 // ============ HELPERS ============
 const $=id=>document.getElementById(id);
 const brl=n=>(n<0?'-':'')+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-const mesNome=d=>d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+const mesNome=d=>{const s=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);};
+const ICON=(n,s=20)=>{const p={
+  home:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  swap:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  card:'<rect x="1.5" y="4.5" width="21" height="15" rx="2.5"/><line x1="1.5" y1="10" x2="22.5" y2="10"/>',
+  bank:'<path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/>',
+  trend:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  sliders:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1.5" y1="14" x2="6.5" y2="14"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="17.5" y1="16" x2="22.5" y2="16"/>',
+  chart:'<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>',
+  receipt:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
+  bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  power:'<path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>'
+};
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p[n]||''}</svg>`;
+};
 const ymd=d=>d.toISOString().slice(0,10);
 const firstOfMonth=d=>new Date(d.getFullYear(),d.getMonth(),1);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
@@ -643,7 +665,7 @@ function updateSourceSeg(){
   let btns=`<button class="${source==='eu'?'on':''}" onclick="setSource('eu')">Eu</button>`;
   MYPARTNERS.forEach(p=>{ btns+=`<button class="${source===p.owner_id?'on':''}" onclick="setSource('${p.owner_id}')">${esc(p.apelido)}</button>`; });
   btns+=`<button class="${source==='casal'?'on':''}" onclick="setSource('casal')">Casal</button>`;
-  wrap.innerHTML=`<div class="seg" style="margin-top:8px">${btns}</div>`;
+  wrap.innerHTML=`<div class="segcap">De quem</div><div class="seg seg-sec">${btns}</div>`;
   // botão "+" só faz sentido quando estou lançando nas MINHAS contas
   const partnerOnly = source!=='eu' && source!=='casal';
   if($('fab'))$('fab').classList.toggle('hidden', partnerOnly);
@@ -810,10 +832,10 @@ function renderHome(){
 
   // atalhos rápidos
   html+=`<div class="quickrow">
-    <div class="quick" onclick="go('relatorios')"><div class="qi">📊</div><div>Relatórios</div></div>
-    <div class="quick" onclick="go('planejamento')"><div class="qi">🎯</div><div>Planejar</div></div>
-    <div class="quick" onclick="go('cartoes')"><div class="qi">💳</div><div>Cartões</div></div>
-    <div class="quick" onclick="go('trans')"><div class="qi">🧾</div><div>Extrato</div></div>
+    <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
+    <div class="quick" onclick="go('planejamento')"><div class="qi">${ICON('target',22)}</div><div>Planejar</div></div>
+    <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
+    <div class="quick" onclick="go('trans')"><div class="qi">${ICON('receipt',22)}</div><div>Extrato</div></div>
   </div>`;
 
   // minhas contas resumo
@@ -833,7 +855,7 @@ function renderHome(){
 function rowConta(c){
   const s=saldoConta(c.id);
   return `<div class="lrow" onclick="openConta('${c.id}')">
-    <div class="dot" style="background:${c.cor||'#e9f3f1'}">🏦</div>
+    <div class="dot" style="background:${c.cor||'#e9f3f1'};color:var(--emerald)">${ICON('bank',20)}</div>
     <div class="mid"><div class="t">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div><div class="s">Saldo atual</div></div>
     <div class="amt ${s<0?'r':''}">${brl(s)}</div></div>`;
 }
@@ -889,11 +911,15 @@ function cardCartaoHTML(c){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
-        <div class="dot" style="background:${c.cor||'#efeaf7'}">💳</div>
+        <div class="dot" style="background:${c.cor||'#efeaf7'};color:var(--emerald)">${ICON('card',20)}</div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px">
-        <div><div class="note">Fatura de ${mesNome(faturaMonth)}</div><div style="font-size:22px;font-weight:800;color:var(--coral)">${brl(fat)}</div></div>
-        <div style="text-align:right"><div class="note">Limite</div><div style="font-weight:700">${brl(Number(c.limite))}</div></div>
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end">
+          <div><div class="note">Fatura de ${mesNome(faturaMonth)}</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${brl(fat)}</div></div>
+          <div style="text-align:right"><div class="note">Disponível</div><div style="font-weight:700">${brl(Math.max(0,Number(c.limite)-fat))}</div></div>
+        </div>
+        ${Number(c.limite)>0?`<div class="limbar"><div class="limbar-fill" style="width:${Math.min(100,Math.round(fat/Number(c.limite)*100))}%;background:${fat/Number(c.limite)>0.85?'var(--coral)':'var(--mint)'}"></div></div>
+        <div class="note" style="margin-top:3px">${Math.min(100,Math.round(fat/Number(c.limite)*100))}% do limite de ${brl(Number(c.limite))}</div>`:''}
       </div></div>`;
 }
 function renderCartoes(){

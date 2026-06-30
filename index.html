@@ -974,15 +974,24 @@ function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>wi
 function efetivarPendencias(){
   const ids=[...window._pendSel]; if(!ids.length)return;
   const tot=pendentesList().filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+Number(l.valor),0);
+  const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
   openSheet(`<h2 style="text-align:center;margin-top:6px">Dar baixa</h2>
-    <p class="note" style="text-align:center;font-size:14px">Ao efetivar, <b>${ids.length}</b> lançamento(s) (${brl(tot)}) serão marcados como <b>pagos</b> e abatidos do saldo da conta. Deseja confirmar?</p>
+    <p class="note" style="text-align:center;font-size:14px"><b>${ids.length}</b> lançamento(s) · ${brl(tot)} serão marcados como <b>pagos</b> e abatidos do saldo.</p>
+    <div class="field"><label>Descontar de qual conta?</label>
+      <select id="efetivConta">
+        <option value="">Manter a conta de cada lançamento</option>
+        ${contas.map(c=>`<option value="${c.id}">${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
+      </select>
+      <div class="note">Use isto se você pagou de uma conta diferente da que estava programada.</div></div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Não</button>
       <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, dar baixa</button></div>`);
 }
 async function efetivarConfirma(){
   const ids=[...window._pendSel]; if(!ids.length){closeSheet();return;}
-  const {error}=await sb.from('lancamentos').update({status:'pago'}).in('id',ids);
+  const novaConta=$('efetivConta')?$('efetivConta').value:'';
+  const patch = novaConta ? {status:'pago', conta_id:novaConta} : {status:'pago'};
+  const {error}=await sb.from('lancamentos').update(patch).in('id',ids);
   if(error){toast('Erro: '+error.message);return;}
   window._pendSel.clear(); closeSheet(); await loadAll(); toast(ids.length+' baixa(s) efetivada(s) ✅'); render();
 }

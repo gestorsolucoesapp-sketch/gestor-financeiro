@@ -1741,7 +1741,7 @@ function renderMeio(e){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
       h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
-      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="updateFaturaNote()"><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option>${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${!e.recorrente&&(e.parcelas||1)===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
+      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="updateFaturaNote()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
     }
     // cartão não usa status pago/pendente (vira fatura)
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
@@ -1862,7 +1862,8 @@ async function saveLanc(id){
   if(window._meio==='cartao'){
     const cartaoId=$('lCartao')?$('lCartao').value:null;
     if(!cartaoId){toast('Selecione o cartão');return;}
-    const pv=$('lParcelas')?$('lParcelas').value:'1';
+    const pv=$('lParcelas')?$('lParcelas').value:'';
+    if(!pv){toast('Escolha as parcelas (à vista, parcelado ou recorrente)');return;}
     const rec = pv==='rec';
     const n = rec?24:(parseInt(pv)||1);
     const cartao=cartaoById(cartaoId);

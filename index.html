@@ -339,7 +339,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "4.6";
+const APP_VER = "4.7";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -769,7 +769,7 @@ function gastoCartaoMes(d){
   let s=0;
   for(const l of DATA.lancamentos){
     if(!l.cartao_id) continue;
-    if(!l.competencia || l.competencia.slice(0,7)!==ym) continue;
+    if(!l.competencia || faturaYm(l.competencia, cartaoById(l.cartao_id))!==ym) continue;
     if(!srcOk(l.user_id)) continue;
     const cart=cartaoById(l.cartao_id);
     if(scope==='familia'){ if(!(cart&&cart.incluir_principal===false)) continue; }
@@ -919,14 +919,14 @@ function renderCartoes(){
 function valFatura(l){ return (l.tipo==='receita'?-1:1)*(Number(l.valor)||0); }
 function faturaTotal(cartaoId,mes){
   const m=firstOfMonth(mes);
-  return DATA.lancamentos.filter(l=>l.cartao_id===cartaoId && l.competencia && l.competencia.slice(0,7)===ymd(m).slice(0,7))
+  return DATA.lancamentos.filter(l=>l.cartao_id===cartaoId && l.competencia && faturaYm(l.competencia, cartaoById(cartaoId))===ymd(m).slice(0,7))
     .reduce((a,l)=>a+valFatura(l),0);
 }
 function abrirFatura(cartaoId){faturaCartaoId=cartaoId;tab='fatura';document.querySelectorAll('.tabbar button').forEach(b=>b.classList.remove('on'));renderFatura();}
 function renderFatura(){
   const c=cartaoById(faturaCartaoId); if(!c){go('cartoes');return;}
   const m=firstOfMonth(faturaMonth);
-  const itens=DATA.lancamentos.filter(l=>l.cartao_id===c.id && l.competencia && l.competencia.slice(0,7)===ymd(m).slice(0,7))
+  const itens=DATA.lancamentos.filter(l=>l.cartao_id===c.id && l.competencia && faturaYm(l.competencia, c)===ymd(m).slice(0,7))
     .sort((a,b)=>a.data<b.data?-1:1);
   const tot=itens.reduce((a,l)=>a+valFatura(l),0);
   let html=`<div class="lrow" style="border:none;padding:4px 0 12px;cursor:pointer" onclick="go('cartoes')"><span style="font-size:20px;margin-right:4px">‹</span><b>${esc(c.nome)}</b></div>`;
@@ -961,7 +961,9 @@ async function saveAjusteFatura(cartaoId){
   const desc=$('ajDesc').value.trim()||(window._ajTipo==='receita'?'Estorno':'Ajuste de fatura');
   const valor=parseFloat($('ajValor').value);
   if(!(valor>0)){toast('Informe um valor válido');return;}
-  const comp=ymd(firstOfMonth(faturaMonth));
+  const off=cardDueOffset(cartaoById(cartaoId));
+  const compDate=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
+  const comp=ymd(firstOfMonth(compDate));
   const row={user_id:USER.id,tipo:window._ajTipo||'despesa',descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp};
   const {error}=await sb.from('lancamentos').insert(row);
   if(error){toast('Erro: '+error.message);return;}
@@ -1630,20 +1632,21 @@ function updateFaturaNote(){
   const data=$('lData')?$('lData').value:ymd(new Date());
   const pv=$('lParcelas')?$('lParcelas').value:'1';
   const base=calcCompetencia(data, cartao.dia_fechamento);
+  const venc=new Date(base.getFullYear(), base.getMonth()+cardDueOffset(cartao), 1);
   const fmt=x=>x.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const dd=new Date(data+'T00:00:00');
   let aviso='';
   if(dd.getDate()>cartao.dia_fechamento){ aviso=`Fatura deste mês já fechou (dia ${cartao.dia_fechamento}), então `; }
   if(pv==='rec'){
-    el.innerHTML=`🔁 ${aviso}entra <b>todo mês</b> a partir da fatura de <b>${fmt(base)}</b> (cria 12 meses).`;
+    el.innerHTML=`🔁 ${aviso}entra <b>todo mês</b> a partir da fatura de <b>${fmt(venc)}</b> (cria 24 meses).`;
     return;
   }
   const n=parseInt(pv)||1;
   if(n>1){
-    const ult=new Date(base.getFullYear(), base.getMonth()+n-1, 1);
-    el.innerHTML=`🧾 ${aviso}a 1ª parcela cai na fatura de <b>${fmt(base)}</b> e a última em <b>${fmt(ult)}</b>.`;
+    const ult=new Date(venc.getFullYear(), venc.getMonth()+n-1, 1);
+    el.innerHTML=`🧾 ${aviso}a 1ª parcela cai na fatura de <b>${fmt(venc)}</b> e a última em <b>${fmt(ult)}</b>.`;
   }else{
-    el.innerHTML=`🧾 ${aviso}entra na fatura de <b>${fmt(base)}</b> (vence dia ${cartao.dia_vencimento}).`;
+    el.innerHTML=`🧾 ${aviso}entra na fatura de <b>${fmt(venc)}</b> (vence dia ${cartao.dia_vencimento}).`;
   }
 }
 function updateParcNote(){
@@ -1688,6 +1691,14 @@ function calcCompetencia(dataStr,diaFechamento){
   let y=d.getFullYear(),m=d.getMonth();
   if(d.getDate()>diaFechamento) m+=1;
   return new Date(y,m,1);
+}
+// Mês em que a fatura é PAGA (vencimento). Se vence antes/no fechamento, vence no mês seguinte ao fechamento.
+function cardDueOffset(c){ return (c && Number(c.dia_vencimento)>Number(c.dia_fechamento)) ? 0 : 1; }
+function faturaYm(competencia, cartao){
+  if(!competencia) return '';
+  const d=new Date(competencia+'T00:00:00');
+  const t=new Date(d.getFullYear(), d.getMonth()+cardDueOffset(cartao), 1);
+  return ymd(t).slice(0,7);
 }
 async function saveLanc(id){
   const desc=$('lDesc').value.trim();

@@ -446,7 +446,9 @@ function contaPassaScope(c){
 }
 function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && contaPassaScope(c));}
 function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && contaPassaScope(c));}
-function contasPrincipais(){return contasScope();}
+function contasPrincipais(){return contasScope().filter(c=>!c.eh_investimento);}
+function contasInvestimento(){return contasScope().filter(c=>c.eh_investimento);}
+function totalInvestidoContas(){return contasInvestimento().reduce((a,c)=>a+saldoConta(c.id),0);}
 function contasFamiliares(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && c.incluir_principal===false);}
 function cartoesPrincipais(){return cartoesScope();}
 function cartoesFamiliares(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && c.incluir_principal===false);}
@@ -756,6 +758,7 @@ function investimentosScope(){ return DATA.investimentos.filter(i=>!i.arquivado 
 function totalInvestido(){ return investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }
 function patrimonioTotal(){
   let s=saldoTotal();
+  s+=totalInvestidoContas();
   investimentosScope().filter(i=>i.incluir_patrimonio).forEach(i=>s+=valorAtualInvest(i));
   return s;
 }
@@ -868,7 +871,7 @@ function renderHome(){
       <div class="b"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
     ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">💳 Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
-    ${investimentosScope().filter(i=>i.incluir_patrimonio).length?`<div class="balrow"><div class="b" style="flex:1"><div class="l">💰 Patrimônio (com investimentos)</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
+    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">💰 Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
   // atalhos rápidos
@@ -1162,7 +1165,16 @@ function renderContas(){
         html+=`<div class="card"><div class="lrow" style="border:none;padding:2px 0 8px"><div class="mid"><div class="t">${esc(t)}</div><div class="s">Saldo somado</div></div><div class="amt ${sub<0?'r':''}">${brl(sub)}</div></div>`+arr.map(rowConta).join('')+`</div>`;});
     }
   }else{
-    html+=`<div class="card">`+(cs.length?cs.map(rowConta).join(''):`<div class="empty"><div class="ico">🏦</div><p>Nenhuma conta.</p></div>`)+`</div>`;
+    const normais=cs.filter(c=>!c.eh_investimento);
+    const invest=cs.filter(c=>c.eh_investimento);
+    html=`<div class="page-title">Contas</div>`;
+    html+=`<div class="card hero"><div class="lab">Saldo somado</div><div class="big">${brl(normais.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
+    html+=`<div class="card">`+(normais.length?normais.map(rowConta).join(''):`<div class="empty"><div class="ico">${ICON('bank',32)}</div><p>Nenhuma conta.</p></div>`)+`</div>`;
+    if(invest.length){
+      html+=`<div class="page-title" style="margin-top:18px">💰 Investimentos <span style="font-weight:700;color:var(--mint)">${brl(invest.reduce((a,c)=>a+saldoConta(c.id),0))}</span></div>`;
+      html+=`<div class="card">`+invest.map(rowConta).join('')+`</div>`;
+      html+=`<div class="note" style="margin:6px 2px">Esse dinheiro fica separado do saldo do dia a dia e entra no seu patrimônio.</div>`;
+    }
   }
   html+=`<button class="btn outline" onclick="openConta()">+ Adicionar conta</button>`;
   $('content').innerHTML=html;
@@ -2024,15 +2036,20 @@ function openConta(id){
         <button id="cInc1" class="${e.incluir_principal!==false?'on':''}" onclick="window._cInc=true;$('cInc1').classList.add('on');$('cInc0').classList.remove('on')">Sim, somar</button>
         <button id="cInc0" class="${e.incluir_principal===false?'on':''}" onclick="window._cInc=false;$('cInc0').classList.add('on');$('cInc1').classList.remove('on')">Separado (familiar)</button>
       </div><div class="note">"Separado" controla a conta sem misturar no seu saldo principal.</div></div>
+    <div class="field"><label>É conta de investimento?</label>
+      <div class="seg2">
+        <button id="cInv0" class="${e.eh_investimento?'':'on'}" onclick="window._cInv=false;$('cInv0').classList.add('on');$('cInv1').classList.remove('on')">Não (normal)</button>
+        <button id="cInv1" class="${e.eh_investimento?'on':''}" onclick="window._cInv=true;$('cInv1').classList.add('on');$('cInv0').classList.remove('on')">Sim, investimento</button>
+      </div><div class="note">Investimento fica <b>fora do saldo</b> do dia a dia e soma no <b>patrimônio</b>. Você transfere dinheiro pra ela pra investir.</div></div>
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}
   `);
-  window._contaTipo=tipo; window._cInc=e.incluir_principal!==false;
+  window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true;
 }
 async function saveConta(id){
   const nome=$('cNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const saldo=parseFloat($('cSaldo').value)||0;
-  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false};
+  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true};
   let error;
   if(id)({error}=await sb.from('contas').update(row).eq('id',id));
   else ({error}=await sb.from('contas').insert(row));

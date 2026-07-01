@@ -403,7 +403,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.9";
+const APP_VER = "6.10";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -2227,12 +2227,13 @@ function openConta(id){
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
     <div class="field"><label>Ícone da conta</label>
-      <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
+        <button class="btn sm" onclick="logoAuto('c')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('c')">Usar cor</button>
       </div>
-      <div class="note">Opcional. Suba uma imagem pequena (ex: logo do banco) ou deixe a cor automática.</div></div>
+      <div class="note">"Buscar logo" acha o ícone pelo nome do banco. Ou suba sua imagem. Ou deixe a cor.</div></div>
     <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="cTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._contaTipo='pessoal';$('cTipoP').classList.add('on');$('cTipoN').classList.remove('on')">Pessoal</button>
@@ -2255,6 +2256,33 @@ function openConta(id){
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}
   `);
   window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true; window._cLogo=e.logo_url||null;
+}
+function bancoDominio(nome){
+  const n=(nome||'').toLowerCase();
+  const map=[
+    [/nubank|nu\b/,'nubank.com.br'],[/inter/,'bancointer.com.br'],[/ita[uú]/,'itau.com.br'],
+    [/bradesco/,'bradesco.com.br'],[/santander/,'santander.com.br'],[/sicoob/,'sicoob.com.br'],
+    [/sicredi/,'sicredi.com.br'],[/caixa/,'caixa.gov.br'],[/banco do brasil|\bbb\b/,'bb.com.br'],
+    [/\bc6\b/,'c6bank.com.br'],[/picpay/,'picpay.com'],[/mercado|\bmp\b/,'mercadopago.com.br'],
+    [/original/,'original.com.br'],[/\bnext\b/,'next.me'],[/\bpan\b/,'bancopan.com.br'],
+    [/safra/,'safra.com.br'],[/btg/,'btgpactual.com'],[/neon/,'neon.com.br'],
+    [/will/,'willbank.com.br'],[/pagbank|pagseguro/,'pagbank.com.br'],[/\bame\b/,'amedigital.com'],
+    [/nomad/,'nomadglobal.com'],[/\bxp\b/,'xpi.com.br'],[/banrisul/,'banrisul.com.br'],
+    [/sofisa/,'sofisadireto.com.br'],[/daycoval/,'daycoval.com.br'],
+  ];
+  for(const [re,dom] of map){ if(re.test(n)) return dom; }
+  return null;
+}
+function logoAuto(pfx){
+  const el=$(pfx==='c'?'cNome':'kNome');
+  const nome=el?el.value:'';
+  const dom=bancoDominio(nome);
+  if(!dom){ toast('Não reconheci o banco pelo nome — suba a imagem manualmente'); return; }
+  const url=`https://www.google.com/s2/favicons?domain=${dom}&sz=128`;
+  window['_'+pfx+'Logo']=url;
+  const prev=$(pfx+'LogoPrev');
+  if(prev){ prev.style.backgroundImage=`url("${url}")`; prev.style.backgroundSize='cover'; prev.innerHTML=''; }
+  toast('Logo sugerido ✅');
 }
 function pickLogo(pfx){
   const inp=document.createElement('input');
@@ -2314,12 +2342,13 @@ function openCartao(id){
   openSheet(`
     <h2>${id?'Editar':'Novo'} cartão</h2>
     <div class="field"><label>Ícone do cartão</label>
-      <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
+        <button class="btn sm" onclick="logoAuto('k')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('k')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>
       </div>
-      <div class="note">Opcional. Suba o logo da bandeira/banco ou deixe a cor.</div></div>
+      <div class="note">"Buscar logo" acha pelo nome. Ou suba sua imagem. Ou deixe a cor.</div></div>
     <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="kTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._cartaoTipo='pessoal';$('kTipoP').classList.add('on');$('kTipoN').classList.remove('on')">Pessoal</button>

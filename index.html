@@ -114,6 +114,11 @@ body.modal-open{overflow:hidden}
 .pend-chk.on{background:var(--coral);border-color:var(--coral)}
 .lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:#fff}
 .lchk.on{background:var(--mint);border-color:var(--mint)}
+.b.tap{cursor:pointer;transition:transform .1s}
+.b.tap:active{transform:scale(.97)}
+.tfilter{display:flex;gap:8px;margin-bottom:12px}
+.tfilter button{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:13px;color:var(--muted)}
+.tfilter button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
 .pendbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 60px);z-index:25;width:calc(100% - 24px);max-width:536px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(0,0,0,.12);border-radius:16px;padding:10px 14px}
 .lrow .mid{flex:1;min-width:0}
 .lrow .mid .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -351,7 +356,7 @@ body.modal-open{overflow:hidden}
 
 <div class="tabbar hidden" id="tabbar">
   <button data-tab="home" class="on" onclick="go('home')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Início</button>
-  <button data-tab="trans" onclick="go('trans')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>Transações</button>
+  <button data-tab="trans" onclick="verTrans('all')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>Transações</button>
   <button data-tab="cartoes" onclick="go('cartoes')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="4.5" width="21" height="15" rx="2.5"/><line x1="1.5" y1="10" x2="22.5" y2="10"/></svg></span>Cartões</button>
   <button data-tab="contas" onclick="go('contas')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/></svg></span>Contas</button>
   <button data-tab="investimentos" onclick="go('investimentos')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Investir</button>
@@ -868,9 +873,9 @@ function renderHome(){
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
     ${barRecDesp(b.rec,b.desp)}
     <div class="balrow">
-      <div class="b"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
-      <div class="b"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
-      <div class="b"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
+      <div class="b tap" onclick="verTrans('receita')"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
+      <div class="b tap" onclick="verTrans('despesa')"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
+      <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
     ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">💳 Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">💰 Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
@@ -974,6 +979,7 @@ function renderPendencias(){
     <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Dar baixa (${window._pendSel.size})</button></div>`;
   $('content').innerHTML=html;
 }
+function verTrans(f){ window._transFilter=f||'all'; go('trans'); }
 async function toggleLancPago(id){
   const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
   const novo = l.status==='pago'?'pendente':'pago';
@@ -1020,9 +1026,17 @@ function renderTrans(){
     const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id); return conta&&conta.tipo===scope;
   });
   list.sort((a,b)=> (a.data<b.data?1:a.data>b.data?-1:0));
+  const f=window._transFilter||'all';
+  if(f==='receita') list=list.filter(l=>l.tipo==='receita');
+  else if(f==='despesa') list=list.filter(l=>l.tipo==='despesa');
   let html=monthNav('trans');
+  html+=`<div class="tfilter">
+    <button class="${f==='all'?'on':''}" onclick="verTrans('all')">Tudo</button>
+    <button class="${f==='receita'?'on':''}" onclick="verTrans('receita')">Receitas</button>
+    <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
+  </div>`;
   html+=`<div class="card">`;
-  if(!list.length) html+=`<div class="empty"><div class="ico">🧾</div><p>Nenhuma transação em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
+  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
   else list.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
   $('content').innerHTML=html;

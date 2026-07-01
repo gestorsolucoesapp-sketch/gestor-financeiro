@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.13";
+const APP_VER = "6.14";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -956,6 +956,8 @@ function gastoCartaoMes(d){
 function renderHome(){
   const tot=saldoTotal();
   const b=balancoMes(viewMonth);
+  const gc=gastoCartaoMes(viewMonth);
+  const balCard=b.saldo-gc;
   // lançamentos recentes (não-cartão) do scope
   const recents=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false;
@@ -978,9 +980,9 @@ function renderHome(){
     <div class="balrow">
       <div class="b tap" onclick="verTrans('receita')"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
       <div class="b tap" onclick="verTrans('despesa')"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
-      <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
+      <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço${gc>0?' (c/ cartão)':''}</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
-    ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
+    ${gc>0?`<div class="balrow"><div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gc)}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gc)}</div></div></div>`:''}
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 

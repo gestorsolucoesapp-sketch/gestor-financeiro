@@ -397,7 +397,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.5";
+const APP_VER = "6.6";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -922,12 +922,24 @@ function renderHome(){
   else cs.forEach(c=>{ html+=rowConta(c); });
   html+=`</div>`;
 
-  // recentes
-  html+=`<div class="sec-head"><h3>Últimas transações</h3><a onclick="go('trans')">Ver todas</a></div><div class="card">`;
-  if(!recents.length) html+=`<div class="empty"><div class="ico">🧾</div><p>Nenhuma transação ainda.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
-  else recents.forEach(l=>html+=rowLanc(l));
-  html+=`</div>`;
+  // recentes (ocultável — padrão oculto)
+  const hideRec = (localStorage.getItem('gf_hideRecents')||'1')==='1';
+  html+=`<div class="sec-head"><h3>Últimas transações</h3><div style="display:flex;gap:16px">
+    <a onclick="toggleRecents()">${hideRec?'Mostrar':'Ocultar'}</a>
+    ${hideRec?'':`<a onclick="go('trans')">Ver todas</a>`}
+  </div></div>`;
+  if(!hideRec){
+    html+=`<div class="card">`;
+    if(!recents.length) html+=`<div class="empty"><div class="ico">🧾</div><p>Nenhuma transação ainda.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
+    else recents.forEach(l=>html+=rowLanc(l));
+    html+=`</div>`;
+  }
   $('content').innerHTML=html;
+}
+function toggleRecents(){
+  const cur=(localStorage.getItem('gf_hideRecents')||'1')==='1';
+  localStorage.setItem('gf_hideRecents', cur?'0':'1');
+  render();
 }
 function rowConta(c){
   const s=saldoConta(c.id);

@@ -116,8 +116,8 @@ body.modal-open{overflow:hidden}
 .lchk.on{background:var(--mint);border-color:var(--mint)}
 .b.tap{cursor:pointer;transition:transform .1s}
 .b.tap:active{transform:scale(.97)}
-.tfilter{display:flex;gap:8px;margin-bottom:12px}
-.tfilter button{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:13px;color:var(--muted)}
+.tfilter{display:flex;gap:6px;margin-bottom:12px}
+.tfilter button{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:12.5px;color:var(--muted)}
 .tfilter button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
 .pendbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 60px);z-index:25;width:calc(100% - 24px);max-width:536px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(0,0,0,.12);border-radius:16px;padding:10px 14px}
 .lrow .mid{flex:1;min-width:0}
@@ -1029,14 +1029,16 @@ function renderTrans(){
   const f=window._transFilter||'all';
   if(f==='receita') list=list.filter(l=>l.tipo==='receita');
   else if(f==='despesa') list=list.filter(l=>l.tipo==='despesa');
+  else if(f==='pendente') list=list.filter(l=>l.status==='pendente' && !l.cartao_id);
   let html=monthNav('trans');
   html+=`<div class="tfilter">
     <button class="${f==='all'?'on':''}" onclick="verTrans('all')">Tudo</button>
+    <button class="${f==='pendente'?'on':''}" onclick="verTrans('pendente')">A confirmar</button>
     <button class="${f==='receita'?'on':''}" onclick="verTrans('receita')">Receitas</button>
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
   </div>`;
   html+=`<div class="card">`;
-  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
+  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>${f==='pendente'?'Nada a confirmar 🎉':'Nenhuma '+(f==='receita'?'receita':f==='despesa'?'despesa':'transação')+' em '+mesNome(viewMonth)+'.'}</p>${f==='pendente'?'':`<button class="btn coral sm" onclick="openLanc()">Adicionar</button>`}</div>`;
   else list.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
   $('content').innerHTML=html;

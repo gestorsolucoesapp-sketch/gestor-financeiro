@@ -114,6 +114,7 @@ body.modal-open{overflow:hidden}
 .pend-chk.on{background:var(--coral);border-color:var(--coral)}
 .lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:#fff}
 .lchk.on{background:var(--mint);border-color:var(--mint)}
+.lconf{margin-left:10px;flex-shrink:0;background:var(--mint);color:#fff;font-weight:700;font-size:12px;padding:9px 13px;border-radius:9px;white-space:nowrap;line-height:1}
 .b.tap{cursor:pointer;transition:transform .1s}
 .b.tap:active{transform:scale(.97)}
 .tfilter{display:flex;gap:6px;margin-bottom:12px}
@@ -392,7 +393,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.2";
+const APP_VER = "6.3";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1099,7 +1100,12 @@ function rowLanc(l){
   const parc=(l.parcelas&&l.parcelas>1)?` <span class="pill neg">${l.parcela}/${l.parcelas}</span>`:'';
   const fixo=(l.grupo_id&&!(l.parcelas>1)&&l.tipo!=='transferencia')?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">🔁 fixo</span>`:'';
   const pend=l.status==='pendente'?' <span class="pill pend">pendente</span>':'';
-  const chk=(!l.cartao_id && l.tipo!=='transferencia')?`<div class="lchk ${l.status==='pago'?'on':''}" title="Confirmar" onclick="event.stopPropagation();toggleLancPago('${l.id}')">${l.status==='pago'?'✓':''}</div>`:'';
+  let chk='';
+  if(!l.cartao_id && l.tipo!=='transferencia'){
+    chk = l.status==='pago'
+      ? `<div class="lchk on" title="Confirmado — toque para voltar a pendente" onclick="event.stopPropagation();toggleLancPago('${l.id}')">✓</div>`
+      : `<button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Confirmar</button>`;
+  }
   return `<div class="lrow" onclick="openLanc('${l.id}')">
     <div class="dot">${icon||'•'}</div>
     <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt} · ${sub}</div></div>

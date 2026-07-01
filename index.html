@@ -110,7 +110,7 @@ body.modal-open{overflow:hidden}
 .pend-alert{display:flex;align-items:center;gap:12px;margin-bottom:14px;cursor:pointer}
 .pend-g{font-size:12px;font-weight:700;color:var(--muted);text-transform:capitalize;padding:10px 2px 4px}
 .pend-row{cursor:pointer;border-radius:10px}
-.pend-row.sel{background:#fdecec}
+.pend-row.sel{background:rgba(232,101,78,.16)}
 .pend-chk{width:24px;height:24px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:8px}
 .pend-chk.on{background:var(--coral);border-color:var(--coral)}
 .lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:var(--input-bg)}
@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.12";
+const APP_VER = "6.13";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1079,13 +1079,23 @@ function renderPendencias(){
     if(g!==lastG){ html+=`<div class="pend-g">${g.charAt(0).toUpperCase()+g.slice(1)}</div>`; lastG=g; }
     const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
     const isRec=l.tipo==='receita';
-    const venc=(!isRec && l.data<hoje)?` <span class="pill" style="background:#fdecec;color:var(--coral)">vencida</span>`:'';
-    const sub=`${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
+    const isTransf=l.tipo==='transferencia';
+    const venc=(!isRec && !isTransf && l.data<hoje)?` <span class="pill" style="background:var(--coral-soft);color:var(--coral)">vencida</span>`:'';
+    const vis = isTransf ? {icon:'swap',color:'#3b6fd6'} : catVisual(cat,l.tipo);
+    let sub, amtHtml;
+    if(isTransf){
+      const dest=contaById(l.conta_destino_id);
+      sub=`${conta?esc(conta.nome):'?'} → ${dest?esc(dest.nome):'?'}`;
+      amtHtml=`<div class="amt" style="color:#3b6fd6">→ ${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>`;
+    }else{
+      sub=`${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
+      amtHtml=`<div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>`;
+    }
     const sel=window._pendSel.has(l.id);
     html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
-      <div class="dot">${cat?cat.icone:'•'}</div>
-      <div class="mid"><div class="t">${esc(l.descricao)}${venc}</div><div class="s">${sub}</div></div>
-      <div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>
+      <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
+      <div class="mid"><div class="t">${esc(l.descricao)}${isTransf?' <span class="pill" style="background:#e8eefc;color:#3b5bdb">transferência</span>':''}${venc}</div><div class="s">${sub}</div></div>
+      ${amtHtml}
       <div class="pend-chk ${sel?'on':''}">${sel?'✓':''}</div></div>`;
   });
   html+=`</div>`;

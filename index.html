@@ -124,6 +124,8 @@ body.modal-open{overflow:hidden}
 .switch.on{background:var(--mint)}
 .switch .knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .switch.on .knob{left:23px}
+.conta-logo{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--input-bg);background-position:center;background-size:cover;border:1px solid var(--line-2)}
+.btn.sm{padding:9px 14px;font-size:13px;width:auto}
 .b.tap{cursor:pointer;transition:transform .1s}
 .b.tap:active{transform:scale(.97)}
 .tfilter{display:flex;gap:6px;margin-bottom:12px}
@@ -401,7 +403,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.7";
+const APP_VER = "6.8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1013,8 +1015,11 @@ function toggleRecents(){
 }
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);
+  const dot = c.logo_url
+    ? `<div class="dot" style="background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center"></div>`
+    : `<div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>`;
   return `<div class="lrow" onclick="openConta('${c.id}')">
-    <div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>
+    ${dot}
     <div class="mid"><div class="t">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div><div class="s">Saldo atual</div></div>
     <div class="amt ${s<0?'r':''}">${brl(s)}</div></div>`;
 }
@@ -2220,6 +2225,13 @@ function openConta(id){
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
+    <div class="field"><label>Ícone da conta</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
+        <button class="btn outline sm" onclick="pickContaLogo()">Escolher imagem</button>
+        <button class="btn ghost sm" onclick="clearContaLogo()">Usar cor</button>
+      </div>
+      <div class="note">Opcional. Suba uma imagem pequena (ex: logo do banco) ou deixe a cor automática.</div></div>
     <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="cTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._contaTipo='pessoal';$('cTipoP').classList.add('on');$('cTipoN').classList.remove('on')">Pessoal</button>
@@ -2241,12 +2253,46 @@ function openConta(id){
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}
   `);
-  window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true;
+  window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true; window._cLogo=e.logo_url||null;
+}
+function pickContaLogo(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='image/*';
+  inp.onchange=()=>{
+    const file=inp.files&&inp.files[0]; if(!file)return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const S=72, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+        const ctx=cv.getContext('2d');
+        const scale=Math.max(S/img.width,S/img.height), w=img.width*scale, h=img.height*scale;
+        ctx.drawImage(img,(S-w)/2,(S-h)/2,w,h);
+        let data;
+        try{ data=cv.toDataURL('image/png'); if(data.length>60000) data=cv.toDataURL('image/jpeg',0.82); }
+        catch(e){ data=cv.toDataURL('image/jpeg',0.82); }
+        window._cLogo=data;
+        const prev=$('cLogoPrev');
+        if(prev){ prev.style.backgroundImage=`url("${data}")`; prev.innerHTML=''; }
+      };
+      img.src=rd.result;
+    };
+    rd.readAsDataURL(file);
+  };
+  inp.click();
+}
+function clearContaLogo(){
+  window._cLogo=null;
+  const prev=$('cLogoPrev'); if(!prev)return;
+  prev.style.backgroundImage='';
+  const cv=contaVisual({nome:$('cNome')?$('cNome').value:''});
+  prev.style.background=tintBg(cv.color); prev.style.color=cv.color;
+  prev.innerHTML=ICON(cv.icon,24);
 }
 async function saveConta(id){
   const nome=$('cNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const saldo=parseFloat($('cSaldo').value)||0;
-  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true};
+  const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true,logo_url:window._cLogo||null};
   let error;
   if(id)({error}=await sb.from('contas').update(row).eq('id',id));
   else ({error}=await sb.from('contas').insert(row));

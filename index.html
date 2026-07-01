@@ -112,6 +112,8 @@ body.modal-open{overflow:hidden}
 .pend-row.sel{background:#fdecec}
 .pend-chk{width:24px;height:24px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:8px}
 .pend-chk.on{background:var(--coral);border-color:var(--coral)}
+.lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:#fff}
+.lchk.on{background:var(--mint);border-color:var(--mint)}
 .pendbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 60px);z-index:25;width:calc(100% - 24px);max-width:536px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(0,0,0,.12);border-radius:16px;padding:10px 14px}
 .lrow .mid{flex:1;min-width:0}
 .lrow .mid .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -972,6 +974,13 @@ function renderPendencias(){
     <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Dar baixa (${window._pendSel.size})</button></div>`;
   $('content').innerHTML=html;
 }
+async function toggleLancPago(id){
+  const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
+  const novo = l.status==='pago'?'pendente':'pago';
+  const {error}=await sb.from('lancamentos').update({status:novo}).eq('id',id);
+  if(error){toast('Erro: '+error.message);return;}
+  await loadAll(); toast(novo==='pago'?'Confirmado — entrou na conta ✅':'Voltou a pendente (virtual)'); render();
+}
 function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); renderPendencias(); }
 function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>window._pendSel.has(l.id)); if(allSel)window._pendSel.clear(); else list.forEach(l=>window._pendSel.add(l.id)); renderPendencias(); }
 function efetivarPendencias(){
@@ -1035,10 +1044,11 @@ function rowLanc(l){
   const parc=(l.parcelas&&l.parcelas>1)?` <span class="pill neg">${l.parcela}/${l.parcelas}</span>`:'';
   const fixo=(l.grupo_id&&!(l.parcelas>1)&&l.tipo!=='transferencia')?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">🔁 fixo</span>`:'';
   const pend=l.status==='pendente'?' <span class="pill pend">pendente</span>':'';
+  const chk=(!l.cartao_id && l.tipo!=='transferencia')?`<div class="lchk ${l.status==='pago'?'on':''}" title="Confirmar" onclick="event.stopPropagation();toggleLancPago('${l.id}')">${l.status==='pago'?'✓':''}</div>`:'';
   return `<div class="lrow" onclick="openLanc('${l.id}')">
     <div class="dot">${icon||'•'}</div>
     <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt} · ${sub}</div></div>
-    <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div></div>`;
+    <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>${chk}</div>`;
 }
 
 // ============ CARTÕES ============

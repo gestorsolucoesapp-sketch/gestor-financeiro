@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.11";
+const APP_VER = "6.12";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -446,7 +446,13 @@ const ICON=(n,s=20)=>{const p={
   plus:'<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
   minus:'<circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/>',
   tag:'<path d="M20 12l-8 8-8-8 8-8h8z"/><circle cx="15.5" cy="8.5" r="1.2"/>',
-  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  download:'<path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M4 20h16"/>',
+  users:'<path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="8" r="3.2"/><path d="M22 20v-1.8a4 4 0 0 0-3-3.8"/><path d="M16 4.4a3.2 3.2 0 0 1 0 6.2"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 1 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 1 0 7 7l1-1"/>',
+  trash:'<polyline points="3 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+  alert:'<path d="M12 3l9.5 17H2.5z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.7"/>',
+  palette:'<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="15.5" cy="10" r="1"/><path d="M12 21a2.5 2.5 0 0 0 0-5 1.8 1.8 0 0 1 0-3.6"/>'
 };
   return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p[n]||''}</svg>`;
 };
@@ -658,7 +664,7 @@ function renderTema(){
   const ctx=[['tudo','Geral'],['pessoal','Pessoal'],['negocio','Negócio'],['familia','Família']];
   const row=(key,label)=>`<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
     <input type="color" value="${_temaWork[key]}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
-  let html=`<div class="page-title">🎨 Cores do app</div>`;
+  let html=`<div class="page-title">Cores do app</div>`;
   html+=`<div class="note" style="margin:0 2px 8px">Escolha o contexto e personalize as cores dele separado. O app troca de cor sozinho quando você muda o contexto lá em cima.</div>`;
   html+=`<div class="ctxrow">`+ctx.map(([k,l])=>`<button class="${_temaScope===k?'on':''}" onclick="editarTemaScope('${k}')">${l}</button>`).join('')+`</div>`;
   html+=`<div class="card"><div class="note" style="margin-bottom:8px">Temas prontos pra <b>${ctx.find(c=>c[0]===_temaScope)[1]}</b></div><div class="tema-presets">`;
@@ -974,8 +980,8 @@ function renderHome(){
       <div class="b tap" onclick="verTrans('despesa')"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
       <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${b.saldo<0?'r':'g'}">${brl(b.saldo)}</div></div>
     </div>
-    ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">💳 Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
-    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">💰 Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
+    ${gastoCartaoMes(viewMonth)>0?`<div class="balrow"><div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gastoCartaoMes(viewMonth))}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gastoCartaoMes(viewMonth))}</div></div></div>`:''}
+    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
   // atalhos rápidos
@@ -1023,7 +1029,7 @@ function rowConta(c){
     : `<div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>`;
   return `<div class="lrow" onclick="openConta('${c.id}')">
     ${dot}
-    <div class="mid"><div class="t wrap">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div><div class="s">Saldo atual</div></div>
+    <div class="mid"><div class="t wrap">${esc(c.nome)}</div><div class="s">Saldo atual · <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div></div>
     <div class="amt ${s<0?'r':''}">${brl(s)}</div></div>`;
 }
 
@@ -1263,7 +1269,7 @@ function renderCartoes(){
   let html=`<div class="page-title">${fam?'👨‍👩‍👧 Cartões de familiares':'Cartões de crédito'}</div>`;
   html+=monthNav('cartoes');
   if(!cs.length){
-    html+=`<div class="card"><div class="empty"><div class="ico">💳</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
+    html+=`<div class="card"><div class="empty"><div class="ico">${ICON('card',30)}</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
     $('content').innerHTML=html;return;
   }
   if(fam){
@@ -1274,7 +1280,7 @@ function renderCartoes(){
   }
   html+=`<button class="btn outline" onclick="openCartao()">+ Adicionar cartão</button>`;
   const arqN=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id).length;
-  if(arqN) html+=`<button class="btn ghost" onclick="abrirArquivados()">🗄️ Cartões arquivados (${arqN})</button>`;
+  if(arqN) html+=`<button class="btn ghost" onclick="abrirArquivados()">Cartões arquivados (${arqN})</button>`;
   $('content').innerHTML=html;
 }
 function valFatura(l){ return (l.tipo==='receita'?-1:1)*(Number(l.valor)||0); }
@@ -1369,7 +1375,7 @@ function renderContas(){
     html+=`<div class="card hero"><div class="lab">Saldo somado</div><div class="big">${brl(normais.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
     html+=`<div class="card">`+(normais.length?normais.map(rowConta).join(''):`<div class="empty"><div class="ico">${ICON('bank',32)}</div><p>Nenhuma conta.</p></div>`)+`</div>`;
     if(invest.length){
-      html+=`<div class="page-title" style="margin-top:18px">💰 Investimentos <span style="font-weight:700;color:var(--mint)">${brl(invest.reduce((a,c)=>a+saldoConta(c.id),0))}</span></div>`;
+      html+=`<div class="page-title" style="margin-top:18px">Investimentos <span style="font-weight:700;color:var(--mint)">${brl(invest.reduce((a,c)=>a+saldoConta(c.id),0))}</span></div>`;
       html+=`<div class="card">`+invest.map(rowConta).join('')+`</div>`;
       html+=`<div class="note" style="margin:6px 2px">Esse dinheiro fica separado do saldo do dia a dia e entra no seu patrimônio.</div>`;
     }
@@ -1382,11 +1388,11 @@ function renderContas(){
 function renderConfig(){
   let html=`<div class="page-title">Mais</div>`;
   html+=`<div class="card">
-    ${hubItem('📊','Relatórios','Gráficos de gastos e evolução',"go('relatorios')")}
-    ${hubItem('🎯','Planejamento','Orçamento por categoria',"go('planejamento')")}
-    ${hubItem('💰','Investimentos','Poupança, renda fixa e patrimônio',"go('investimentos')")}
-    ${hubItem('🏦','Contas','Suas contas e saldos',"go('contas')")}
-    ${hubItem('💳','Cartões','Faturas e limites',"go('cartoes')")}
+    ${hubItem('chart','Relatórios','Gráficos de gastos e evolução',"go('relatorios')",'#3b6fd6')}
+    ${hubItem('target','Planejamento','Orçamento por categoria',"go('planejamento')",'#e0a020')}
+    ${hubItem('trend','Investimentos','Poupança, renda fixa e patrimônio',"go('investimentos')",'#2f8f66')}
+    ${hubItem('bank','Contas','Suas contas e saldos',"go('contas')",'#1f9d8a')}
+    ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
     <div class="lrow" style="cursor:default;border-bottom:none">
@@ -1396,24 +1402,25 @@ function renderConfig(){
     </div>
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
-    ${hubItem('🏷️','Categorias','Gerenciar categorias',"openCatList()")}
-    ${hubItem('🎨','Cores do app','Personalize o tema e todas as cores',"go('tema')")}
-    ${hubItem('📥','Importar do Mobills','Suba o CSV exportado',"triggerImport()")}
+    ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
+    ${hubItem('palette','Cores do app','Personalize o tema e todas as cores',"go('tema')",'#e0a020')}
+    ${hubItem('download','Importar do Mobills','Suba o CSV exportado',"triggerImport()",'#3b6fd6')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
-    ${hubItem('👥','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()")}
-    ${hubItem('🔗','Conectar a outra conta','Veja as finanças de quem te compartilhou',"abrirConectar()")}
+    ${hubItem('users','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()",'#2f8f66')}
+    ${hubItem('link','Conectar a outra conta','Veja as finanças de quem te compartilhou',"abrirConectar()",'#3b6fd6')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Zona de risco</div><div class="card">
-    ${hubItem('🧹','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()")}
-    ${hubItem('💣','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()")}
+    ${hubItem('trash','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()",'#e8654e')}
+    ${hubItem('alert','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()",'#d6473a')}
   </div>`;
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
 }
-function hubItem(ic,t,s,act){
-  return `<div class="lrow" onclick="${act}"><div class="dot">${ic}</div>
+function hubItem(icKey,t,s,act,color){
+  color=color||'#1f9d8a';
+  return `<div class="lrow" onclick="${act}"><div class="dot" style="background:${tintBg(color)};color:${color}">${ICON(icKey,20)}</div>
     <div class="mid"><div class="t">${t}</div><div class="s">${s}</div></div>
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
 }
@@ -1527,9 +1534,10 @@ async function doWipeTudo(){
 function openCatList(){
   const cats=DATA.categorias.filter(c=>c.user_id===USER.id);
   let h=`<h2>Categorias</h2><div class="card" style="margin:6px 0 12px">`;
-  if(!cats.length) h+=`<div class="empty"><div class="ico">🏷️</div><p>Sem categorias.</p></div>`;
+  if(!cats.length) h+=`<div class="empty"><div class="ico">${ICON('tag',30)}</div><p>Sem categorias.</p></div>`;
   else cats.forEach(c=>{
-    h+=`<div class="lrow" onclick="closeSheet();openCat('${c.id}')"><div class="dot">${c.icone||'🏷️'}</div>
+    const v=catVisual(c,c.tipo);
+    h+=`<div class="lrow" onclick="closeSheet();openCat('${c.id}')"><div class="dot" style="background:${tintBg(v.color)};color:${v.color}">${ICON(v.icon,18)}</div>
     <div class="mid"><div class="t">${esc(c.nome)}</div><div class="s">${c.tipo}</div></div>
     <div class="amt" style="color:var(--muted);font-size:18px">›</div></div>`;
   });
@@ -1545,7 +1553,7 @@ function renderRelatorios(){
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
   // DONUT despesas por categoria
   html+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
-  if(!totalGasto){ html+=`<div class="empty"><div class="ico">📊</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
+  if(!totalGasto){ html+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
   else{
     const seg=gastos.map((g,i)=>({valor:g.valor,color:PALETA[i%PALETA.length]}));
     html+=`<div style="display:flex;align-items:center;justify-content:center;margin:8px 0 4px">${donutSVG(seg,totalGasto)}</div>`;
@@ -2043,22 +2051,22 @@ function updateFaturaNote(){
   let aviso='';
   if(dd.getDate()>cartao.dia_fechamento){ aviso=`Fatura deste mês já fechou (dia ${cartao.dia_fechamento}), então `; }
   if(pv==='rec'){
-    el.innerHTML=`🔁 ${aviso}entra <b>todo mês</b> a partir da fatura de <b>${fmt(venc)}</b> (cria 24 meses).`;
+    el.innerHTML=`${aviso}entra <b>todo mês</b> a partir da fatura de <b>${fmt(venc)}</b> (cria 24 meses).`;
     return;
   }
   const n=parseInt(pv)||1;
   if(n>1){
     const ult=new Date(venc.getFullYear(), venc.getMonth()+n-1, 1);
-    el.innerHTML=`🧾 ${aviso}a 1ª parcela cai na fatura de <b>${fmt(venc)}</b> e a última em <b>${fmt(ult)}</b>.`;
+    el.innerHTML=`${aviso}a 1ª parcela cai na fatura de <b>${fmt(venc)}</b> e a última em <b>${fmt(ult)}</b>.`;
   }else{
-    el.innerHTML=`🧾 ${aviso}entra na fatura de <b>${fmt(venc)}</b> (vence dia ${cartao.dia_vencimento}).`;
+    el.innerHTML=`${aviso}entra na fatura de <b>${fmt(venc)}</b> (vence dia ${cartao.dia_vencimento}).`;
   }
 }
 function updateParcNote(){
   if(!$('parcNote'))return;
   const pv=$('lParcelas')?$('lParcelas').value:'1';
   const v=evalValor($('lValor').value)||0;
-  if(pv==='rec'){ $('parcNote').innerHTML = v>0?`🔁 <b>${brl(v)}</b> todo mês`:''; return; }
+  if(pv==='rec'){ $('parcNote').innerHTML = v>0?`<b>${brl(v)}</b> todo mês`:''; return; }
   const n=parseInt(pv)||1;
   if(n>1&&v>0){const each=Math.floor(v/n*100)/100;$('parcNote').innerHTML=`${n}x de aprox. <b>${brl(each)}</b> · entra na fatura de cada mês`;}
   else $('parcNote').textContent='';
@@ -2409,9 +2417,9 @@ async function restoreCartao(id){
 function abrirArquivados(){
   const arq=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id);
   let h=`<h2>Cartões arquivados</h2>`;
-  if(!arq.length){ h+=`<div class="empty"><div class="ico">🗄️</div><p>Nenhum cartão arquivado.</p></div>`; }
+  if(!arq.length){ h+=`<div class="empty"><div class="ico">${ICON('card',30)}</div><p>Nenhum cartão arquivado.</p></div>`; }
   else{ h+=`<div class="card" style="margin-top:6px">`;
-    arq.forEach(c=>{ h+=`<div class="lrow"><div class="dot">💳</div>
+    arq.forEach(c=>{ h+=`<div class="lrow"><div class="dot" style="background:${tintBg('#7c5cff')};color:#7c5cff">${ICON('card',18)}</div>
       <div class="mid"><div class="t">${esc(c.nome)}</div><div class="s">arquivado</div></div>
       <button class="btn sm" onclick="restoreCartao('${c.id}')">Restaurar</button>
       <button class="btn sm ghost" onclick="excluirCartaoDef('${c.id}')"><span class="danger">Excluir</span></button></div>`; });
@@ -2518,7 +2526,7 @@ async function handleMobillsFile(ev){
     <h2>Importar do Mobills</h2>
     <div class="note">Encontrei no seu arquivo:</div>
     <div class="card" style="margin-top:10px;margin-bottom:12px">
-      <div class="lrow"><div class="dot">🧾</div><div class="mid"><div class="t">${nLanc} transações</div><div class="s">${mesRangeLabel(p.rows)}</div></div></div>
+      <div class="lrow"><div class="dot" style="background:${tintBg('#6f7d79')};color:#6f7d79">${ICON('receipt',18)}</div><div class="mid"><div class="t">${nLanc} transações</div><div class="s">${mesRangeLabel(p.rows)}</div></div></div>
       <div class="lrow"><div class="dot" style="background:#e7f6ee">⬆️</div><div class="mid"><div class="t">Receitas</div><div class="s">${nCats} categorias no total</div></div><div class="amt g">${brl(rec)}</div></div>
       <div class="lrow"><div class="dot" style="background:#fdeceb">⬇️</div><div class="mid"><div class="t">Despesas</div><div class="s">${nContas} contas</div></div><div class="amt r">${brl(desp)}</div></div>
     </div>

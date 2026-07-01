@@ -115,6 +115,10 @@ body.modal-open{overflow:hidden}
 .lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:#fff}
 .lchk.on{background:var(--mint);border-color:var(--mint)}
 .lconf{margin-left:10px;flex-shrink:0;background:var(--mint);color:#fff;font-weight:700;font-size:12px;padding:9px 13px;border-radius:9px;white-space:nowrap;line-height:1}
+.proj{margin-top:8px;font-size:13px;color:rgba(255,255,255,.82)}
+.proj b{color:#fff}
+.grp-lab{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:16px 2px 7px;display:flex;justify-content:space-between;align-items:center}
+.grp-lab .gv{font-weight:800}
 .b.tap{cursor:pointer;transition:transform .1s}
 .b.tap:active{transform:scale(.97)}
 .tfilter{display:flex;gap:6px;margin-bottom:12px}
@@ -393,7 +397,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.3";
+const APP_VER = "6.4";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -486,6 +490,22 @@ function saldoConta(contaId){
   return s;
 }
 function saldoTotal(){return contasPrincipais().reduce((a,c)=>a+saldoConta(c.id),0);}
+function saldoPendConta(contaId){
+  const c=contaById(contaId); if(!c) return 0;
+  let s=0;
+  for(const l of DATA.lancamentos){
+    if(l.status!=='pendente') continue;
+    const v=Number(l.valor)||0;
+    if(l.tipo==='receita' && l.conta_id===contaId) s+=v;
+    else if(l.tipo==='despesa' && l.conta_id===contaId && !l.cartao_id) s-=v;
+    else if(l.tipo==='transferencia'){
+      if(l.conta_id===contaId && l.user_id===c.user_id) s-=v;
+      if(l.conta_destino_id===contaId && l.user_id===c.user_id) s+=v;
+    }
+  }
+  return s;
+}
+function saldoPendTotal(){return contasPrincipais().reduce((a,c)=>a+saldoPendConta(c.id),0);}
 
 // ============ AUTH UI ============
 function showSignup(){$('loginForm').classList.add('hidden');$('signupForm').classList.remove('hidden');$('authMsg').innerHTML='';}
@@ -870,8 +890,9 @@ function renderHome(){
   let html=monthNav('home');
   html+=`
   <div class="card hero">
-    <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''}</div>
+    <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''} <span style="opacity:.7;font-weight:600">(efetivado)</span></div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
+    ${(()=>{const sp=saldoPendTotal();return sp!==0?`<div class="proj">${sp>0?'+':''}${brl(sp)} a confirmar · projetado <b>${brl(tot+sp)}</b></div>`:'';})()}
     ${barRecDesp(b.rec,b.desp)}
     <div class="balrow">
       <div class="b tap" onclick="verTrans('receita')"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
@@ -1077,10 +1098,23 @@ function renderTrans(){
       <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Efetivar (${window._pendSel.size})</button></div>`;
     $('content').innerHTML=html; return;
   }
-  html+=`<div class="card">`;
-  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
-  else list.forEach(l=>html+=rowLanc(l));
-  html+=`</div>`;
+  if(!list.length){
+    html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div></div>`;
+    $('content').innerHTML=html; return;
+  }
+  const pend=list.filter(l=>l.status==='pendente' && !l.cartao_id);
+  const efet=list.filter(l=>!(l.status==='pendente' && !l.cartao_id));
+  if(pend.length){
+    const ef=pend.reduce((a,l)=>a+(l.tipo==='receita'?Number(l.valor):l.tipo==='despesa'?-Number(l.valor):0),0);
+    html+=`<div class="grp-lab"><span>A confirmar · virtual</span><span class="gv" style="color:${ef<0?'var(--coral)':'var(--mint)'}">${ef>=0?'+':''}${brl(ef)}</span></div><div class="card">`;
+    pend.forEach(l=>html+=rowLanc(l));
+    html+=`</div>`;
+  }
+  if(efet.length){
+    html+=`<div class="grp-lab"><span>Efetivadas</span></div><div class="card">`;
+    efet.forEach(l=>html+=rowLanc(l));
+    html+=`</div>`;
+  }
   $('content').innerHTML=html;
 }
 function rowLanc(l){

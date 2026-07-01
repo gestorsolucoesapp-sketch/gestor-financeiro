@@ -397,7 +397,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.4";
+const APP_VER = "6.5";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1020,16 +1020,19 @@ function transSelAll(){ const l=transPendentes(); const all=l.length&&l.every(x=
 function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>window._pendSel.has(l.id)); if(allSel)window._pendSel.clear(); else list.forEach(l=>window._pendSel.add(l.id)); render(); }
 function efetivarPendencias(){
   const ids=[...window._pendSel]; if(!ids.length)return;
-  const tot=pendentesList().filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+Number(l.valor),0);
+  const sel=pendentesList().filter(l=>window._pendSel.has(l.id));
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
+  const contasDist=[...new Set(sel.map(l=>l.conta_id).filter(Boolean))];
+  const sugerida = contasDist.length===1 ? contasDist[0] : '';
+  const nomeSug = sugerida ? (contaById(sugerida)||{}).nome : '';
   openSheet(`<h2 style="text-align:center;margin-top:6px">Confirmar lançamentos</h2>
     <p class="note" style="text-align:center;font-size:14px"><b>${ids.length}</b> lançamento(s) serão <b>confirmados</b> e lançados nas contas.</p>
     <div class="field"><label>Confirmar em qual conta?</label>
       <select id="efetivConta">
-        <option value="">Manter a conta de cada lançamento</option>
-        ${contas.map(c=>`<option value="${c.id}">${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
+        ${contas.map(c=>`<option value="${c.id}" ${c.id===sugerida?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
+        <option value="" ${!sugerida?'selected':''}>Manter a conta de cada lançamento</option>
       </select>
-      <div class="note">Use isto só se entrou/saiu de uma conta diferente da programada.</div></div>
+      <div class="note">${sugerida?`Sugerimos <b>${esc(nomeSug)}</b> (a conta do lançamento). Troque só se entrou/saiu de outra.`:'Contas diferentes selecionadas — deixe "Manter" ou escolha uma para todos.'}</div></div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Não</button>
       <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, confirmar</button></div>`);
@@ -1086,7 +1089,7 @@ function renderTrans(){
       const sub=`${dt} · ${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
       const sel=window._pendSel.has(l.id);
       html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
-        <div class="dot">${cat?cat.icone:'•'}</div>
+        <div class="dot">${(cat&&cat.icone)?cat.icone:'•'}</div>
         <div class="mid"><div class="t">${esc(l.descricao)}${venc}</div><div class="s">${sub}</div></div>
         <div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>
         <div class="pend-chk ${sel?'on':''}">${sel?'✓':''}</div></div>`;

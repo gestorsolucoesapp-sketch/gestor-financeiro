@@ -403,7 +403,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.8";
+const APP_VER = "6.9";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1243,7 +1243,7 @@ function cardCartaoHTML(c){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
-        <div class="dot" style="background:${c.cor||'#efeaf7'};color:var(--emerald)">${ICON('card',20)}</div>
+        <div class="dot" style="${c.logo_url?`background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
       <div style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -1508,7 +1508,8 @@ async function doWipeValores(){
   toast('Limpando…');
   const e1=(await sb.from('lancamentos').delete().eq('user_id',USER.id)).error;
   const e2=(await sb.from('orcamentos').delete().eq('user_id',USER.id)).error;
-  if(e1||e2){toast('Erro: '+((e1||e2).message));return;}
+  const e3=(await sb.from('contas').update({saldo_inicial:0}).eq('user_id',USER.id)).error;
+  if(e1||e2||e3){toast('Erro: '+((e1||e2||e3).message));return;}
   await loadAll(); toast('Valores limpos ✅'); go('home');
 }
 function wipeTudo(){ pedirSenha('Começar do zero', doWipeTudo); }
@@ -2228,8 +2229,8 @@ function openConta(id){
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:12px">
         <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
-        <button class="btn outline sm" onclick="pickContaLogo()">Escolher imagem</button>
-        <button class="btn ghost sm" onclick="clearContaLogo()">Usar cor</button>
+        <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
+        <button class="btn ghost sm" onclick="clearLogo('c')">Usar cor</button>
       </div>
       <div class="note">Opcional. Suba uma imagem pequena (ex: logo do banco) ou deixe a cor automática.</div></div>
     <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
@@ -2255,7 +2256,7 @@ function openConta(id){
   `);
   window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true; window._cLogo=e.logo_url||null;
 }
-function pickContaLogo(){
+function pickLogo(pfx){
   const inp=document.createElement('input');
   inp.type='file'; inp.accept='image/*';
   inp.onchange=()=>{
@@ -2271,8 +2272,8 @@ function pickContaLogo(){
         let data;
         try{ data=cv.toDataURL('image/png'); if(data.length>60000) data=cv.toDataURL('image/jpeg',0.82); }
         catch(e){ data=cv.toDataURL('image/jpeg',0.82); }
-        window._cLogo=data;
-        const prev=$('cLogoPrev');
+        window['_'+pfx+'Logo']=data;
+        const prev=$(pfx+'LogoPrev');
         if(prev){ prev.style.backgroundImage=`url("${data}")`; prev.innerHTML=''; }
       };
       img.src=rd.result;
@@ -2281,13 +2282,12 @@ function pickContaLogo(){
   };
   inp.click();
 }
-function clearContaLogo(){
-  window._cLogo=null;
-  const prev=$('cLogoPrev'); if(!prev)return;
+function clearLogo(pfx){
+  window['_'+pfx+'Logo']=null;
+  const prev=$(pfx+'LogoPrev'); if(!prev)return;
   prev.style.backgroundImage='';
-  const cv=contaVisual({nome:$('cNome')?$('cNome').value:''});
-  prev.style.background=tintBg(cv.color); prev.style.color=cv.color;
-  prev.innerHTML=ICON(cv.icon,24);
+  if(pfx==='c'){ const cv=contaVisual({nome:$('cNome')?$('cNome').value:''}); prev.style.background=tintBg(cv.color); prev.style.color=cv.color; prev.innerHTML=ICON(cv.icon,24); }
+  else { prev.style.background=tintBg('#7c5cff'); prev.style.color='#7c5cff'; prev.innerHTML=ICON('card',24); }
 }
 async function saveConta(id){
   const nome=$('cNome').value.trim(); if(!nome){toast('Informe o nome');return;}
@@ -2313,6 +2313,13 @@ function openCartao(id){
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Novo'} cartão</h2>
+    <div class="field"><label>Ícone do cartão</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
+        <button class="btn outline sm" onclick="pickLogo('k')">Escolher imagem</button>
+        <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>
+      </div>
+      <div class="note">Opcional. Suba o logo da bandeira/banco ou deixe a cor.</div></div>
     <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="kTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._cartaoTipo='pessoal';$('kTipoP').classList.add('on');$('kTipoN').classList.remove('on')">Pessoal</button>
@@ -2335,14 +2342,14 @@ function openCartao(id){
     ${id?`<button class="btn ghost" onclick="delCartao('${id}')">Remover cartão (vai p/ Arquivados)</button>`:''}
     ${id?`<button class="btn ghost" onclick="excluirCartaoDef('${id}')"><span class="danger">Excluir de vez (pede senha)</span></button>`:''}
   `);
-  window._cartaoTipo=tipo; window._kInc=e.incluir_principal!==false;
+  window._cartaoTipo=tipo; window._kInc=e.incluir_principal!==false; window._kLogo=e.logo_url||null;
 }
 async function saveCartao(id){
   const nome=$('kNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const fecha=parseInt($('kFecha').value), vence=parseInt($('kVence').value);
   if(!(fecha>=1&&fecha<=31)){toast('Dia de fechamento inválido');return;}
   if(!(vence>=1&&vence<=31)){toast('Dia de vencimento inválido');return;}
-  const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false};
+  const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false,logo_url:window._kLogo||null};
   let error;
   if(id)({error}=await sb.from('cartoes').update(row).eq('id',id));
   else ({error}=await sb.from('cartoes').insert(row));

@@ -80,7 +80,7 @@ body.modal-open{overflow:hidden}
 .seg button{flex:1;padding:8px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
-.content{flex:1;padding:16px;padding-bottom:96px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
+.content{flex:1;padding:16px;padding-bottom:124px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
 /* cards */
@@ -90,9 +90,9 @@ body.modal-open{overflow:hidden}
 .hero .big{font-size:33px;font-weight:800;letter-spacing:-.6px;margin:6px 0 2px;font-variant-numeric:tabular-nums}
 .hero .big.neg{color:#ffd2c9}
 .balrow{display:flex;gap:12px;margin-top:16px}
-.balrow .b{flex:1;background:rgba(255,255,255,.1);border-radius:12px;padding:11px 12px}
-.balrow .b .l{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.4px}
-.balrow .b .v{font-size:16px;font-weight:700;margin-top:2px}
+.balrow .b{flex:1;min-width:0;background:rgba(255,255,255,.1);border-radius:12px;padding:10px 10px}
+.balrow .b .l{font-size:10.5px;opacity:.8;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.balrow .b .v{font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .balrow .b .v.g{color:#a8f0c8}.balrow .b .v.r{color:#ffc2b8}
 
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 10px}
@@ -129,11 +129,12 @@ body.modal-open{overflow:hidden}
 .b.tap{cursor:pointer;transition:transform .1s}
 .b.tap:active{transform:scale(.97)}
 .tfilter{display:flex;gap:6px;margin-bottom:12px}
-.tfilter button{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line-2);background:#fff;font-weight:700;font-size:12.5px;color:var(--muted)}
+.tfilter button{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--line-2);background:var(--card);font-weight:700;font-size:12.5px;color:var(--muted)}
 .tfilter button.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
 .pendbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 60px);z-index:25;width:calc(100% - 24px);max-width:536px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(0,0,0,.12);border-radius:16px;padding:10px 14px}
 .lrow .mid{flex:1;min-width:0}
 .lrow .mid .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .mid .t.wrap{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
 .lrow .mid .s{font-size:12px;color:var(--muted);margin-top:1px}
 .lrow .amt{font-weight:700;font-size:15px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .amt.g{color:var(--green)}.amt.r{color:var(--red)}.amt.b{color:var(--blue)}
@@ -151,7 +152,7 @@ body.modal-open{overflow:hidden}
   display:flex;padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);max-width:560px;margin:0 auto}
 .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0;color:var(--muted);font-size:10.5px;font-weight:600}
 .tabbar button .i{font-size:20px;line-height:1}
-.tabbar button.on{color:var(--emerald)}
+.tabbar button.on{color:var(--nav-on)}
 .fab{position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom) + 74px);z-index:31;
   width:56px;height:56px;border-radius:18px;background:var(--coral);color:#fff;font-size:28px;
   display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(232,101,78,.45)}
@@ -184,9 +185,9 @@ body.modal-open{overflow:hidden}
 .loading{display:flex;align-items:center;justify-content:center;height:60dvh;color:var(--muted)}
 .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--emerald);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-.monthnav{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:14px;padding:8px 6px;box-shadow:var(--shadow);margin-bottom:14px}
-.monthnav button{width:36px;height:36px;border-radius:10px;font-size:18px;color:var(--emerald)}
-.monthnav .m{font-weight:700;font-size:14px}
+.monthnav{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:14px;padding:8px 6px;box-shadow:var(--shadow);margin-bottom:14px}
+.monthnav button{width:36px;height:36px;border-radius:10px;font-size:18px;color:var(--mint)}
+.monthnav .m{font-weight:700;font-size:14px;color:var(--ink)}
 .facard{background:linear-gradient(155deg,#2a2440,#3d3460);color:#fff}
 
 /* atalhos rápidos */
@@ -403,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.10";
+const APP_VER = "6.11";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -640,9 +641,11 @@ function applyTema(sc){
     s.setProperty('--input-bg','#1e2823');
     s.setProperty('--coral-soft','rgba(232,101,78,.20)');
     s.setProperty('--shadow','0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.4)');
+    s.setProperty('--nav-on', lighten(t.mint,0.12));
   }else{
     s.setProperty('--input-bg','#ffffff');
     s.setProperty('--shadow','0 1px 2px rgba(12,28,26,.06),0 8px 24px rgba(12,28,26,.06)');
+    s.setProperty('--nav-on', t.emerald);
   }
 }
 function isDark(){return localStorage.getItem('gf_dark')==='1';}
@@ -1016,11 +1019,11 @@ function toggleRecents(){
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);
   const dot = c.logo_url
-    ? `<div class="dot" style="background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center"></div>`
+    ? `<div class="dot" style="background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:76%;background-repeat:no-repeat;background-position:center"></div>`
     : `<div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>`;
   return `<div class="lrow" onclick="openConta('${c.id}')">
     ${dot}
-    <div class="mid"><div class="t">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div><div class="s">Saldo atual</div></div>
+    <div class="mid"><div class="t wrap">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div><div class="s">Saldo atual</div></div>
     <div class="amt ${s<0?'r':''}">${brl(s)}</div></div>`;
 }
 
@@ -1243,7 +1246,7 @@ function cardCartaoHTML(c){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
-        <div class="dot" style="${c.logo_url?`background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
+        <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
       <div style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -2228,7 +2231,7 @@ function openConta(id){
     <h2>${id?'Editar':'Nova'} conta</h2>
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
+        <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
         <button class="btn sm" onclick="logoAuto('c')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('c')">Usar cor</button>
@@ -2281,7 +2284,7 @@ function logoAuto(pfx){
   const url=`https://www.google.com/s2/favicons?domain=${dom}&sz=128`;
   window['_'+pfx+'Logo']=url;
   const prev=$(pfx+'LogoPrev');
-  if(prev){ prev.style.backgroundImage=`url("${url}")`; prev.style.backgroundSize='cover'; prev.innerHTML=''; }
+  if(prev){ prev.style.backgroundColor='#fff'; prev.style.color=''; prev.style.backgroundImage=`url("${url}")`; prev.style.backgroundSize='76%'; prev.style.backgroundRepeat='no-repeat'; prev.style.backgroundPosition='center'; prev.innerHTML=''; }
   toast('Logo sugerido ✅');
 }
 function pickLogo(pfx){
@@ -2302,7 +2305,7 @@ function pickLogo(pfx){
         catch(e){ data=cv.toDataURL('image/jpeg',0.82); }
         window['_'+pfx+'Logo']=data;
         const prev=$(pfx+'LogoPrev');
-        if(prev){ prev.style.backgroundImage=`url("${data}")`; prev.innerHTML=''; }
+        if(prev){ prev.style.backgroundColor='#fff'; prev.style.color=''; prev.style.backgroundImage=`url("${data}")`; prev.style.backgroundSize='76%'; prev.style.backgroundRepeat='no-repeat'; prev.style.backgroundPosition='center'; prev.innerHTML=''; }
       };
       img.src=rd.result;
     };
@@ -2343,7 +2346,7 @@ function openCartao(id){
     <h2>${id?'Editar':'Novo'} cartão</h2>
     <div class="field"><label>Ícone do cartão</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background-image:url("${e.logo_url}")`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
+        <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
         <button class="btn sm" onclick="logoAuto('k')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('k')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>

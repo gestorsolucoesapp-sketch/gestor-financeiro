@@ -979,7 +979,7 @@ function renderPendencias(){
     <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Dar baixa (${window._pendSel.size})</button></div>`;
   $('content').innerHTML=html;
 }
-function verTrans(f){ window._transFilter=f||'all'; go('trans'); }
+function verTrans(f){ window._transFilter=f||'all'; window._pendSel.clear(); go('trans'); }
 async function toggleLancPago(id){
   const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
   const novo = l.status==='pago'?'pendente':'pago';
@@ -987,23 +987,30 @@ async function toggleLancPago(id){
   if(error){toast('Erro: '+error.message);return;}
   await loadAll(); toast(novo==='pago'?'Confirmado — entrou na conta ✅':'Voltou a pendente (virtual)'); render();
 }
-function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); renderPendencias(); }
-function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>window._pendSel.has(l.id)); if(allSel)window._pendSel.clear(); else list.forEach(l=>window._pendSel.add(l.id)); renderPendencias(); }
+function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); render(); }
+function transPendentes(){
+  const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
+  return DATA.lancamentos.filter(l=>l.status==='pendente' && !l.cartao_id && srcOk(l.user_id) && lancScopeOk(l)
+    && (()=>{const d=new Date(l.data+'T00:00:00');return d>=ini&&d<=fim;})())
+    .sort((a,b)=> a.data<b.data?1:(a.data>b.data?-1:0));
+}
+function transSelAll(){ const l=transPendentes(); const all=l.length&&l.every(x=>window._pendSel.has(x.id)); if(all)window._pendSel.clear(); else l.forEach(x=>window._pendSel.add(x.id)); render(); }
+function pendSelAll(){ const list=pendentesList(); const allSel=list.every(l=>window._pendSel.has(l.id)); if(allSel)window._pendSel.clear(); else list.forEach(l=>window._pendSel.add(l.id)); render(); }
 function efetivarPendencias(){
   const ids=[...window._pendSel]; if(!ids.length)return;
   const tot=pendentesList().filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+Number(l.valor),0);
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
-  openSheet(`<h2 style="text-align:center;margin-top:6px">Dar baixa</h2>
-    <p class="note" style="text-align:center;font-size:14px"><b>${ids.length}</b> lançamento(s) · ${brl(tot)} serão marcados como <b>pagos</b> e abatidos do saldo.</p>
-    <div class="field"><label>Descontar de qual conta?</label>
+  openSheet(`<h2 style="text-align:center;margin-top:6px">Confirmar lançamentos</h2>
+    <p class="note" style="text-align:center;font-size:14px"><b>${ids.length}</b> lançamento(s) serão <b>confirmados</b> e lançados nas contas.</p>
+    <div class="field"><label>Confirmar em qual conta?</label>
       <select id="efetivConta">
         <option value="">Manter a conta de cada lançamento</option>
         ${contas.map(c=>`<option value="${c.id}">${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
       </select>
-      <div class="note">Use isto se você pagou de uma conta diferente da que estava programada.</div></div>
+      <div class="note">Use isto só se entrou/saiu de uma conta diferente da programada.</div></div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Não</button>
-      <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, dar baixa</button></div>`);
+      <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, confirmar</button></div>`);
 }
 async function efetivarConfirma(){
   const ids=[...window._pendSel]; if(!ids.length){closeSheet();return;}
@@ -1037,8 +1044,40 @@ function renderTrans(){
     <button class="${f==='receita'?'on':''}" onclick="verTrans('receita')">Receitas</button>
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
   </div>`;
+  if(f==='pendente'){
+    if(!list.length){
+      html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nada a confirmar em ${mesNome(viewMonth)} 🎉</p></div></div>`;
+      $('content').innerHTML=html; return;
+    }
+    const allSel=list.every(l=>window._pendSel.has(l.id));
+    html+=`<div class="note" style="margin-bottom:8px">Marque o que já entrou/saiu e toque em <b>Efetivar</b>. Pode misturar contas diferentes.</div>`;
+    html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div><b>${window._pendSel.size}</b> selecionada(s)</div>
+      <button class="lnk" onclick="transSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
+    const hoje=ymd(new Date());
+    html+=`<div class="card">`;
+    list.forEach(l=>{
+      const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
+      const isRec=l.tipo==='receita';
+      const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      const venc=(!isRec && l.data<hoje)?` <span class="pill" style="background:#fdecec;color:var(--coral)">vencida</span>`:'';
+      const sub=`${dt} · ${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
+      const sel=window._pendSel.has(l.id);
+      html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
+        <div class="dot">${cat?cat.icone:'•'}</div>
+        <div class="mid"><div class="t">${esc(l.descricao)}${venc}</div><div class="s">${sub}</div></div>
+        <div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>
+        <div class="pend-chk ${sel?'on':''}">${sel?'✓':''}</div></div>`;
+    });
+    html+=`</div><div style="height:90px"></div>`;
+    const tot=list.filter(l=>window._pendSel.has(l.id)).reduce((a,l)=>a+(l.tipo==='receita'?Number(l.valor):-Number(l.valor)),0);
+    html+=`<div class="pendbar ${window._pendSel.size?'':'hidden'}" id="pendBar">
+      <div><div class="note">Efeito no saldo</div><div style="font-weight:800;font-size:17px;color:${tot<0?'var(--coral)':'var(--mint)'}">${tot>=0?'+':''}${brl(tot)}</div></div>
+      <button class="btn coral" style="width:auto;padding:13px 22px" onclick="efetivarPendencias()">Efetivar (${window._pendSel.size})</button></div>`;
+    $('content').innerHTML=html; return;
+  }
   html+=`<div class="card">`;
-  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>${f==='pendente'?'Nada a confirmar 🎉':'Nenhuma '+(f==='receita'?'receita':f==='despesa'?'despesa':'transação')+' em '+mesNome(viewMonth)+'.'}</p>${f==='pendente'?'':`<button class="btn coral sm" onclick="openLanc()">Adicionar</button>`}</div>`;
+  if(!list.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
   else list.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
   $('content').innerHTML=html;

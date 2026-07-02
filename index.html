@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.26";
+const APP_VER = "6.27";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -2421,6 +2421,7 @@ function openConta(id){
         <button id="cInv1" class="${e.eh_investimento?'on':''}" onclick="window._cInv=true;$('cInv1').classList.add('on');$('cInv0').classList.remove('on')">Sim, investimento</button>
       </div><div class="note">Investimento fica <b>fora do saldo</b> do dia a dia e soma no <b>patrimônio</b>. Você transfere dinheiro pra ela pra investir.</div></div>
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
+    ${id?`<button class="btn outline" onclick="reajustarConta('${id}')">Reajustar saldo</button>`:''}
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}
   `);
   window._contaTipo=tipo; window._cInc=e.incluir_principal!==false; window._cInv=e.eh_investimento===true; window._cLogo=e.logo_url||null;
@@ -2500,6 +2501,37 @@ async function arquivarConta(id){
   const {error}=await sb.from('contas').update({arquivada:true}).eq('id',id);
   if(error){toast('Erro: '+error.message);return;}
   closeSheet(); await loadAll(); toast('Conta arquivada'); render();
+}
+function reajustarConta(id){
+  const c=DATA.contas.find(x=>x.id===id); if(!c) return;
+  const atual=saldoConta(id);
+  openSheet(`
+    <h2>Reajustar saldo</h2>
+    <p class="note" style="font-size:14px">Saldo calculado hoje em <b>${esc(c.nome)}</b>: <b>${brl(atual)}</b>.<br>Informe quanto você <b>realmente</b> tem agora nessa conta. O app cria um lançamento com a diferença na categoria <b>"Reajuste em contas"</b> pra deixar o saldo batendo.</p>
+    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Cancelar</button>
+      <button class="btn coral" style="flex:1" onclick="reajustarConfirma('${id}')">Reajustar</button></div>
+  `);
+}
+async function reajustarConfirma(id){
+  const c=DATA.contas.find(x=>x.id===id); if(!c) return;
+  const novo=evalValor($('rjValor')?$('rjValor').value:'');
+  if(isNaN(novo)){ toast('Valor inválido'); return; }
+  const atual=saldoConta(id);
+  const diff=Math.round((novo-atual)*100)/100;
+  if(diff===0){ toast('O saldo já está igual — nada a ajustar'); closeSheet(); return; }
+  const tipo = diff>0?'receita':'despesa';
+  let cat=DATA.categorias.find(k=>k.user_id===USER.id && (k.nome||'').toLowerCase()==='reajuste em contas' && k.tipo===tipo);
+  if(!cat){
+    const {data,error}=await sb.from('categorias').insert({user_id:USER.id,nome:'Reajuste em contas',tipo}).select().single();
+    if(error){toast('Erro: '+error.message);return;}
+    DATA.categorias.push(data); cat=data;
+  }
+  const row={user_id:USER.id,tipo,descricao:'Reajuste de saldo',valor:Math.abs(diff),data:ymd(new Date()),status:'pago',conta_id:id,categoria_id:cat.id};
+  const {error}=await sb.from('lancamentos').insert(row);
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); await loadAll(); toast((diff>0?'+':'−')+brl(Math.abs(diff)).replace('R$ ','R$ ')+' · saldo reajustado ✅'); render();
 }
 
 // ---- CARTÃO ----

@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.18";
+const APP_VER = "6.19";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -985,7 +985,7 @@ function evolucaoMeses(n){
 // ============ HOME ============
 function balancoMes(d){
   const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
-  let rec=0,desp=0,aporte=0;
+  let rec=0,desp=0;
   for(const l of DATA.lancamentos){
     if(l.cartao_id) continue; // gastos de cartão entram via fatura
     if(!srcOk(l.user_id)) continue;
@@ -993,11 +993,11 @@ function balancoMes(d){
     if(ld<ini||ld>fim) continue;
     if(l.tipo==='transferencia'){
       const dest=contaById(l.conta_destino_id), orig=contaById(l.conta_id);
-      if(!dest||!dest.eh_investimento) continue;   // só aporte quando o destino é investimento
-      if(!orig||orig.eh_investimento) continue;     // e a origem é conta gastável
+      if(!dest||!dest.eh_investimento) continue;   // só conta como saída quando vai p/ investimento
+      if(!orig||orig.eh_investimento) continue;     // e sai de conta de movimentação
       if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
       else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && orig.tipo!==scope) continue; }
-      aporte+=Number(l.valor)||0;
+      desp+=Number(l.valor)||0;   // saída normal (o dinheiro vai pro investimento, que conta à parte)
       continue;
     }
     const conta=contaById(l.conta_id);
@@ -1006,7 +1006,7 @@ function balancoMes(d){
     if(l.tipo==='receita') rec+=Number(l.valor)||0;
     else desp+=Number(l.valor)||0;
   }
-  return {rec,desp,aporte,saldo:rec-desp-aporte};
+  return {rec,desp,saldo:rec-desp};
 }
 function gastoCartaoMes(d){
   const ym=ymd(firstOfMonth(d)).slice(0,7);
@@ -1027,7 +1027,6 @@ function renderHome(){
   const b=balancoMes(viewMonth);
   const gc=gastoCartaoMes(viewMonth);
   const balCard=b.saldo-gc;
-  const ap=b.aporte||0;
   // lançamentos recentes (não-cartão) do scope
   const recents=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false;
@@ -1052,7 +1051,7 @@ function renderHome(){
       <div class="b tap" onclick="verTrans('despesa')"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
       <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço${gc>0?' (c/ cartão)':''}</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
-    ${(gc>0||ap>0)?`<div class="balrow">${gc>0?`<div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gc)}</div></div>`:''}${ap>0?`<div class="b"><div class="l">Aporte p/ investir</div><div class="v r">${brl(ap)}</div></div>`:''}<div class="b"><div class="l">Total que sai no mês</div><div class="v r">${brl(b.desp+gc+ap)}</div></div></div>`:''}
+    ${gc>0?`<div class="balrow"><div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gc)}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gc)}</div></div></div>`:''}
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 

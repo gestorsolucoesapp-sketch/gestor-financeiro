@@ -94,6 +94,15 @@ body.modal-open{overflow:hidden}
 .balrow .b .l{font-size:10.5px;opacity:.8;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .balrow .b .v{font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .balrow .b .v.g{color:#a8f0c8}.balrow .b .v.r{color:#ffc2b8}
+.saidas{margin-top:12px;background:rgba(255,255,255,.06);border-radius:12px;padding:2px 12px}
+.saidas .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:13.5px;border-bottom:1px solid rgba(255,255,255,.07)}
+.saidas .srow:last-child{border-bottom:0}
+.saidas .srow span{opacity:.85}
+.saidas .srow b{font-variant-numeric:tabular-nums;color:#ffc2b8;font-weight:700}
+.saidas .srow.inv b{color:#a8f0c8}
+.saidas .srow.tot{font-weight:800}
+.saidas .srow.tot span{opacity:1}
+.saidas .srow.tot b{color:#ffd7cf;font-size:15.5px}
 
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 10px}
 .sec-head h3{margin:0;font-size:15px;font-weight:700}
@@ -404,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.19";
+const APP_VER = "6.20";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -987,19 +996,11 @@ function balancoMes(d){
   const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
   let rec=0,desp=0;
   for(const l of DATA.lancamentos){
+    if(l.tipo==='transferencia') continue;
     if(l.cartao_id) continue; // gastos de cartão entram via fatura
     if(!srcOk(l.user_id)) continue;
     const ld=new Date(l.data+'T00:00:00');
     if(ld<ini||ld>fim) continue;
-    if(l.tipo==='transferencia'){
-      const dest=contaById(l.conta_destino_id), orig=contaById(l.conta_id);
-      if(!dest||!dest.eh_investimento) continue;   // só conta como saída quando vai p/ investimento
-      if(!orig||orig.eh_investimento) continue;     // e sai de conta de movimentação
-      if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
-      else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && orig.tipo!==scope) continue; }
-      desp+=Number(l.valor)||0;   // saída normal (o dinheiro vai pro investimento, que conta à parte)
-      continue;
-    }
     const conta=contaById(l.conta_id);
     if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
     else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
@@ -1007,6 +1008,37 @@ function balancoMes(d){
     else desp+=Number(l.valor)||0;
   }
   return {rec,desp,saldo:rec-desp};
+}
+// Detalhamento das saídas do mês (contas pagas, a pagar, investimento e cônjuge)
+function saidasMes(d){
+  const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
+  const splitConj = (source==='casal');
+  let pagas=0,aPagar=0,invest=0, cPagas=0,cAPagar=0,cInvest=0;
+  for(const l of DATA.lancamentos){
+    if(l.cartao_id) continue;
+    if(!srcOk(l.user_id)) continue;
+    const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
+    let bucket=null; const val=Number(l.valor)||0;
+    if(l.tipo==='transferencia'){
+      const dest=contaById(l.conta_destino_id), orig=contaById(l.conta_id);
+      if(!orig||orig.eh_investimento) continue;           // precisa sair de conta de movimentação
+      if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+      else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && orig.tipo!==scope) continue; }
+      if(dest && dest.eh_investimento) bucket='invest';   // aporte p/ investimento
+      else if(!dest) bucket = (l.status==='pago'?'pagas':'aPagar'); // transferência p/ cônjuge (sai da conta)
+      else continue;                                       // transferência entre contas próprias = neutra
+    } else if(l.tipo==='despesa'){
+      const conta=contaById(l.conta_id);
+      if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+      else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta||conta.tipo!==scope)) continue; }
+      bucket = (l.status==='pago'?'pagas':'aPagar');
+    } else continue;
+    const conj = splitConj && l.user_id!==USER.id;
+    if(bucket==='pagas'){ conj?cPagas+=val:pagas+=val; }
+    else if(bucket==='aPagar'){ conj?cAPagar+=val:aPagar+=val; }
+    else if(bucket==='invest'){ conj?cInvest+=val:invest+=val; }
+  }
+  return {pagas,aPagar,invest, conjuge:cPagas+cAPagar+cInvest};
 }
 function gastoCartaoMes(d){
   const ym=ymd(firstOfMonth(d)).slice(0,7);
@@ -1026,7 +1058,9 @@ function renderHome(){
   const tot=saldoTotal();
   const b=balancoMes(viewMonth);
   const gc=gastoCartaoMes(viewMonth);
-  const balCard=b.saldo-gc;
+  const sd=saidasMes(viewMonth);
+  const totalGastos=sd.pagas+sd.aPagar+gc+sd.invest+sd.conjuge;
+  const balCard=b.rec-totalGastos;
   // lançamentos recentes (não-cartão) do scope
   const recents=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false;
@@ -1045,14 +1079,20 @@ function renderHome(){
     <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''} <span style="opacity:.7;font-weight:600">(efetivado)</span></div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
     ${(()=>{const sp=saldoPendTotal();return sp!==0?`<div class="proj">${sp>0?'+':''}${brl(sp)} a confirmar · projetado <b>${brl(tot+sp)}</b></div>`:'';})()}
-    ${barRecDesp(b.rec,b.desp)}
+    ${barRecDesp(b.rec,totalGastos)}
     <div class="balrow">
-      <div class="b tap" onclick="verTrans('receita')"><div class="l">▲ Receitas</div><div class="v g">${brl(b.rec)}</div></div>
-      <div class="b tap" onclick="verTrans('despesa')"><div class="l">▼ Despesas</div><div class="v r">${brl(b.desp)}</div></div>
-      <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço${gc>0?' (c/ cartão)':''}</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
+      <div class="b tap" onclick="verTrans('receita')"><div class="l">Receitas</div><div class="v g">${brl(b.rec)}</div></div>
+      <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
-    ${gc>0?`<div class="balrow"><div class="b"><div class="l">Gastos no cartão</div><div class="v r">${brl(gc)}</div></div><div class="b"><div class="l">Total gasto no mês</div><div class="v r">${brl(b.desp+gc)}</div></div></div>`:''}
-    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
+    <div class="saidas">
+      <div class="srow tap" onclick="verTrans('despesa')"><span>Contas pagas</span><b>${brl(sd.pagas)}</b></div>
+      <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar</span><b>${brl(sd.aPagar)}</b></div>
+      ${gc>0?`<div class="srow tap" onclick="go('cartoes')"><span>Gastos no cartão</span><b>${brl(gc)}</b></div>`:''}
+      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b>${brl(sd.invest)}</b></div>`:''}
+      ${sd.conjuge>0?`<div class="srow"><span>Gasto do cônjuge</span><b>${brl(sd.conjuge)}</b></div>`:''}
+      <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
+    </div>
+    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
   // atalhos rápidos

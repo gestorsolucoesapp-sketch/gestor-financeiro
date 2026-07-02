@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.28";
+const APP_VER = "6.29";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -932,7 +932,10 @@ function mesesDesde(dataStr){
 }
 function valorAtualInvest(inv){
   const taxa=Number(inv.taxa_mensal)||0;
-  const meses=mesesDesde(inv.data_aplicacao);
+  if(!inv.data_aplicacao) return Number(inv.valor_aplicado||0);
+  const a=new Date(inv.data_aplicacao+'T00:00:00'), b=new Date();
+  const dias=Math.max(0,(b-a)/86400000);
+  const meses=dias/30.4375; // fração de mês → rende diariamente
   return Number(inv.valor_aplicado||0)*Math.pow(1+taxa/100, meses);
 }
 function investimentosScope(){ return DATA.investimentos.filter(i=>!i.arquivado && srcOk(i.user_id)); }
@@ -940,7 +943,7 @@ function totalInvestido(){ return investimentosScope().reduce((a,i)=>a+valorAtua
 function patrimonioTotal(){
   let s=saldoTotal();
   s+=totalInvestidoContas();
-  investimentosScope().filter(i=>i.incluir_patrimonio).forEach(i=>s+=valorAtualInvest(i));
+  investimentosScope().filter(i=>i.incluir_patrimonio!==false).forEach(i=>s+=valorAtualInvest(i));
   return s;
 }
 // agregações para gráficos/orçamento
@@ -1101,7 +1104,7 @@ function renderHome(){
       ${(MYPARTNERS.length>0 && (source==='eu'||source==='casal'))?`<div class="srow"><span>Gasto · ${MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge'}</span><b>${brl(sd.conjuge)}</b></div>`:''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>
-    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
+    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
   // atalhos rápidos
@@ -1836,7 +1839,7 @@ function renderInvestimentos(){
       const tx = Number(i.taxa_mensal)||0;
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">
         <div class="dot" style="background:#e9f3f1">${ic}</div>
-        <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio?'':'<span class="pill neg">fora do patrimônio</span>'}</div>
+        <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio===false?'<span class="pill neg">fora do patrimônio</span>':''}</div>
           <div class="s">${tx>0?tx.toString().replace('.',',')+'%/mês · ':''}rend ${r>=0?'+':''}${brl(r)}</div></div>
         <div class="amt g">${brl(atual)}</div></div>`;
     });

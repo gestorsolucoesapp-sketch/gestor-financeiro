@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.16";
+const APP_VER = "6.17";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -501,6 +501,52 @@ const firstOfMonth=d=>new Date(d.getFullYear(),d.getMonth(),1);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}));}
+// ============ OFFLINE (fila + cache) ============
+function isNetErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('failed to fetch')||m.includes('load failed')||m.includes('networkerror')||m.includes('network request failed')||m.includes('fetch event')||m.includes('offline'); }
+function saveCache(){ try{ localStorage.setItem('gf_cache', JSON.stringify({contas:DATA.contas,categorias:DATA.categorias,cartoes:DATA.cartoes,lancamentos:DATA.lancamentos,orcamentos:DATA.orcamentos,investimentos:DATA.investimentos})); }catch(e){} }
+function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; return true; } }catch(e){} return false; }
+function outbox(){ try{ return JSON.parse(localStorage.getItem('gf_outbox')||'[]'); }catch(e){ return []; } }
+function setOutbox(q){ try{ localStorage.setItem('gf_outbox', JSON.stringify(q)); }catch(e){} }
+function queueInsert(rows){
+  const q=outbox(); q.push({rows, ts:Date.now()}); setOutbox(q);
+  rows.forEach(r=>{ r._offline=true; DATA.lancamentos.unshift(r); });
+  saveCache(); updateOfflinePill();
+}
+async function insertRows(rows){
+  rows.forEach(r=>{ if(!r.id) r.id=uuid(); });
+  if(navigator.onLine){
+    try{
+      const {error}=await sb.from('lancamentos').insert(rows);
+      if(error){ if(isNetErr(error)){ queueInsert(rows); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false}; }
+      return {ok:true};
+    }catch(e){ if(isNetErr(e)){ queueInsert(rows); return {ok:true,queued:true}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
+  }
+  queueInsert(rows); return {ok:true,queued:true};
+}
+async function flushOutbox(){
+  updateOfflinePill();
+  if(!navigator.onLine) return;
+  const q=outbox(); if(!q.length) return;
+  const keep=[]; let sent=0;
+  for(const op of q){
+    try{
+      const clean=op.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
+      const {error}=await sb.from('lancamentos').upsert(clean,{onConflict:'id'});
+      if(error){ keep.push(op); } else { sent++; }
+    }catch(e){ keep.push(op); }
+  }
+  setOutbox(keep);
+  if(sent>0){ try{ await loadAll(); }catch(e){} render(); toast(sent+' lançamento(s) sincronizado(s) ✅'); }
+  updateOfflinePill();
+}
+function updateOfflinePill(){
+  let el=document.getElementById('offlinePill');
+  if(!el){ el=document.createElement('div'); el.id='offlinePill'; el.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;text-align:center;font-size:12.5px;font-weight:700;padding:6px 10px'; document.body.appendChild(el); }
+  const n=outbox().length;
+  if(!navigator.onLine){ el.style.display='block'; el.style.background='#b45309'; el.style.color='#fff'; el.textContent = n? ('Offline · '+n+' na fila (salvos no aparelho)') : 'Offline · dá pra lançar, sincroniza depois'; }
+  else if(n>0){ el.style.display='block'; el.style.background='#1f7a4d'; el.style.color='#fff'; el.textContent='Sincronizando '+n+'…'; }
+  else { el.style.display='none'; }
+}
 
 // scope filter helpers
 function srcOk(uid){
@@ -724,6 +770,13 @@ async function afterLogin(){
   go('home');
   maybeShowInstall();
   checkBancoURL();
+  updateOfflinePill();
+  flushOutbox();
+  if(!window._offlineHooked){
+    window._offlineHooked=true;
+    window.addEventListener('online', ()=>{ updateOfflinePill(); flushOutbox(); });
+    window.addEventListener('offline', updateOfflinePill);
+  }
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----
 let _rtChannel=null;
@@ -786,14 +839,21 @@ function abrirNotificacoes(){
 }
 
 async function loadAll(){
-  const [c1,c2,c3,c4]=await Promise.all([
-    sb.from('contas').select('*').order('criado_em'),
-    sb.from('categorias').select('*').order('nome'),
-    sb.from('cartoes').select('*').order('criado_em'),
-    sb.from('lancamentos').select('*').order('data',{ascending:false}),
-  ]);
+  let c1,c2,c3,c4;
+  try{
+    [c1,c2,c3,c4]=await Promise.all([
+      sb.from('contas').select('*').order('criado_em'),
+      sb.from('categorias').select('*').order('nome'),
+      sb.from('cartoes').select('*').order('criado_em'),
+      sb.from('lancamentos').select('*').order('data',{ascending:false}),
+    ]);
+  }catch(e){
+    if((isNetErr(e)||!navigator.onLine) && loadCache()){ updateOfflinePill(); return; }
+    throw e;
+  }
   if(c1.error||c2.error||c3.error||c4.error){
     const e=c1.error||c2.error||c3.error||c4.error;
+    if((isNetErr(e)||!navigator.onLine) && loadCache()){ updateOfflinePill(); return; }
     $('content').innerHTML='<div class="card"><b>Erro ao carregar dados.</b><div class="note">'+esc(e.message)+'<br><br>Verifique se você rodou o SQL das tabelas no Supabase.</div></div>';
     throw e;
   }
@@ -802,6 +862,7 @@ async function loadAll(){
   DATA.orcamentos = o.error ? [] : o.data;
   const inv=await sb.from('investimentos').select('*');
   DATA.investimentos = inv.error ? [] : inv.data;
+  saveCache(); updateOfflinePill();
   const sh=await sb.from('compartilhamentos').select('*');
   const shares = sh.error ? [] : sh.data;
   MYPARTNERS = shares.filter(s=>s.viewer_id===USER.id && s.status==='ativo').map(s=>({owner_id:s.owner_id, apelido:s.apelido||'Parceiro', id:s.id}));
@@ -1987,14 +2048,18 @@ function renderLancDynamic(e){
       <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
   } else {
-    // define o meio ANTES de montar (sem sugestão na despesa)
-    if(lancType==='receita'){ window._meio='conta'; }
+    // define o meio ANTES de montar (sem sugestão)
+    if(lancType==='receita'){ window._meio = e.conta_id?(e.status==='pago'?'recebido':'areceber'):null; }
     else { window._meio = e.cartao_id?'cartao':(e.conta_id?(e.status==='pago'?'debito':'conta'):(window._presetMeio||null)); }
     if(lancType==='despesa'){
       h+=`<div class="field"><label>Pagar com</label>
         <div class="seg2"><button id="meioDebito" class="${window._meio==='debito'?'on':''}" onclick="setMeio('debito')">Débito</button>
         <button id="meioConta" class="${window._meio==='conta'?'on':''}" onclick="setMeio('conta')">A prazo</button>
         <button id="meioCartao" class="${window._meio==='cartao'?'on':''}" onclick="setMeio('cartao')">Cartão</button></div></div>`;
+    } else if(lancType==='receita'){
+      h+=`<div class="field"><label>Entrada</label>
+        <div class="seg2"><button id="meioRecebido" class="${window._meio==='recebido'?'on':''}" onclick="setMeio('recebido')">Recebido</button>
+        <button id="meioAreceber" class="${window._meio==='areceber'?'on':''}" onclick="setMeio('areceber')">A receber</button></div></div>`;
     }
     h+=`<div id="meioWrap"></div>`;
     // categoria
@@ -2018,7 +2083,7 @@ function updateDestContas(e){
   const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
   sel.innerHTML = list.length ? list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('') : `<option value="">(sem contas)</option>`;
 }
-function setMeio(m){window._meio=m;['Debito','Conta','Cartao'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
+function setMeio(m){window._meio=m;['Debito','Conta','Cartao','Recebido','Areceber'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
 function renderMeio(e){
   e=e||{};
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
@@ -2026,7 +2091,7 @@ function renderMeio(e){
   let h='';
   if(!window._meio){
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
-    $('meioWrap').innerHTML=`<div class="note" style="padding:6px 2px 2px">Escolha <b>Débito</b>, <b>A prazo</b> ou <b>Cartão</b> acima pra continuar.</div>`;
+    $('meioWrap').innerHTML=`<div class="note" style="padding:6px 2px 2px">${lancType==='receita'?'Escolha <b>Recebido</b> ou <b>A receber</b> acima pra continuar.':'Escolha <b>Débito</b>, <b>A prazo</b> ou <b>Cartão</b> acima pra continuar.'}</div>`;
     return;
   }
   if(window._meio==='cartao'){
@@ -2049,6 +2114,10 @@ function renderMeio(e){
       if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
       setStatus(window._meio==='debito'?'pago':'pendente');
       h+=`<div class="note" style="padding:4px 2px 0">${window._meio==='debito'?'Sai da conta <b>na hora</b> — já entra como efetivado.':'Fica <b>pendente</b> até você confirmar (vira conta a pagar).'}</div>`;
+    } else if(lancType==='receita'){
+      if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
+      setStatus(window._meio==='recebido'?'pago':'pendente');
+      h+=`<div class="note" style="padding:4px 2px 0">${window._meio==='recebido'?'Entra na conta <b>na hora</b> — já efetivado.':'Fica <b>a receber</b> (pendente) até você confirmar.'}</div>`;
     } else {
       if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
     }
@@ -2097,7 +2166,7 @@ function onCatSelect(v){
 }
 function ajustaStatusData(){
   if(!window._lancEdit && lancType!=='transferencia'){
-    setStatus((window._meio==='cartao'||window._meio==='debito') ? 'pago' : 'pendente');
+    setStatus((window._meio==='cartao'||window._meio==='debito'||window._meio==='recebido') ? 'pago' : 'pendente');
   }
   try{updateFaturaNote();}catch(e){}
 }
@@ -2142,15 +2211,17 @@ async function saveLanc(id){
   if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
   if(!(valor>0)){toast('Informe um valor válido');return;}
   if(!data){toast('Informe a data');return;}
-  if(lancType!=='transferencia' && !window._meio){toast('Escolha como pagar: Débito, A prazo ou Cartão');return;}
+  if(lancType!=='transferencia' && !window._meio){toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
-  if(!isCardPurchase && !window._lancStatus){toast('Toque em Pago ou Pendente pra confirmar');return;}
+  if(!isCardPurchase && !window._lancStatus){toast('Escolha uma opção acima pra continuar');return;}
+  if(id && !navigator.onLine){ toast('Sem internet — editar precisa de conexão. Novos lançamentos podem ser feitos offline.'); return; }
 
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;
     const destOwner = $('lDestOwner') ? $('lDestOwner').value : USER.id;
     if(!d){toast('Selecione a conta de destino');return;}
     if(destOwner!==USER.id){
+      if(!navigator.onLine){ toast('Transferência para parceiro precisa de internet.'); return; }
       const {error}=await sb.rpc('transferir_parceiro',{p_conta_origem:o,p_owner_destino:destOwner,p_conta_destino:d,p_valor:valor,p_descricao:desc,p_data:data});
       if(error){toast('Erro: '+error.message);return;}
       closeSheet(); await loadAll(); toast('Transferência enviada ✅'); render(); return;
@@ -2193,9 +2264,12 @@ async function saveLanc(id){
           grupo_id:n>1?grupo:null,parcela:n>1?i+1:null,parcelas:n>1?n:null});
       }
     }
-    const {error}=await sb.from('lancamentos').insert(rows);
-    if(error){toast('Erro: '+error.message);return;}
-    closeSheet(); await loadAll(); toast(rec?'Recorrência criada (24 meses) 🔁':(id?'Compra atualizada':'Compra registrada')); render(); return;
+    const r=await insertRows(rows);
+    if(!r.ok) return;
+    closeSheet();
+    if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
+    else { await loadAll(); toast(rec?'Recorrência criada (24 meses)':(id?'Compra atualizada':'Compra registrada')); render(); }
+    return;
   }
 
   // conta normal
@@ -2211,9 +2285,12 @@ async function saveLanc(id){
         status: i===0?(window._lancStatus||'pago'):'pendente',
         conta_id:contaId,categoria_id:window._catSel||null,grupo_id:grupo});
     }
-    const {error}=await sb.from('lancamentos').insert(rows);
-    if(error){toast('Erro: '+error.message);return;}
-    closeSheet(); await loadAll(); toast(recorr+'x criadas'); render(); return;
+    const r=await insertRows(rows);
+    if(!r.ok) return;
+    closeSheet();
+    if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
+    else { await loadAll(); toast(recorr+'x criadas'); render(); }
+    return;
   }
   const row={user_id:USER.id,tipo:lancType,descricao:desc,valor,data,status:window._lancStatus||'pago',
     conta_id:contaId,categoria_id:window._catSel||null};
@@ -2227,11 +2304,17 @@ function addMonths(dateStr,n){
   return ymd(t);
 }
 async function upsertLanc(id,row){
-  let error;
-  if(id){({error}=await sb.from('lancamentos').update(row).eq('id',id));}
-  else{({error}=await sb.from('lancamentos').insert(row));}
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast(id?'Transação atualizada':'Transação adicionada'); render();
+  if(id){
+    const {error}=await sb.from('lancamentos').update(row).eq('id',id);
+    if(error){toast('Erro: '+error.message);return;}
+    closeSheet(); await loadAll(); toast('Transação atualizada'); render(); return;
+  }
+  if(!row.id) row.id=uuid();
+  const r=await insertRows([row]);
+  if(!r.ok) return;
+  closeSheet();
+  if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
+  else { await loadAll(); toast('Transação adicionada'); render(); }
 }
 async function delLanc(id){
   const l=DATA.lancamentos.find(x=>x.id===id);

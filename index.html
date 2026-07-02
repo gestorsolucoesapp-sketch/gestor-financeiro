@@ -316,7 +316,7 @@ body.modal-open{overflow:hidden}
       <h2>Entrar</h2>
       <div class="sub">Acesse sua conta</div>
       <div id="savedAccounts"></div>
-      <div class="field"><label>E-mail</label><input id="liEmail" type="email" autocomplete="username" placeholder="voce@email.com"></div>
+      <div class="field"><label>E-mail</label><input id="liEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="voce@email.com"></div>
       <div class="field"><label>Senha</label><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
       <label class="savepass-row"><input type="checkbox" id="liSavePass"> Salvar senha neste aparelho</label>
       <button class="btn" onclick="doLogin()">Entrar</button>
@@ -327,7 +327,7 @@ body.modal-open{overflow:hidden}
       <h2>Criar conta</h2>
       <div class="sub">Leva menos de um minuto</div>
       <div class="field"><label>Nome</label><input id="suNome" type="text" autocomplete="name" placeholder="Seu nome"></div>
-      <div class="field"><label>E-mail</label><input id="suEmail" type="email" autocomplete="email" placeholder="voce@email.com"></div>
+      <div class="field"><label>E-mail</label><input id="suEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email" placeholder="voce@email.com"></div>
       <div class="field"><label>Senha</label><input id="suPass" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
       <button class="btn coral" onclick="doSignup()">Criar conta</button>
       <div class="auth-switch">Já tem conta? <b onclick="showLogin()">Entrar</b></div>
@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.20";
+const APP_VER = "6.21";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============

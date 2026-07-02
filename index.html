@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.21";
+const APP_VER = "6.22";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1282,7 +1282,6 @@ function renderTrans(){
   let html=monthNav('trans');
   html+=`<div class="tfilter">
     <button class="${f==='all'?'on':''}" onclick="verTrans('all')">Tudo</button>
-    <button class="${f==='pendente'?'on':''}" onclick="verTrans('pendente')">A confirmar</button>
     <button class="${f==='receita'?'on':''}" onclick="verTrans('receita')">Receitas</button>
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
   </div>`;

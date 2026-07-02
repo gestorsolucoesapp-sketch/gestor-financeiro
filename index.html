@@ -404,7 +404,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.15";
+const APP_VER = "6.16";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1989,10 +1989,11 @@ function renderLancDynamic(e){
   } else {
     // define o meio ANTES de montar (sem sugestão na despesa)
     if(lancType==='receita'){ window._meio='conta'; }
-    else { window._meio = e.cartao_id?'cartao':(window._presetMeio||null); }
+    else { window._meio = e.cartao_id?'cartao':(e.conta_id?(e.status==='pago'?'debito':'conta'):(window._presetMeio||null)); }
     if(lancType==='despesa'){
       h+=`<div class="field"><label>Pagar com</label>
-        <div class="seg2"><button id="meioConta" class="${window._meio==='conta'?'on':''}" onclick="setMeio('conta')">Conta</button>
+        <div class="seg2"><button id="meioDebito" class="${window._meio==='debito'?'on':''}" onclick="setMeio('debito')">Débito</button>
+        <button id="meioConta" class="${window._meio==='conta'?'on':''}" onclick="setMeio('conta')">A prazo</button>
         <button id="meioCartao" class="${window._meio==='cartao'?'on':''}" onclick="setMeio('cartao')">Cartão</button></div></div>`;
     }
     h+=`<div id="meioWrap"></div>`;
@@ -2017,7 +2018,7 @@ function updateDestContas(e){
   const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
   sel.innerHTML = list.length ? list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('') : `<option value="">(sem contas)</option>`;
 }
-function setMeio(m){window._meio=m;document.getElementById('meioConta').classList.toggle('on',m==='conta');const mc=document.getElementById('meioCartao');if(mc)mc.classList.toggle('on',m==='cartao');renderMeio(window._lancEdit||{});}
+function setMeio(m){window._meio=m;['Debito','Conta','Cartao'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
 function renderMeio(e){
   e=e||{};
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
@@ -2025,7 +2026,7 @@ function renderMeio(e){
   let h='';
   if(!window._meio){
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
-    $('meioWrap').innerHTML=`<div class="note" style="padding:6px 2px 2px">👆 Escolha <b>Conta</b> ou <b>Cartão</b> acima pra continuar.</div>`;
+    $('meioWrap').innerHTML=`<div class="note" style="padding:6px 2px 2px">Escolha <b>Débito</b>, <b>A prazo</b> ou <b>Cartão</b> acima pra continuar.</div>`;
     return;
   }
   if(window._meio==='cartao'){
@@ -2044,7 +2045,13 @@ function renderMeio(e){
         <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
         <div class="note" id="recorrNote">Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.</div></div>`;
     }
-    if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
+    if(lancType==='despesa'){
+      if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
+      setStatus(window._meio==='debito'?'pago':'pendente');
+      h+=`<div class="note" style="padding:4px 2px 0">${window._meio==='debito'?'Sai da conta <b>na hora</b> — já entra como efetivado.':'Fica <b>pendente</b> até você confirmar (vira conta a pagar).'}</div>`;
+    } else {
+      if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
+    }
   }
   $('meioWrap').innerHTML=h;
   const lp=$('lParcelas'); if(lp){lp.addEventListener('change',()=>{updateParcNote();updateFaturaNote();});$('lValor').addEventListener('input',updateParcNote);updateParcNote();}
@@ -2090,7 +2097,7 @@ function onCatSelect(v){
 }
 function ajustaStatusData(){
   if(!window._lancEdit && lancType!=='transferencia'){
-    setStatus(window._meio==='cartao' ? 'pago' : 'pendente');
+    setStatus((window._meio==='cartao'||window._meio==='debito') ? 'pago' : 'pendente');
   }
   try{updateFaturaNote();}catch(e){}
 }
@@ -2135,7 +2142,7 @@ async function saveLanc(id){
   if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
   if(!(valor>0)){toast('Informe um valor válido');return;}
   if(!data){toast('Informe a data');return;}
-  if(lancType!=='transferencia' && !window._meio){toast('Escolha Conta ou Cartão');return;}
+  if(lancType!=='transferencia' && !window._meio){toast('Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
   if(!isCardPurchase && !window._lancStatus){toast('Toque em Pago ou Pendente pra confirmar');return;}
 

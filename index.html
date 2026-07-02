@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.29"; /* r2 */
+const APP_VER = "6.30";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1236,7 +1236,53 @@ async function toggleLancPago(id){
   const novo = l.status==='pago'?'pendente':'pago';
   const {error}=await sb.from('lancamentos').update({status:novo}).eq('id',id);
   if(error){toast('Erro: '+error.message);return;}
-  await loadAll(); toast(novo==='pago'?'Confirmado — entrou na conta ✅':'Voltou a pendente (virtual)'); render();
+  await loadAll(); render();
+  if(novo==='pago' && l.tipo==='transferencia'){
+    const dest=contaById(l.conta_destino_id);
+    if(dest && dest.eh_investimento){ alocarAporte(Number(l.valor)||0); return; }
+  }
+  toast(novo==='pago'?'Confirmado — entrou na conta ✅':'Voltou a pendente (virtual)');
+}
+function alocarAporte(valor){
+  const invs=DATA.investimentos.filter(i=>!i.arquivado && i.user_id===USER.id);
+  window._apTipo='renda_fixa';
+  openSheet(`
+    <h2>Alocar aporte</h2>
+    <p class="note" style="font-size:14px">Aporte de <b>${brl(valor)}</b> confirmado. Em qual investimento ele entrou? O app soma nele e passa a render.</p>
+    ${invs.length?`<div class="field"><label>Investimento</label><select id="apInv" onchange="apToggleNovo()">
+      ${invs.map(i=>`<option value="${i.id}">${esc(i.nome)} — ${brl(valorAtualInvest(i))}</option>`).join('')}
+      <option value="__novo__">＋ Criar novo investimento</option>
+    </select></div>`:''}
+    <div id="apNovoWrap" class="${invs.length?'hidden':''}">
+      <div class="field"><label>Nome</label><input id="apNome" placeholder="Ex: CDB C6, Poupança Caixa…"></div>
+      <div class="field"><label>Tipo</label><div class="seg2">
+        <button id="apT0" onclick="window._apTipo='poupanca';apTsel()">Poupança</button>
+        <button id="apT1" class="on" onclick="window._apTipo='renda_fixa';apTsel()">Renda fixa</button>
+        <button id="apT2" onclick="window._apTipo='outro';apTsel()">Outro</button></div></div>
+      <div class="field"><label>Taxa por mês (%)</label><input id="apTaxa" type="number" inputmode="decimal" step="0.01" placeholder="ex: 0,9"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Depois</button>
+      <button class="btn coral" style="flex:1" onclick="alocarAporteConfirma(${valor})">Alocar</button></div>
+  `);
+}
+function apToggleNovo(){ const v=$('apInv')?$('apInv').value:''; const w=$('apNovoWrap'); if(w) w.classList.toggle('hidden', v!=='__novo__'); }
+function apTsel(){ [['apT0','poupanca'],['apT1','renda_fixa'],['apT2','outro']].forEach(([b,t])=>$(b)&&$(b).classList.toggle('on',t===window._apTipo)); }
+async function alocarAporteConfirma(valor){
+  const sel=$('apInv')?$('apInv').value:'__novo__';
+  if(sel && sel!=='__novo__'){
+    const inv=DATA.investimentos.find(x=>x.id===sel); if(!inv){toast('Erro');return;}
+    const novo=(Number(inv.valor_aplicado)||0)+Number(valor);
+    const {error}=await sb.from('investimentos').update({valor_aplicado:novo}).eq('id',sel);
+    if(error){toast('Erro: '+error.message);return;}
+  } else {
+    const nome=($('apNome')?$('apNome').value:'').trim()||'Investimento';
+    let taxa=evalValor($('apTaxa')?$('apTaxa').value:''); if(isNaN(taxa)) taxa=0;
+    const row={user_id:USER.id,nome,tipo:window._apTipo||'renda_fixa',valor_aplicado:Number(valor),taxa_mensal:taxa,data_aplicacao:ymd(new Date()),incluir_patrimonio:true};
+    const {error}=await sb.from('investimentos').insert(row);
+    if(error){toast('Erro: '+error.message);return;}
+  }
+  closeSheet(); await loadAll(); toast('Aporte alocado no investimento ✅'); render();
 }
 function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); render(); }
 function transPendentes(){
@@ -1268,11 +1314,15 @@ function efetivarPendencias(){
 }
 async function efetivarConfirma(){
   const ids=[...window._pendSel]; if(!ids.length){closeSheet();return;}
+  const sel=pendentesList().filter(l=>window._pendSel.has(l.id));
   const novaConta=$('efetivConta')?$('efetivConta').value:'';
   const patch = novaConta ? {status:'pago', conta_id:novaConta} : {status:'pago'};
   const {error}=await sb.from('lancamentos').update(patch).in('id',ids);
   if(error){toast('Erro: '+error.message);return;}
-  window._pendSel.clear(); closeSheet(); await loadAll(); toast(ids.length+' baixa(s) efetivada(s) ✅'); render();
+  window._pendSel.clear(); closeSheet(); await loadAll(); render();
+  const aportes=sel.filter(l=>l.tipo==='transferencia' && (contaById(l.conta_destino_id)||{}).eh_investimento);
+  if(aportes.length===1){ alocarAporte(Number(aportes[0].valor)||0); return; }
+  toast(ids.length+' baixa(s) efetivada(s) ✅');
 }
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
@@ -1401,6 +1451,12 @@ function renderCartoes(){
   const fam = scope==='familia';
   let html=`<div class="page-title">${fam?'👨‍👩‍👧 Cartões de familiares':'Cartões de crédito'}</div>`;
   html+=monthNav('cartoes');
+  const totalFat=cs.reduce((a,c)=>a+faturaTotal(c.id,faturaMonth),0);
+  const limTot=cs.reduce((a,c)=>a+(Number(c.limite)||0),0);
+  html+=`<div class="card facard"><div class="lab" style="font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.3px">Total das faturas · ${mesNome(faturaMonth)}</div>
+    <div class="big" style="color:var(--coral)">${brl(totalFat)}</div>
+    ${limTot>0?`<div class="note" style="margin-top:2px">${cs.length} cartão(s) · limite total ${brl(limTot)} · disponível ${brl(Math.max(0,limTot-totalFat))}</div>`:`<div class="note" style="margin-top:2px">${cs.length} cartão(s)</div>`}
+  </div>`;
   if(!cs.length){
     html+=`<div class="card"><div class="empty"><div class="ico">${ICON('card',30)}</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
     $('content').innerHTML=html;return;

@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.34"; /* x */
+const APP_VER = "6.35"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1142,7 +1142,7 @@ function renderHome(){
       <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar</span><b>${brl(sd.aPagar)}</b></div>
       ${gc>0?`<div class="srow tap" onclick="go('cartoes')"><span>Gastos no cartão</span><b>${brl(gc)}</b></div>`:''}
       ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b>${brl(sd.invest)}</b></div>`:''}
-      ${(MYPARTNERS.length>0 && (source==='eu'||source==='casal'))?`<div class="srow"><span>Gasto · ${MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge'}</span><b>${brl(sd.conjuge)}</b></div>`:''}
+      ${(MYPARTNERS.length>0 && (source==='eu'||source==='casal'))?`<div class="srow tap" onclick="verParceiroLancs()"><span>Gasto · ${MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge'}</span><b>${brl(sd.conjuge)}</b></div>`:''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
@@ -1272,6 +1272,7 @@ function renderPendencias(){
   $('content').innerHTML=html;
 }
 function verTrans(f){ window._transFilter=f||'all'; window._pendSel.clear(); go('trans'); }
+function verParceiroLancs(){ if(MYPARTNERS.length){ source=MYPARTNERS[0].owner_id; updateSourceSeg(); } window._transFilter='all'; window._pendSel.clear(); go('trans'); }
 async function toggleLancPago(id){
   const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
   const novo = l.status==='pago'?'pendente':'pago';

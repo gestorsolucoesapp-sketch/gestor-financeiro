@@ -3148,7 +3148,7 @@ function localSession(){
   }catch(e){}
   if(session){ await afterLogin(); return; }
   const ls=localSession();
-  if(ls && ls.user && !navigator.onLine){ await afterLogin(ls.user); return; }
+  if(ls && ls.user){ await afterLogin(ls.user); return; }
   initLoginUI();
 })();
 </script>

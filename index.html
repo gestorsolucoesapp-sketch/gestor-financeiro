@@ -437,7 +437,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.63"; /* x */
+const APP_VER = "6.64"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1774,7 +1774,7 @@ function ajustarFatura(cartaoId){
   const totAtual=faturaTotal(cartaoId,faturaMonth);
   openSheet(`
     <h2>Ajustar fatura</h2>
-    <div class="note">Lance algo que faltou nesta fatura de <b>${mesNome(faturaMonth)}</b>, registre um estorno, ou digite o total correto que eu acerto a diferença.</div>
+    <div class="note">Fatura de <b>${mesNome(faturaMonth)}</b> · total atual: <b style="color:var(--coral)">${brl(totAtual)}</b><br>Lance algo que faltou, registre um estorno, ou digite o total correto que eu acerto a diferença.</div>
     <div class="typetabs" style="margin-top:12px">
       <button id="ajD" class="on desp" onclick="window._ajTipo='despesa';$('ajD').className='on desp';$('ajC').className='';$('ajT').className='';ajModo()">Gasto que faltou</button>
       <button id="ajC" onclick="window._ajTipo='receita';$('ajC').className='on rec';$('ajD').className='';$('ajT').className='';ajModo()">Estorno / crédito</button>

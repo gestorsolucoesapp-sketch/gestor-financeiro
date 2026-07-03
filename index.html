@@ -1079,6 +1079,17 @@ function saidasMes(d){
     } else continue;
     if(bucket==='pagas') pagas+=val; else if(bucket==='aPagar') aPagar+=val; else if(bucket==='invest') invest+=val;
   }
+  // Cartões do cônjuge também entram no total "Gasto · Cônjuge" (não duplicam em "Gastos no cartão")
+  if(!viewingPartner && MYPARTNERS.length>0){
+    const ymConj=ymd(ini).slice(0,7);
+    for(const l of DATA.lancamentos){
+      if(!l.cartao_id) continue;
+      const isPartnerCard = l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id);
+      if(!isPartnerCard) continue;
+      if(!l.competencia || faturaYm(l.competencia, cartaoById(l.cartao_id))!==ymConj) continue;
+      conj += (l.tipo==='receita'?-1:1)*(Number(l.valor)||0);
+    }
+  }
   return {pagas,aPagar,invest, conjuge:conj};
 }
 function gastoCartaoMes(d){
@@ -1088,6 +1099,8 @@ function gastoCartaoMes(d){
     if(!l.cartao_id) continue;
     if(!l.competencia || faturaYm(l.competencia, cartaoById(l.cartao_id))!==ym) continue;
     if(!srcOk(l.user_id)) continue;
+    const isPartnerCard = l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id);
+    if(isPartnerCard) continue; // conjuge entra em "Gasto · Cônjuge", não aqui
     const cart=cartaoById(l.cartao_id);
     if(scope==='familia'){ if(!(cart&&cart.incluir_principal===false)) continue; }
     else { if(cart&&cart.incluir_principal===false) continue; if(scope!=='tudo' && (!cart||cart.tipo!==scope)) continue; }

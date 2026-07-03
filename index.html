@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.55"; /* x */
+const APP_VER = "6.56"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1566,6 +1566,7 @@ function fixoSet(){
 function isFixo(l){
   if(l.tipo==='transferencia'||(l.parcelas&&l.parcelas>1))return false;
   if(l.grupo_id)return true;
+  if(l.cartao_id)return false; // compra de cartão repetida (mercado, padaria) não é conta fixa
   return fixoSet().has(l.tipo+'|'+normDesc(l.descricao));
 }
 function duePill(l){

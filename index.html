@@ -17,7 +17,7 @@
   --ink:#0c1c1a; --paper:#f4f1ea; --card:#ffffff;
   --emerald:#0d3b34; --emerald-2:#15564c; --mint:#1f9d8a;
   --coral:#e8654e; --coral-soft:#fbe4de;
-  --green:#1f9d6b; --red:#d6473a; --blue:#3b6fd6;
+  --green:#10b981; --red:#ef4444; --blue:#3b6fd6;
   --muted:#6f7d79; --line:#e6e1d6; --line-2:#d7d0c2;
   --input-bg:#ffffff;
   --shadow:0 1px 2px rgba(12,28,26,.06),0 8px 24px rgba(12,28,26,.06);
@@ -51,6 +51,8 @@ input,select{font-family:inherit;font-size:16px}
 body.modal-open{overflow:hidden}
 .field select{text-overflow:ellipsis}
 .field input:focus,.field select:focus{border-color:var(--mint)}
+.field .err-flash,input.err-flash,select.err-flash{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(239,68,68,.25)!important;animation:errShake .35s}
+@keyframes errShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;
   background:var(--emerald);color:#fff;font-weight:700;font-size:15px;transition:filter .15s}
 .btn:active{filter:brightness(.92)}
@@ -413,7 +415,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.39"; /* x */
+const APP_VER = "6.40"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -508,6 +510,18 @@ function contaVisual(c){
 }
 const firstOfMonth=d=>new Date(d.getFullYear(),d.getMonth(),1);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+function flashErr(msg,fieldId){
+  toast(msg);
+  if(fieldId){
+    const el=$(fieldId);
+    if(el){
+      el.classList.add('err-flash');
+      try{ el.scrollIntoView({behavior:'smooth',block:'center'}); }catch(_){}
+      setTimeout(()=>{ try{el.focus({preventScroll:true});}catch(_){} },300);
+      setTimeout(()=>el.classList.remove('err-flash'),1800);
+    }
+  }
+}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}));}
 // ============ OFFLINE (fila + cache) ============
@@ -1166,11 +1180,11 @@ function renderHome(){
         const falta=Math.max(0,(sd.conjuge||0)-pago);
         if(pago>0){
           return `<div class="srow tap" onclick="verParceiroLancs()" style="align-items:flex-start">
-            <div style="display:flex;flex-direction:column;gap:2px"><span>Gasto · ${nome}</span><span class="note">pago ${brl(pago)} de ${brl(sd.conjuge)}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span>Despesas de ${nome}</span><span class="note">pago ${brl(pago)} de ${brl(sd.conjuge)}</span></div>
             <div style="text-align:right"><b>${brl(sd.conjuge)}</b><div class="note">falta <b style="color:var(--coral)">${brl(falta)}</b></div></div>
           </div>`;
         }
-        return `<div class="srow tap" onclick="verParceiroLancs()"><span>Gasto · ${nome}</span><b>${brl(sd.conjuge)}</b></div>`;
+        return `<div class="srow tap" onclick="verParceiroLancs()"><span>Despesas de ${nome}</span><b>${brl(sd.conjuge)}</b></div>`;
       })():''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>
@@ -1917,7 +1931,7 @@ async function saveOrcamento(id){
   let error;
   if(id){({error}=await sb.from('orcamentos').update({limite:lim}).eq('id',id));}
   else{
-    const catId=$('oCat').value; if(!catId){toast('Selecione uma categoria');return;}
+    const catId=$('oCat').value; if(!catId){flashErr('Selecione uma categoria','oCat');return;}
     ({error}=await sb.from('orcamentos').insert({user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim}));
   }
   if(error){toast('Erro: '+error.message);return;}
@@ -2396,10 +2410,10 @@ async function saveLanc(id){
   const desc=$('lDesc').value.trim();
   const valor=evalValor($('lValor').value);
   const data=$('lData').value;
-  if(!desc){toast('Informe a descrição');return;}
-  if(isNaN(valor)){toast('Valor inválido (confira a conta)');return;}
-  if(!(valor>0)){toast('Informe um valor válido');return;}
-  if(!data){toast('Informe a data');return;}
+  if(!desc){flashErr('Informe a descrição','lDesc');return;}
+  if(isNaN(valor)){flashErr('Valor inválido (confira a conta)','lValor');return;}
+  if(!(valor>0)){flashErr('Informe um valor válido','lValor');return;}
+  if(!data){flashErr('Informe a data','lData');return;}
   if(lancType!=='transferencia' && !window._meio){toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
   if(!isCardPurchase && !window._lancStatus){toast('Escolha uma opção acima pra continuar');return;}
@@ -2408,7 +2422,7 @@ async function saveLanc(id){
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;
     const destOwner = $('lDestOwner') ? $('lDestOwner').value : USER.id;
-    if(!d){toast('Selecione a conta de destino');return;}
+    if(!d){flashErr('Selecione a conta de destino','lContaDest');return;}
     if(destOwner!==USER.id){
       if(!navigator.onLine){ toast('Transferência para parceiro precisa de internet.'); return; }
       const {error}=await sb.rpc('transferir_parceiro',{p_conta_origem:o,p_owner_destino:destOwner,p_conta_destino:d,p_valor:valor,p_descricao:desc,p_data:data});

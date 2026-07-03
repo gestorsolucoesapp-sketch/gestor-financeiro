@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.51"; /* x */
+const APP_VER = "6.52"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1543,6 +1543,7 @@ function renderTrans(){
   }
   $('content').innerHTML=html;
 }
+function normDesc(d){return (d||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');}
 let _fixoCache=null,_fixoAt=0;
 function fixoSet(){
   const now=Date.now();
@@ -1550,17 +1551,17 @@ function fixoSet(){
   const m=new Map();
   DATA.lancamentos.forEach(x=>{
     if(x.tipo==='transferencia'||(x.parcelas&&x.parcelas>1))return;
-    const k=x.tipo+'|'+(x.descricao||'').trim().toLowerCase();
+    const k=x.tipo+'|'+normDesc(x.descricao);
     if(!m.has(k))m.set(k,new Set());
     m.get(k).add((x.data||'').slice(0,7));
   });
-  _fixoCache=new Set(); m.forEach((s,k)=>{ if(s.size>=3)_fixoCache.add(k); });
+  _fixoCache=new Set(); m.forEach((s,k)=>{ if(s.size>=2)_fixoCache.add(k); });
   _fixoAt=now; return _fixoCache;
 }
 function isFixo(l){
   if(l.tipo==='transferencia'||(l.parcelas&&l.parcelas>1))return false;
   if(l.grupo_id)return true;
-  return fixoSet().has(l.tipo+'|'+(l.descricao||'').trim().toLowerCase());
+  return fixoSet().has(l.tipo+'|'+normDesc(l.descricao));
 }
 function duePill(l){
   if(l.status!=='pendente'||l.tipo==='transferencia'||l.tipo==='receita') return '';

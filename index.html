@@ -244,7 +244,7 @@ body.modal-open{overflow:hidden}
 .addmenu{position:fixed;inset:0;z-index:60;background:rgba(10,12,14,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:calc(env(safe-area-inset-bottom) + 24px);animation:amfade .18s ease}
 @keyframes amfade{from{opacity:0}to{opacity:1}}
 .addmenu-inner{display:flex;flex-direction:column;gap:22px;align-items:center;margin-bottom:28px}
-.amrow{display:flex;gap:54px;justify-content:center}
+.amrow{display:grid;grid-template-columns:110px 110px;gap:0 56px;justify-content:center}
 .amitem{display:flex;flex-direction:column;align-items:center;gap:9px;background:none;animation:amup .26s ease both}
 .amrow:nth-child(1) .amitem:nth-child(1){animation-delay:.02s}
 .amrow:nth-child(1) .amitem:nth-child(2){animation-delay:.06s}
@@ -253,7 +253,8 @@ body.modal-open{overflow:hidden}
 @keyframes amup{from{opacity:0;transform:translateY(16px) scale(.85)}to{opacity:1;transform:none}}
 .am-ic{width:64px;height:64px;border-radius:50%;background:#22262b;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .am-ic.rec{color:#34d399}.am-ic.desp{color:#f87171}.am-ic.card{color:#2dd4bf}.am-ic.tr{color:#60a5fa}.am-ic.bank{color:#fbbf24}
-.am-lab{color:#fff;font-size:13.5px;font-weight:600;text-align:center;line-height:1.2}
+.am-lab{color:#fff;font-size:13.5px;font-weight:600;text-align:center;line-height:1.2;min-height:32px;display:flex;align-items:flex-start;justify-content:center}
+.amitem.paste .am-lab{min-height:0;align-items:center}
 .amitem.paste{flex-direction:row;gap:10px;background:rgba(255,255,255,.1);padding:10px 18px;border-radius:30px;animation-delay:.18s}
 .amitem.paste .am-ic{width:34px;height:34px;box-shadow:none;background:rgba(255,255,255,.12)}
 .amitem.paste .am-ic svg{width:18px;height:18px}
@@ -417,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.47"; /* x */
+const APP_VER = "6.48"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============

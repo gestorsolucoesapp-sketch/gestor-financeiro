@@ -417,7 +417,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.43"; /* x */
+const APP_VER = "6.44"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -727,9 +727,9 @@ function applyTema(sc){
   const t=getTema(sc); const s=document.documentElement.style;
   s.setProperty('--emerald',t.emerald); s.setProperty('--emerald-2',lighten(t.emerald,0.18));
   const heroLight = bestText(t.emerald)==='#ffffff'; // fundo escuro → texto claro
-  s.setProperty('--on-hero', bestText(t.emerald));
-  s.setProperty('--hero-green', heroLight ? lighten(t.green,0.45) : darken(t.green,0.15));
-  s.setProperty('--hero-red', heroLight ? lighten(t.red,0.42) : darken(t.red,0.10));
+  s.setProperty('--on-hero', t.heroText || bestText(t.emerald));
+  s.setProperty('--hero-green', t.heroGreen || (heroLight ? lighten(t.green,0.45) : darken(t.green,0.15)));
+  s.setProperty('--hero-red', t.heroRed || (heroLight ? lighten(t.red,0.42) : darken(t.red,0.10)));
   s.setProperty('--mint',t.mint); s.setProperty('--coral',t.coral); s.setProperty('--coral-soft',lighten(t.coral,0.75));
   s.setProperty('--green-on', lighten(t.green,0.45)); s.setProperty('--red-on', lighten(t.red,0.42));
   s.setProperty('--green',t.green); s.setProperty('--red',t.red);
@@ -788,6 +788,14 @@ function renderTema(){
   const ctx=[['tudo','Geral'],['pessoal','Pessoal'],['negocio','Negócio'],['familia','Família']];
   const row=(key,label)=>`<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
     <input type="color" value="${_temaWork[key]}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
+  const rowAuto=(key,label)=>{
+    const val=_temaWork[key]; const isAuto=!val;
+    return `<div class="lrow"><div class="mid"><div class="t">${label}</div><div class="s">${isAuto?'Automático':'Cor personalizada'}</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${!isAuto?`<button onclick="setTemaCor('${key}','')" style="background:none;border:0;color:var(--mint);font-size:12px;font-weight:600;cursor:pointer">Auto</button>`:''}
+        <input type="color" value="${val||'#ffffff'}" oninput="setTemaCor('${key}',this.value)" class="cor-in">
+      </div></div>`;
+  };
   let html=`<div class="page-title">Cores do app</div>`;
   html+=`<div class="note" style="margin:0 2px 8px">Escolha o contexto e personalize as cores dele separado. O app troca de cor sozinho quando você muda o contexto lá em cima.</div>`;
   html+=`<div class="ctxrow">`+ctx.map(([k,l])=>`<button class="${_temaScope===k?'on':''}" onclick="editarTemaScope('${k}')">${l}</button>`).join('')+`</div>`;
@@ -798,12 +806,19 @@ function renderTema(){
   html+=`<div class="note" style="margin:14px 2px 6px">Ajuste cada cor</div><div class="card">
     ${row('emerald','Primária (topo, botões)')}${row('mint','Destaque (links, ativos)')}${row('coral','Alerta / botão +')}
     ${row('green','Receita')}${row('red','Despesa')}${row('paper','Fundo do app')}${row('card','Cartões / caixas')}
-    ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}</div>`;
+    ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}
+    <div class="note" style="margin:14px 2px 6px;font-weight:700;color:var(--ink)">Card de saldo (topo)</div>
+    <div class="note" style="margin:0 2px 8px">Deixe no automático pra o app garantir contraste, ou escolha a cor você mesmo.</div>
+    ${rowAuto('heroText','Texto do saldo')}${rowAuto('heroGreen','Valor receita')}${rowAuto('heroRed','Valor despesa')}</div>`;
   html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão deste contexto</button>`;
   $('content').innerHTML=html;
 }
 function editarTemaScope(k){_temaScope=k;renderTema();}
-function setTemaCor(key,val){_temaWork[key]=val;setTema(_temaScope,_temaWork);applyTema(_temaScope);}
+function setTemaCor(key,val){
+  if(val==='') delete _temaWork[key]; else _temaWork[key]=val;
+  setTema(_temaScope,_temaWork);applyTema(_temaScope);
+  if(['heroText','heroGreen','heroRed'].includes(key)) renderTema();
+}
 function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Tema aplicado');}
 function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Padrão restaurado');}
 function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>';}

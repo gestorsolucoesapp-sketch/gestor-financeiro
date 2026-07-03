@@ -96,7 +96,7 @@ body.modal-open{overflow:hidden}
 .balrow .b .l{font-size:10.5px;opacity:.8;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .balrow .b .v{font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .balrow .b .v.g{color:var(--hero-green)}.balrow .b .v.r{color:var(--hero-red)}
-.saidas{margin-top:12px;background:color-mix(in srgb, var(--on-hero) 7%, transparent);border-radius:12px;padding:2px 12px}
+.saidas{margin-top:12px;background:var(--hero-box);border-radius:12px;padding:2px 12px}
 .saidas .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:13.5px;border-bottom:1px solid color-mix(in srgb, var(--on-hero) 10%, transparent)}
 .saidas .srow:last-child{border-bottom:0}
 .saidas .srow span{opacity:.85}
@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.48"; /* x */
+const APP_VER = "6.49"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -731,6 +731,7 @@ function applyTema(sc){
   s.setProperty('--on-hero', t.heroText || bestText(t.emerald));
   s.setProperty('--hero-green', t.heroGreen || (heroLight ? lighten(t.green,0.45) : darken(t.green,0.15)));
   s.setProperty('--hero-red', t.heroRed || (heroLight ? lighten(t.red,0.42) : darken(t.red,0.10)));
+  s.setProperty('--hero-box', t.heroBox || 'color-mix(in srgb, var(--on-hero) 7%, transparent)');
   s.setProperty('--mint',t.mint); s.setProperty('--coral',t.coral); s.setProperty('--coral-soft',lighten(t.coral,0.75));
   s.setProperty('--green-on', lighten(t.green,0.45)); s.setProperty('--red-on', lighten(t.red,0.42));
   s.setProperty('--green',t.green); s.setProperty('--red',t.red);
@@ -807,7 +808,7 @@ function renderTema(){
     ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}
     <div class="note" style="margin:14px 2px 6px;font-weight:700;color:var(--ink)">Card de saldo (topo)</div>
     <div class="note" style="margin:0 2px 8px">Deixe no automático pra o app garantir contraste, ou escolha a cor você mesmo.</div>
-    ${rowAuto('heroText','Texto do saldo')}${rowAuto('heroGreen','Valor receita')}${rowAuto('heroRed','Valor despesa')}</div>`;
+    ${rowAuto('heroText','Texto do saldo')}${rowAuto('heroGreen','Valor receita')}${rowAuto('heroRed','Valor despesa')}${rowAuto('heroBox','Fundo do detalhamento')}</div>`;
   html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão deste contexto</button>`;
   $('content').innerHTML=html;
 }

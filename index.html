@@ -120,7 +120,7 @@ body.modal-open{overflow:hidden}
 .pend-g{font-size:12px;font-weight:700;color:var(--muted);text-transform:capitalize;padding:10px 2px 4px}
 .pend-row{cursor:pointer;border-radius:10px}
 .pend-row.sel{background:rgba(232,101,78,.16)}
-.pend-chk{width:24px;height:24px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:8px}
+.pend-chk{width:28px;height:28px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:8px}
 .pend-chk.on{background:var(--coral);border-color:var(--coral)}
 .lchk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;margin-left:10px;background:var(--input-bg)}
 .lchk.on{background:var(--mint);border-color:var(--mint)}
@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.33"; /* n */
+const APP_VER = "6.34";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1219,7 +1219,7 @@ function renderPendencias(){
     $('content').innerHTML=html; return;
   }
   const allSel=list.every(l=>window._pendSel.has(l.id));
-  html+=`<div class="note" style="margin-bottom:8px">Marque o que já pagou e toque em <b>Dar baixa</b> — o valor sai do saldo da conta.</div>`;
+  html+=`<div class="note" style="margin-bottom:8px">Toque na conta pra <b>editar</b> (trocar valor/conta). Marque o <b>✓</b> do que já pagou e toque em <b>Dar baixa</b> — o valor sai do saldo.</div>`;
   html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
     <div><b>${window._pendSel.size}</b> selecionada(s)</div>
     <button class="lnk" onclick="pendSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
@@ -1243,11 +1243,11 @@ function renderPendencias(){
       amtHtml=`<div class="amt ${isRec?'g':'r'}">${isRec?'+':'−'}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>`;
     }
     const sel=window._pendSel.has(l.id);
-    html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
+    html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="openLanc('${l.id}')">
       <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
       <div class="mid"><div class="t">${esc(l.descricao)}${isTransf?' <span class="pill" style="background:#e8eefc;color:#3b5bdb">transferência</span>':''}${venc}</div><div class="s">${sub}</div></div>
       ${amtHtml}
-      <div class="pend-chk ${sel?'on':''}">${sel?'✓':''}</div></div>`;
+      <div class="pend-chk ${sel?'on':''}" onclick="event.stopPropagation();pendToggle('${l.id}')">${sel?'✓':''}</div></div>`;
   });
   html+=`</div>`;
   if(fut.length){ html+=`<button class="btn ghost" style="margin-top:10px;width:100%;border:1.5px solid var(--line-2)" onclick="window._pendFut=${!window._pendFut};renderPendencias()">${window._pendFut?'Ocultar futuras':'Ver futuras ('+fut.length+') ›'}</button>`; }

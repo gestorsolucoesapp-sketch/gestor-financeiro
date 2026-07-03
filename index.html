@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.50"; /* x */
+const APP_VER = "6.51"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1346,7 +1346,7 @@ function renderPendencias(){
     const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
     const isRec=l.tipo==='receita';
     const isTransf=l.tipo==='transferencia';
-    const venc=(!isRec && !isTransf)?duePill(l).replace(' <span class="pill pend">pendente</span>',''):'';
+    const venc=(!isRec && !isTransf)?duePill(l):'';
     const vis = isTransf ? {icon:'swap',color:'#3b6fd6'} : catVisual(cat,l.tipo);
     let sub, amtHtml;
     if(isTransf){
@@ -1508,7 +1508,7 @@ function renderTrans(){
       const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
       const isRec=l.tipo==='receita';
       const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
-      const venc=(!isRec)?duePill(l).replace(' <span class="pill pend">pendente</span>',''):'';
+      const venc=(!isRec)?duePill(l):'';
       const sub=`${dt} · ${cat?esc(cat.nome):'Sem categoria'}${conta?' · '+esc(conta.nome):''}`;
       const sel=window._pendSel.has(l.id);
       html+=`<div class="lrow pend-row ${sel?'sel':''}" onclick="pendToggle('${l.id}')">
@@ -1563,13 +1563,12 @@ function isFixo(l){
   return fixoSet().has(l.tipo+'|'+(l.descricao||'').trim().toLowerCase());
 }
 function duePill(l){
-  if(l.status!=='pendente'||l.tipo==='transferencia') return '';
-  if(l.tipo==='receita') return ' <span class="pill pend">pendente</span>';
+  if(l.status!=='pendente'||l.tipo==='transferencia'||l.tipo==='receita') return '';
   const hoje=ymd(new Date()), amanha=ymd(new Date(Date.now()+86400000));
   if(l.data<hoje) return ' <span class="pill" style="background:#fdecec;color:#d64545;font-weight:700">atrasada</span>';
   if(l.data===hoje) return ' <span class="pill" style="background:#fff3df;color:#c07600;font-weight:700">vence hoje</span>';
   if(l.data===amanha) return ' <span class="pill" style="background:#fff3df;color:#c07600">vence em 1 dia</span>';
-  return ' <span class="pill pend">pendente</span>';
+  return '';
 }
 function rowLanc(l){
   const cat=catById(l.categoria_id);

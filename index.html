@@ -209,7 +209,7 @@ body.modal-open{overflow:hidden}
 .quick .qi{font-size:22px;margin-bottom:4px}
 /* barra receita x despesa no hero */
 .rdbar{display:flex;height:8px;border-radius:6px;overflow:hidden;margin:16px 0 4px;background:rgba(255,255,255,.18)}
-.rdrec{background:#a8f0c8}.rddesp{background:#ffb4a8}
+.rdrec{background:var(--hero-green)}.rddesp{background:var(--hero-red)}
 /* progresso */
 .prog{height:9px;border-radius:6px;background:var(--line);overflow:hidden}
 .progfill{height:100%;border-radius:6px;transition:width .3s}
@@ -417,7 +417,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.44"; /* x */
+const APP_VER = "6.46"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -789,12 +789,9 @@ function renderTema(){
   const row=(key,label)=>`<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
     <input type="color" value="${_temaWork[key]}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
   const rowAuto=(key,label)=>{
-    const val=_temaWork[key]; const isAuto=!val;
-    return `<div class="lrow"><div class="mid"><div class="t">${label}</div><div class="s">${isAuto?'Automático':'Cor personalizada'}</div></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        ${!isAuto?`<button onclick="setTemaCor('${key}','')" style="background:none;border:0;color:var(--mint);font-size:12px;font-weight:600;cursor:pointer">Auto</button>`:''}
-        <input type="color" value="${val||'#ffffff'}" oninput="setTemaCor('${key}',this.value)" class="cor-in">
-      </div></div>`;
+    const val=_temaWork[key];
+    return `<div class="lrow"><div class="mid"><div class="t">${label}</div></div>
+      <input type="color" value="${val||'#ffffff'}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
   };
   let html=`<div class="page-title">Cores do app</div>`;
   html+=`<div class="note" style="margin:0 2px 8px">Escolha o contexto e personalize as cores dele separado. O app troca de cor sozinho quando você muda o contexto lá em cima.</div>`;

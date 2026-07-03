@@ -417,7 +417,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.46"; /* x */
+const APP_VER = "6.47"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -814,7 +814,6 @@ function editarTemaScope(k){_temaScope=k;renderTema();}
 function setTemaCor(key,val){
   if(val==='') delete _temaWork[key]; else _temaWork[key]=val;
   setTema(_temaScope,_temaWork);applyTema(_temaScope);
-  if(['heroText','heroGreen','heroRed'].includes(key)) renderTema();
 }
 function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Tema aplicado');}
 function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Padrão restaurado');}

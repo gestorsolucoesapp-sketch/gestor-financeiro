@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.36"; /* x */
+const APP_VER = "6.37"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1124,7 +1124,7 @@ function renderHome(){
   const gc=gastoCartaoMes(viewMonth);
   const sd=saidasMes(viewMonth);
   const totalGastos=sd.pagas+sd.aPagar+gc+sd.invest+sd.conjuge;
-  const balCard=b.rec-totalGastos;
+  const balCard=tot+b.rec-(totalGastos-sd.invest);
   // lançamentos recentes (não-cartão) do scope
   const recents=DATA.lancamentos.filter(l=>{
     if(l.cartao_id) return false;
@@ -1140,7 +1140,7 @@ function renderHome(){
   let html=monthNav('home');
   html+=`
   <div class="card hero">
-    <div class="lab">Saldo total ${scope!=='tudo'?'· '+scope:''} <span style="opacity:.7;font-weight:600">(efetivado)</span></div>
+    <div class="lab">Saldo em contas ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
     ${barRecDesp(b.rec,totalGastos)}
     <div class="balrow">
@@ -1156,8 +1156,13 @@ function renderHome(){
         const nome=MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge';
         const pago=sd.pagoConjuge||0;
         const falta=Math.max(0,(sd.conjuge||0)-pago);
-        const det=pago>0?`<div class="note" style="margin-top:2px">${brl(sd.conjuge)} · pago ${brl(pago)} · falta <b style="color:var(--coral)">${brl(falta)}</b></div>`:'';
-        return `<div class="srow tap" onclick="verParceiroLancs()"><span>Gasto · ${nome}${det}</span><b>${brl(sd.conjuge)}</b></div>`;
+        if(pago>0){
+          return `<div class="srow tap" onclick="verParceiroLancs()" style="align-items:flex-start">
+            <div style="display:flex;flex-direction:column;gap:2px"><span>Gasto · ${nome}</span><span class="note">pago ${brl(pago)} de ${brl(sd.conjuge)}</span></div>
+            <div style="text-align:right"><b>${brl(sd.conjuge)}</b><div class="note">falta <b style="color:var(--coral)">${brl(falta)}</b></div></div>
+          </div>`;
+        }
+        return `<div class="srow tap" onclick="verParceiroLancs()"><span>Gasto · ${nome}</span><b>${brl(sd.conjuge)}</b></div>`;
       })():''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>

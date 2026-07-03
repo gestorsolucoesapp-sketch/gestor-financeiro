@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.57"; /* x */
+const APP_VER = "6.58"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1323,7 +1323,7 @@ function toggleRecents(){
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);
   const dot = c.logo_url
-    ? `<div class="dot" style="background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:76%;background-repeat:no-repeat;background-position:center"></div>`
+    ? `<div class="dot" style="background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)"></div>`
     : `<div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>`;
   return `<div class="lrow" onclick="openConta('${c.id}')">
     ${dot}
@@ -1640,7 +1640,7 @@ function cardCartaoHTML(c){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
-        <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
+        <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
       <div style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -2683,7 +2683,7 @@ function openConta(id){
     <h2>${id?'Editar':'Nova'} conta</h2>
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
+        <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
         <button class="btn sm" onclick="logoAuto('c')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('c')">Usar cor</button>
@@ -2831,7 +2831,7 @@ function openCartao(id){
     <h2>${id?'Editar':'Novo'} cartão</h2>
     <div class="field"><label>Ícone do cartão</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:76%;background-repeat:no-repeat;background-position:center`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
+        <div id="kLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${e.logo_url?'':ICON('card',24)}</div>
         <button class="btn sm" onclick="logoAuto('k')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('k')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>

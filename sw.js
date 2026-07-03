@@ -1,5 +1,5 @@
 // Gestor Soluções · Service Worker (offline shell + push)
-const CACHE = 'gf-shell-v27';
+const CACHE = 'gf-shell-v28';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
@@ -27,9 +27,20 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return; // gravações do Supabase (POST/PATCH) passam direto
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
-  const isSupabaseCDN = url.href.indexOf('https://cdn.jsdelivr.net/npm/@supabase') === 0;
+  // Imagens (logos de bancos etc) → cache-first, qualquer origem
+  if (req.destination === 'image') {
+    e.respondWith(
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
+        if (res && (res.status === 200 || res.type === 'opaque')) {
+          const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp));
+        }
+        return res;
+      }).catch(() => hit))
+    );
+    return;
+  }
   // API de dados do Supabase e qualquer outra origem → nunca intercepta
-  if (!sameOrigin && !isSupabaseCDN) return;
+  if (!sameOrigin) return;
 
   // App/HTML → network-first: online pega a versão nova, offline usa a cópia salva
   const isDoc = req.mode === 'navigate' ||

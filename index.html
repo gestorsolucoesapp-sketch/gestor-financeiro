@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.59"; /* x */
+const APP_VER = "6.60"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -577,20 +577,25 @@ async function insertRows(rows){
   }
   queueInsert(rows); return {ok:true,queued:true};
 }
+let _flushing=false;
 async function flushOutbox(){
   updateOfflinePill();
   if(!navigator.onLine) return;
   const q=outbox(); if(!q.length) return;
-  const keep=[]; let sent=0;
-  for(const op of q){
-    try{
-      const clean=op.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
-      const {error}=await sb.from('lancamentos').upsert(clean,{onConflict:'id'});
-      if(error){ keep.push(op); } else { sent++; }
-    }catch(e){ keep.push(op); }
-  }
+  if(_flushing) return; _flushing=true;
+  const keep=[]; let sent=0; let lastErr=null;
+  try{
+    for(const op of q){
+      try{
+        const clean=op.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
+        const {error}=await sb.from('lancamentos').upsert(clean,{onConflict:'id'});
+        if(error){ keep.push(op); lastErr=error.message; } else { sent++; }
+      }catch(e){ keep.push(op); lastErr=(e&&e.message)||String(e); }
+    }
+  }finally{ _flushing=false; }
   setOutbox(keep);
   if(sent>0){ try{ await loadAll(); }catch(e){} render(); toast(sent+' lançamento(s) sincronizado(s) ✅'); }
+  if(keep.length && lastErr && !isNetErr({message:lastErr})) toast('Sincronização falhou: '+lastErr);
   updateOfflinePill();
 }
 function updateOfflinePill(){
@@ -898,6 +903,8 @@ async function afterLogin(userArg){
     window._offlineHooked=true;
     window.addEventListener('online', ()=>{ updateOfflinePill(); flushOutbox(); });
     window.addEventListener('offline', updateOfflinePill);
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateOfflinePill(); flushOutbox(); } });
+    setInterval(()=>{ if(outbox().length) flushOutbox(); }, 15000);
   }
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----

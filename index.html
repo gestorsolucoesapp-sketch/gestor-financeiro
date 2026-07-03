@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.30";
+const APP_VER = "6.31";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -2567,7 +2567,8 @@ function reajustarConta(id){
   openSheet(`
     <h2>Reajustar saldo</h2>
     <p class="note" style="font-size:14px">Saldo calculado hoje em <b>${esc(c.nome)}</b>: <b>${brl(atual)}</b>.<br>Informe quanto você <b>realmente</b> tem agora nessa conta. O app cria um lançamento com a diferença na categoria <b>"Reajuste em contas"</b> pra deixar o saldo batendo.</p>
-    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="text" autocomplete="off" placeholder="ex: 1550  (ou faça conta: 1000+500+50)"></div>
+    <div class="note" style="margin:-6px 2px 8px">Digite o total que você tem de verdade. Pode fazer conta: <b>+  −  ×  ÷</b>.</div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Cancelar</button>
       <button class="btn coral" style="flex:1" onclick="reajustarConfirma('${id}')">Reajustar</button></div>

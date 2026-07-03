@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.52"; /* x */
+const APP_VER = "6.53"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1673,26 +1673,47 @@ function renderFatura(){
 }
 function ajustarFatura(cartaoId){
   window._ajTipo='despesa';
+  const totAtual=faturaTotal(cartaoId,faturaMonth);
   openSheet(`
     <h2>Ajustar fatura</h2>
-    <div class="note">Lance algo que faltou nesta fatura de <b>${mesNome(faturaMonth)}</b>, ou registre um estorno/crédito que abate o total.</div>
+    <div class="note">Lance algo que faltou nesta fatura de <b>${mesNome(faturaMonth)}</b>, registre um estorno, ou digite o total correto que eu acerto a diferença.</div>
     <div class="typetabs" style="margin-top:12px">
-      <button id="ajD" class="on desp" onclick="window._ajTipo='despesa';$('ajD').className='on desp';$('ajC').className=''">Gasto que faltou</button>
-      <button id="ajC" onclick="window._ajTipo='receita';$('ajC').className='on rec';$('ajD').className=''">Estorno / crédito</button>
+      <button id="ajD" class="on desp" onclick="window._ajTipo='despesa';$('ajD').className='on desp';$('ajC').className='';$('ajT').className='';ajModo()">Gasto que faltou</button>
+      <button id="ajC" onclick="window._ajTipo='receita';$('ajC').className='on rec';$('ajD').className='';$('ajT').className='';ajModo()">Estorno / crédito</button>
+      <button id="ajT" onclick="window._ajTipo='total';$('ajT').className='on';$('ajD').className='';$('ajC').className='';ajModo()">Acertar total</button>
     </div>
-    <div class="field"><label>Descrição</label><input id="ajDesc" placeholder="Ex: compra esquecida, estorno…"></div>
-    <div class="field"><label>Valor (R$)</label><input id="ajValor" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+    <div class="field" id="ajDescWrap"><label>Descrição</label><input id="ajDesc" placeholder="Ex: compra esquecida, estorno…"></div>
+    <div class="field"><label id="ajValLab">Valor (R$)</label><input id="ajValor" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+    <div class="note hidden" id="ajTotNote">Total atual: <b>${brl(totAtual)}</b>. Digite o total correto da fatura e eu lanço a diferença automaticamente.</div>
     <button class="btn" onclick="saveAjusteFatura('${cartaoId}')">Adicionar à fatura</button>
   `);
+  window._ajTotAtual=totAtual;
+}
+function ajModo(){
+  const t=window._ajTipo==='total';
+  $('ajDescWrap').classList.toggle('hidden',t);
+  $('ajTotNote').classList.toggle('hidden',!t);
+  $('ajValLab').textContent=t?'Total correto da fatura (R$)':'Valor (R$)';
 }
 async function saveAjusteFatura(cartaoId){
-  const desc=$('ajDesc').value.trim()||(window._ajTipo==='receita'?'Estorno':'Ajuste de fatura');
-  const valor=parseFloat($('ajValor').value);
-  if(!(valor>0)){toast('Informe um valor válido');return;}
+  let tipo=window._ajTipo||'despesa';
+  let valor=parseFloat($('ajValor').value);
+  let desc;
+  if(tipo==='total'){
+    if(!(valor>=0)){toast('Informe o total correto');return;}
+    const diff=+(valor-(window._ajTotAtual||0)).toFixed(2);
+    if(diff===0){toast('A fatura já está nesse valor');return;}
+    tipo=diff>0?'despesa':'receita';
+    valor=Math.abs(diff);
+    desc='Acerto de fatura';
+  }else{
+    desc=$('ajDesc').value.trim()||(tipo==='receita'?'Estorno':'Ajuste de fatura');
+    if(!(valor>0)){toast('Informe um valor válido');return;}
+  }
   const off=cardDueOffset(cartaoById(cartaoId));
   const compDate=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
   const comp=ymd(firstOfMonth(compDate));
-  const row={user_id:USER.id,tipo:window._ajTipo||'despesa',descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp};
+  const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp};
   const {error}=await sb.from('lancamentos').insert(row);
   if(error){toast('Erro: '+error.message);return;}
   closeSheet(); await loadAll(); toast('Fatura ajustada ✅'); renderFatura();

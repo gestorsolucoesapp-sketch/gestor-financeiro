@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.56"; /* x */
+const APP_VER = "6.57"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -466,7 +466,18 @@ const ICON=(n,s=20)=>{const p={
   link:'<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 1 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 1 0 7 7l1-1"/>',
   trash:'<polyline points="3 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   alert:'<path d="M12 3l9.5 17H2.5z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.7"/>',
-  palette:'<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="15.5" cy="10" r="1"/><path d="M12 21a2.5 2.5 0 0 0 0-5 1.8 1.8 0 0 1 0-3.6"/>'
+  palette:'<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="15.5" cy="10" r="1"/><path d="M12 21a2.5 2.5 0 0 0 0-5 1.8 1.8 0 0 1 0-3.6"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  balloon:'<circle cx="12" cy="8" r="5"/><path d="M12 13c0 3-2.2 3-2.2 6"/><path d="M10.8 13.2h2.4"/>',
+  gift:'<rect x="3.5" y="8" width="17" height="4"/><rect x="5" y="12" width="14" height="9"/><line x1="12" y1="8" x2="12" y2="21"/><path d="M12 8c-2 0-5-.7-5-3a2 2 0 0 1 4-.6C11.5 5.5 12 8 12 8z"/><path d="M12 8c2 0 5-.7 5-3a2 2 0 0 0-4-.6C12.5 5.5 12 8 12 8z"/>',
+  plane:'<path d="M21.5 4.5L3 11l6 2.5L11.5 20l3-5.5 7-10z"/><path d="M9 13.5l12.5-9"/>',
+  play:'<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M10 9l5 3-5 3z"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.8-3.4 7.8-8 9-4.6-1.2-8-4.2-8-9V6z"/><polyline points="8.8 11.8 11 14 15.2 9.8"/>',
+  scissors:'<circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><line x1="8.2" y1="7.8" x2="20" y2="16.5"/><line x1="8.2" y1="16.2" x2="20" y2="7.5"/>',
+  tool:'<path d="M14.7 6.3a4.6 4.6 0 0 0-6.1 6.1L3 18l3 3 5.6-5.6a4.6 4.6 0 0 0 6.1-6.1l-3 3-2.4-2.4z"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2.5H20v19H6.5A2.5 2.5 0 0 1 4 19V5a2.5 2.5 0 0 1 2.5-2.5z"/>',
+  dumbbell:'<line x1="2" y1="12" x2="5" y2="12"/><rect x="5" y="8" width="3" height="8" rx="1"/><rect x="16" y="8" width="3" height="8" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>'
 };
   return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p[n]||''}</svg>`;
 };
@@ -475,16 +486,32 @@ function tintBg(hex){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),
 function catVisual(cat,tipo){
   const n=((cat&&cat.nome)||'').toLowerCase();
   const map=[
-    [/sal[aá]rio|renda/, 'briefcase','#2f8f66'],
+    [/sal[aá]rio|renda|vale/, 'briefcase','#2f8f66'],
     [/venda|receb/, 'cart','#2f8f66'],
-    [/aliment|comida|mercado|restaur|lanch/, 'utensils','#e8654e'],
-    [/transp|combust|uber|gasolina|carro|ve[ií]culo/, 'car','#3b6fd6'],
-    [/moradia|casa|aluguel|luz|[aá]gua|energia|internet|tv|condom/, 'home','#7c5cff'],
-    [/compra|shopping|roupa|vestu/, 'bag','#d6478c'],
-    [/sa[uú]de|farm|m[eé]dic|rem[eé]dio|hospital/, 'heart','#e0455a'],
-    [/lazer|jogo|game|divers|viagem|entret/, 'game','#e0a020'],
-    [/fornec/, 'box','#a06a2c'],
-    [/imposto|taxa|tribut|tarifa/, 'receipt','#6f7d79'],
+    [/aliment|comida|mercado|restaur|lanch|padaria|caf[eé]/, 'utensils','#e8654e'],
+    [/transp|combust|uber|gasolina|carro|camionete|celta|ve[ií]culo|pneu/, 'car','#3b6fd6'],
+    [/moradia|casa|aluguel|luz|[aá]gua|energia|internet|tv|condom|m[oó]veis/, 'home','#7c5cff'],
+    [/compra|shopping|roupa|vestu|sup[eé]rflu/, 'bag','#d6478c'],
+    [/sa[uú]de|farm|m[eé]dic|rem[eé]dio|hospital|dentista|fisio/, 'heart','#e0455a'],
+    [/academia|trein|gym/, 'dumbbell','#d97b29'],
+    [/lazer|jogo|game|divers|entret/, 'game','#e0a020'],
+    [/viagem|hotel|passeio/, 'plane','#2a9d8f'],
+    [/assinat|stream|netflix|spotify/, 'play','#5a7bd6'],
+    [/celular|telefone|claro|vivo|\btim\b/, 'phone','#4a90b8'],
+    [/filho|beb[eê]|crian|ana l[ií]|escola|pens[aã]o/, 'balloon','#e07aa8'],
+    [/presente|anivers/, 'gift','#c94f7c'],
+    [/pessoa/, 'user','#8a6fd1'],
+    [/cabelo|beleza|sal[aã]o|maquiagem|unha|est[eé]tica/, 'scissors','#c25b9e'],
+    [/seguro/, 'shield','#5c8a5c'],
+    [/servi[cç]o|manuten|conserto|reforma/, 'tool','#6b7f8a'],
+    [/educa|curso|faculdade|livro/, 'book','#3b82a0'],
+    [/empresa|projeto|neg[oó]cio|orion/, 'briefcase','#4a6572'],
+    [/fornec|filamento|impress/, 'box','#a06a2c'],
+    [/invest|aplica/, 'trend','#2f8f66'],
+    [/banco|tarifa/, 'bank','#6f7d79'],
+    [/doa[cç]|carida|ajuda/, 'heart','#d0604e'],
+    [/imposto|taxa|tribut/, 'receipt','#6f7d79'],
+    [/outr[oa]s?/, 'tag','#8a8f98'],
   ];
   for(const [re,ic,col] of map){ if(re.test(n)) return {icon:ic,color:col}; }
   if(tipo==='receita') return {icon:'plus',color:'#2f8f66'};

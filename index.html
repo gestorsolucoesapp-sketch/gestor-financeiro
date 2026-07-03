@@ -17,7 +17,7 @@
   --ink:#0c1c1a; --paper:#f4f1ea; --card:#ffffff;
   --emerald:#0d3b34; --emerald-2:#15564c; --mint:#1f9d8a;
   --coral:#e8654e; --coral-soft:#fbe4de;
-  --green:#10b981; --red:#ef4444; --blue:#3b6fd6;
+  --green:#1f9d6b; --red:#d6473a; --blue:#3b6fd6;
   --muted:#6f7d79; --line:#e6e1d6; --line-2:#d7d0c2;
   --input-bg:#ffffff;
   --shadow:0 1px 2px rgba(12,28,26,.06),0 8px 24px rgba(12,28,26,.06);
@@ -216,7 +216,7 @@ body.modal-open{overflow:hidden}
 .barcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
 .barpair{display:flex;gap:3px;align-items:flex-end;height:90px}
 .bar{width:11px;border-radius:4px 4px 0 0;min-height:2px}
-.bar.rec{background:var(--green)}.bar.desp{background:var(--red)}
+.bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
 .legend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
@@ -415,7 +415,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.40"; /* x */
+const APP_VER = "6.41"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -703,12 +703,22 @@ function getTema(sc){sc=sc||scope||'tudo';const all=getTemas();return Object.ass
 function _hx(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}
 function lighten(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r+(255-r)*amt)+_hx(g+(255-g)*amt)+_hx(b+(255-b)*amt);}
 function darken(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r*(1-amt))+_hx(g*(1-amt))+_hx(b*(1-amt));}
+function vivid(hex){
+  // aumenta saturação e vivacidade mantendo a matiz (pra barras/gráfico com bom contraste)
+  const c=hex.replace('#','');let r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),avg=(mx+mn)/2;
+  const f=1.35; // fator de saturação
+  r=Math.round(avg+(r-avg)*f); g=Math.round(avg+(g-avg)*f); b=Math.round(avg+(b-avg)*f);
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return '#'+_hx(r)+_hx(g)+_hx(b);
+}
 function applyTema(sc){
   const t=getTema(sc); const s=document.documentElement.style;
   s.setProperty('--emerald',t.emerald); s.setProperty('--emerald-2',lighten(t.emerald,0.18));
   s.setProperty('--mint',t.mint); s.setProperty('--coral',t.coral); s.setProperty('--coral-soft',lighten(t.coral,0.75));
   s.setProperty('--green-on', lighten(t.green,0.45)); s.setProperty('--red-on', lighten(t.red,0.42));
   s.setProperty('--green',t.green); s.setProperty('--red',t.red);
+  s.setProperty('--bar-rec', vivid(t.green)); s.setProperty('--bar-desp', vivid(t.red));
   s.setProperty('--paper',t.paper); s.setProperty('--card',t.card);
   s.setProperty('--ink',t.ink); s.setProperty('--muted',t.muted);
   s.setProperty('--line',t.line); s.setProperty('--line-2',darken(t.line,0.06));
@@ -1859,7 +1869,7 @@ function renderRelatorios(){
       <div class="barlab">${m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</div>
     </div>`;
   });
-  html+=`</div><div class="legend"><span><i style="background:var(--green)"></i>Receitas</span><span><i style="background:var(--red)"></i>Despesas</span></div></div>`;
+  html+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
   $('content').innerHTML=html;
 }
 function donutSVG(seg,total){

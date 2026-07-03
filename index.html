@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.60"; /* x */
+const APP_VER = "6.61"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1202,13 +1202,14 @@ function saidasMes(d){
 }
 function gastoCartaoMes(d){
   const ym=ymd(firstOfMonth(d)).slice(0,7);
+  const viewingPartner=(source!=='eu' && source!=='casal');
   let s=0;
   for(const l of DATA.lancamentos){
     if(!l.cartao_id) continue;
     if(!l.competencia || faturaYm(l.competencia, cartaoById(l.cartao_id))!==ym) continue;
     if(!srcOk(l.user_id)) continue;
     const isPartnerCard = l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id);
-    if(isPartnerCard) continue; // conjuge entra em "Gasto · Cônjuge", não aqui
+    if(isPartnerCard && !viewingPartner) continue; // no "Eu/Casal" o cônjuge entra em "Gasto · Cônjuge"
     const cart=cartaoById(l.cartao_id);
     if(scope==='familia'){ if(!(cart&&cart.incluir_principal===false)) continue; }
     else { if(cart&&cart.incluir_principal===false) continue; if(scope!=='tudo' && (!cart||cart.tipo!==scope)) continue; }
@@ -1225,17 +1226,23 @@ function renderHome(){
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
   const balCard=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
-  // lançamentos recentes (não-cartão) do scope
+  // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
+  const _hjRec=ymd(new Date());
   const recents=DATA.lancamentos.filter(l=>{
-    if(l.cartao_id) return false;
     if(!srcOk(l.user_id)) return false;
+    if(l.data>_hjRec) return false;
+    if(l.cartao_id){
+      const cart=cartaoById(l.cartao_id);
+      if(scope!=='tudo' && (!cart||cart.tipo!==scope)) return false;
+      return true;
+    }
     const conta=contaById(l.conta_id)||contaById(l.conta_destino_id);
     if(scope!=='tudo'){
       if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
       return conta&&conta.tipo===scope;
     }
     return true;
-  }).slice(0,6);
+  }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
 
   let html=monthNav('home');
   // tarefas: contas pendentes atrasadas ou vencendo até amanhã (qualquer mês)

@@ -38,9 +38,12 @@ input,select{font-family:inherit;font-size:16px}
 
 /* ---------- AUTH ---------- */
 #auth{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:28px;
-  background:radial-gradient(120% 80% at 50% 18%, #0a1230 0%, #020111 60%)}
-.brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:22px;margin-top:-8px}
-.brand .logo-img{width:min(78vw,300px);height:auto;display:block;margin-bottom:-6px}
+  background:#020111}
+#auth::before{content:'';position:fixed;inset:0;background:radial-gradient(90% 50% at 50% 8%, rgba(28,48,110,.35) 0%, transparent 70%);pointer-events:none}
+.brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:22px;margin-top:-8px;position:relative}
+.brand .logo-img{width:min(72vw,270px);height:auto;display:block;margin-bottom:-6px;
+  -webkit-mask-image:radial-gradient(closest-side,#000 72%,transparent 100%);
+  mask-image:radial-gradient(closest-side,#000 72%,transparent 100%)}
 .brand .tag{margin:0;color:#8fa0c8;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
 .auth-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;width:100%;max-width:380px}
 .auth-card h2{margin:0 0 4px;font-size:19px}
@@ -240,7 +243,6 @@ body.modal-open{overflow:hidden}
 .istep .n{width:26px;height:26px;border-radius:50%;background:var(--emerald);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
 .istep .st{font-size:14px}
 .addgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-.addopt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border-radius:16px;background:#fff;border:1.5px solid var(--line-2);font-weight:700;font-size:13px;color:#14231f}
 .addmenu{position:fixed;inset:0;z-index:60;background:rgba(10,12,14,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:calc(env(safe-area-inset-bottom) + 24px);animation:amfade .18s ease}
 @keyframes amfade{from{opacity:0}to{opacity:1}}
 .addmenu-inner{display:flex;flex-direction:column;gap:22px;align-items:center;margin-bottom:28px}
@@ -259,8 +261,6 @@ body.modal-open{overflow:hidden}
 .amitem.paste .am-ic{width:34px;height:34px;box-shadow:none;background:rgba(255,255,255,.12)}
 .amitem.paste .am-ic svg{width:18px;height:18px}
 .addmenu-x{width:60px;height:60px;border-radius:50%;background:#7c3aed;color:#fff;font-size:24px;font-weight:300;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(124,58,237,.5)}
-.addopt span{font-size:26px}
-.addopt.rec{border-color:#22c55e;border-width:2px;background:#eafaf0}.addopt.desp{border-color:#ef4444;border-width:2px;background:#fdecec}.addopt.card{border-color:#f59e0b;border-width:2px;background:#fff4e3}.addopt.tr{border-color:#3b82f6;border-width:2px;background:#eaf1fe}
 .saved-lbl{font-size:12px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px;margin:2px 0 8px}
 .brand .ver{display:inline-block;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.7);margin-top:8px;letter-spacing:.3px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:3px 12px;border-radius:20px}
 .tema-presets{display:flex;flex-direction:column;gap:8px}
@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.53"; /* x */
+const APP_VER = "6.54"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -849,15 +849,18 @@ function traduzErro(m){
 
 // ============ BOOT ============
 async function afterLogin(){
-  const {data:{user}}=await sb.auth.getUser();
+  let user=null;
+  try{ const {data:{session}}=await sb.auth.getSession(); user=session&&session.user; }catch(e){}
+  if(!user){ try{ const {data}=await sb.auth.getUser(); user=data.user; }catch(e){} }
+  if(!user){ authErr('Não deu pra entrar sem internet. Conecte uma vez para o app guardar seu acesso.'); return; }
   USER=user;
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   await loadAll();
-  await maybeSeedCategorias();
-  updateBell();
-  iniciarRealtime();
+  try{ await maybeSeedCategorias(); }catch(e){}
+  try{ updateBell(); }catch(e){}
+  try{ iniciarRealtime(); }catch(e){}
   go('home');
   maybeShowInstall();
   checkBancoURL();

@@ -413,7 +413,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.31";
+const APP_VER = "6.32";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -713,6 +713,33 @@ function applyTema(sc){
 }
 function isDark(){return localStorage.getItem('gf_dark')==='1';}
 function toggleDark(v){localStorage.setItem('gf_dark',v?'1':'0');applyTema(scope);render();}
+async function baixarBackup(){
+  try{
+    const meu=x=>x.user_id===USER.id;
+    const dump={
+      app:'Gestor Financeiro', versao:APP_VER, gerado_em:new Date().toISOString(), user_id:USER.id,
+      contas:DATA.contas.filter(meu), cartoes:DATA.cartoes.filter(meu),
+      categorias:DATA.categorias.filter(meu), investimentos:DATA.investimentos.filter(meu),
+      lancamentos:DATA.lancamentos.filter(meu)
+    };
+    const txt=JSON.stringify(dump,null,2);
+    const nome='gestor-backup-'+ymd(new Date())+'.json';
+    const blob=new Blob([txt],{type:'application/json'});
+    // tenta compartilhar arquivo (melhor no iPhone → salva em Arquivos/Drive)
+    try{
+      const file=new File([blob],nome,{type:'application/json'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:'Backup Gestor'});
+        toast('Backup pronto — salve em Arquivos/Drive ✅'); return;
+      }
+    }catch(e){ /* segue pro download */ }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    toast(dump.lancamentos.length+' lançamentos · backup baixado ✅');
+  }catch(e){ toast('Erro no backup: '+(e.message||e)); }
+}
 let _temaScope='tudo', _temaWork=null;
 function renderTema(){
   if(!_temaScope)_temaScope='tudo';
@@ -1594,6 +1621,7 @@ function renderConfig(){
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
     ${hubItem('palette','Cores do app','Personalize o tema e todas as cores',"go('tema')",'#e0a020')}
     ${hubItem('download','Importar do Mobills','Suba o CSV exportado',"triggerImport()",'#3b6fd6')}
+    ${hubItem('download','Backup dos dados','Baixe tudo num arquivo (JSON)',"baixarBackup()",'#2f8f66')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
     ${hubItem('users','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()",'#2f8f66')}

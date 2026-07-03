@@ -437,7 +437,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.64"; /* x */
+const APP_VER = "6.65"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1441,6 +1441,8 @@ function renderPendencias(){
 }
 function verTrans(f){ window._transFilter=f||'all'; window._pendSel.clear(); go('trans'); }
 function verParceiroLancs(){ if(MYPARTNERS.length){ source=MYPARTNERS[0].owner_id; updateSourceSeg(); } window._transFilter='all'; window._pendSel.clear(); go('trans'); }
+function insertOp(id,ch){const el=document.getElementById(id);if(!el)return;el.value+=ch;el.focus();}
+function opChips(id){return `<div style="display:flex;gap:8px;margin:-6px 0 12px">${['+','-','×','÷'].map(o=>`<button type="button" onclick="insertOp('${id}','${o==='×'?'*':o==='÷'?'/':o}')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--line-2);background:var(--input-bg);color:var(--text);font-size:17px;font-weight:700">${o}</button>`).join('')}</div>`;}
 function calcVal(s){
   s=String(s||'').replace(/,/g,'.').replace(/\s/g,'');
   if(!s) return NaN;
@@ -1464,6 +1466,7 @@ async function toggleLancPago(id){
     <div class="note">${esc(l.descricao||'')} · ${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR')}</div>
     <div class="field"><label>Valor (R$) — aceita conta, ex: 120+35,90</label>
       <input id="cfValor" type="text" inputmode="decimal" value="${String(l.valor).replace('.',',')}"></div>
+    ${opChips('cfValor')}
     <div class="field"><label>${l.tipo==='transferencia'?'Conta de origem':'Conta'}</label>
       <select id="cfConta">${opts}</select></div>
     <button class="btn" onclick="confirmarLanc('${l.id}')">Confirmar</button>
@@ -1782,6 +1785,7 @@ function ajustarFatura(cartaoId){
     </div>
     <div class="field" id="ajDescWrap"><label>Descrição</label><input id="ajDesc" placeholder="Ex: compra esquecida, estorno…"></div>
     <div class="field"><label id="ajValLab">Valor (R$)</label><input id="ajValor" type="text" inputmode="decimal" placeholder="0,00 — aceita conta: 12+30,5"></div>
+    ${opChips('ajValor')}
     <div class="note hidden" id="ajTotNote">Total atual: <b>${brl(totAtual)}</b>. Digite o total correto da fatura e eu lanço a diferença automaticamente.</div>
     <button class="btn" onclick="saveAjusteFatura('${cartaoId}')">Adicionar à fatura</button>
   `);

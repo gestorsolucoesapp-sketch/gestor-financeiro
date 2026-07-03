@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gestor">
 <title>Gestor Soluções · Financeiro</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase.js"></script>
 <style>
 :root{
   --ink:#0c1c1a; --paper:#f4f1ea; --card:#ffffff;
@@ -418,7 +418,7 @@ body.modal-open{overflow:hidden}
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.58"; /* x */
+const APP_VER = "6.59"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -875,10 +875,11 @@ function traduzErro(m){
 }
 
 // ============ BOOT ============
-async function afterLogin(){
-  let user=null;
-  try{ const {data:{session}}=await sb.auth.getSession(); user=session&&session.user; }catch(e){}
-  if(!user){ try{ const {data}=await sb.auth.getUser(); user=data.user; }catch(e){} }
+async function afterLogin(userArg){
+  let user=userArg||null;
+  if(!user){ try{ const {data:{session}}=await sb.auth.getSession(); user=session&&session.user; }catch(e){} }
+  if(!user && navigator.onLine){ try{ const {data}=await sb.auth.getUser(); user=data.user; }catch(e){} }
+  if(!user){ const ls=localSession(); user=ls&&ls.user; }
   if(!user){ authErr('Não deu pra entrar sem internet. Conecte uma vez para o app guardar seu acesso.'); return; }
   USER=user;
   $('auth').classList.add('hidden');
@@ -3123,11 +3124,32 @@ async function ativarPush(){
 }
 
 // ============ INIT ============
+function localSession(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith('sb-')&&k.indexOf('-auth-token')>-1&&!k.endsWith('code-verifier')){
+        const v=JSON.parse(localStorage.getItem(k));
+        if(v&&v.user) return v;
+        if(v&&v.currentSession&&v.currentSession.user) return v.currentSession;
+      }
+    }
+  }catch(e){}
+  return null;
+}
 (async function init(){
   applyTema(scope);
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){ await afterLogin(); }
-  else { initLoginUI(); }
+  let session=null;
+  try{
+    session=await Promise.race([
+      sb.auth.getSession().then(r=>r.data.session).catch(()=>null),
+      new Promise(res=>setTimeout(()=>res(null),3000))
+    ]);
+  }catch(e){}
+  if(session){ await afterLogin(); return; }
+  const ls=localSession();
+  if(ls && ls.user && !navigator.onLine){ await afterLogin(ls.user); return; }
+  initLoginUI();
 })();
 </script>
 </body>

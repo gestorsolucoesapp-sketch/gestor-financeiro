@@ -2364,8 +2364,7 @@ function openCatList(){
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
-  html+=`<div class="note" style="padding:0 2px 10px">Somando despesas de todo mundo (você e Carol).</div>`;
-  const gastos=gastosPorCategoria(viewMonth,true);
+  const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
   // DONUT despesas por categoria
   html+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
@@ -2385,7 +2384,7 @@ function renderRelatorios(){
   }
   html+=`</div>`;
   // BARRAS evolução 6 meses
-  const ev=evolucaoMeses(6,true);
+  const ev=evolucaoMeses(6);
   const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
   html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
     <div class="bars">`;

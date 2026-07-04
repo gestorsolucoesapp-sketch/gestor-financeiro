@@ -230,6 +230,8 @@ body.modal-open{overflow:hidden}
 
 /* atalhos rápidos */
 .quickrow{display:flex;gap:10px;margin-bottom:14px}
+.radio-dot{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:13px;font-weight:800}
+.radio-dot.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .sortable-item{position:relative}
 .sortable-item.dragging{opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.4);border-radius:var(--radius)}
 .sortable-placeholder{border:2px dashed var(--line-2);border-radius:var(--radius);margin-bottom:14px;box-sizing:border-box}
@@ -515,6 +517,7 @@ const ICON=(n,s=20)=>{const p={
   minus:'<circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/>',
   tag:'<path d="M12.6 2.8H20a1.2 1.2 0 0 1 1.2 1.2v7.4a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-5.8-5.8a2 2 0 0 1 0-2.8l8-8a2 2 0 0 1 1.4-.6z"/><circle cx="16.3" cy="7.7" r="1.5"/>',
   moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  sun:'<circle cx="12" cy="12" r="4.2"/><line x1="12" y1="1.8" x2="12" y2="4.4"/><line x1="12" y1="19.6" x2="12" y2="22.2"/><line x1="4.4" y1="4.4" x2="6.2" y2="6.2"/><line x1="17.8" y1="17.8" x2="19.6" y2="19.6"/><line x1="1.8" y1="12" x2="4.4" y2="12"/><line x1="19.6" y1="12" x2="22.2" y2="12"/><line x1="4.4" y1="19.6" x2="6.2" y2="17.8"/><line x1="17.8" y1="6.2" x2="19.6" y2="4.4"/>',
   download:'<path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M4 20h16"/>',
   users:'<path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="8" r="3.2"/><path d="M22 20v-1.8a4 4 0 0 0-3-3.8"/><path d="M16 4.4a3.2 3.2 0 0 1 0 6.2"/>',
   link:'<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 1 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 1 0 7 7l1-1"/>',
@@ -898,8 +901,18 @@ function applyTema(sc){
     s.setProperty('--nav-on', t.emerald);
   }
 }
-function isDark(){return localStorage.getItem('gf_dark')==='1';}
-function toggleDark(v){localStorage.setItem('gf_dark',v?'1':'0');applyTema(scope);render();}
+function themeMode(){ const m=localStorage.getItem('gf_theme_mode'); if(m) return m; return (localStorage.getItem('gf_dark')==='1')?'dark':'light'; }
+function effectiveDark(m){ m=m||themeMode(); if(m==='auto') return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); return m==='dark'; }
+function setThemeMode(m){ localStorage.setItem('gf_theme_mode',m); localStorage.setItem('gf_dark', effectiveDark(m)?'1':'0'); applyTema(scope); render(); }
+if(window.matchMedia){
+  try{
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{
+      if(themeMode()==='auto'){ applyTema(scope); if(typeof render==='function') render(); }
+    });
+  }catch(e){}
+}
+function isDark(){return effectiveDark();}
+function toggleDark(v){ setThemeMode(v?'dark':'light'); }
 async function baixarBackup(){
   try{
     const meu=x=>x.user_id===USER.id;
@@ -2344,11 +2357,9 @@ function renderConfig(){
     ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
-    <div class="lrow" style="cursor:default;border-bottom:none">
-      <div class="dot" style="background:${tintBg('#3b6fd6')};color:#3b6fd6">${ICON('moon',20)}</div>
-      <div class="mid"><div class="t">Modo escuro</div><div class="s">Tema escuro para pouca luz</div></div>
-      <button class="switch ${isDark()?'on':''}" onclick="toggleDark(${isDark()?'false':'true'})"><span class="knob"></span></button>
-    </div>
+    ${temaRow('claro','Modo claro','Tema claro sempre',ICON('sun',20),'#e0a020')}
+    ${temaRow('dark','Modo escuro','Tema escuro sempre',ICON('moon',20),'#3b6fd6')}
+    ${temaRow('auto','Automático','Segue o modo claro/escuro do sistema',ICON('phone',20),'#2f8f66',true)}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
@@ -2368,6 +2379,14 @@ function renderConfig(){
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
+}
+function temaRow(mode,titulo,sub,iconHtml,color,isLast){
+  const sel=themeMode()===mode;
+  return `<div class="lrow" style="cursor:pointer;${isLast?'border-bottom:none':''}" onclick="setThemeMode('${mode}')">
+    <div class="dot" style="background:${tintBg(color)};color:${color}">${iconHtml}</div>
+    <div class="mid"><div class="t">${esc(titulo)}</div><div class="s">${esc(sub)}</div></div>
+    <div class="radio-dot ${sel?'on':''}">${sel?'✓':''}</div>
+  </div>`;
 }
 function hubItem(icKey,t,s,act,color){
   color=color||'#1f9d8a';

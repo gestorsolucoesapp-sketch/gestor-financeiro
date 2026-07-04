@@ -584,28 +584,72 @@ function flashErr(msg,fieldId){
 }
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}));}
-// ============ OFFLINE (fila + cache) ============
+// ============ OFFLINE (fila genérica: insert/update/delete em qualquer tabela) ============
 function isNetErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('failed to fetch')||m.includes('load failed')||m.includes('networkerror')||m.includes('network request failed')||m.includes('fetch event')||m.includes('offline'); }
 function saveCache(){ try{ localStorage.setItem('gf_cache', JSON.stringify({contas:DATA.contas,categorias:DATA.categorias,cartoes:DATA.cartoes,lancamentos:DATA.lancamentos,orcamentos:DATA.orcamentos,investimentos:DATA.investimentos})); }catch(e){} }
 function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; return true; } }catch(e){} return false; }
 function outbox(){ try{ return JSON.parse(localStorage.getItem('gf_outbox')||'[]'); }catch(e){ return []; } }
 function setOutbox(q){ try{ localStorage.setItem('gf_outbox', JSON.stringify(q)); }catch(e){} }
-function queueInsert(rows){
-  const q=outbox(); q.push({rows, ts:Date.now()}); setOutbox(q);
-  rows.forEach(r=>{ r._offline=true; DATA.lancamentos.unshift(r); });
+// tabela -> chave correspondente em DATA (pra aplicar a mudança localmente na hora, mesmo sem internet)
+const TABLE_KEY={lancamentos:'lancamentos',orcamentos:'orcamentos',cartoes:'cartoes',contas:'contas',categorias:'categorias',investimentos:'investimentos'};
+function applyLocalOp(table,type,payload){
+  const key=TABLE_KEY[table]; const arr=key&&DATA[key]; if(!arr) return;
+  if(type==='insert'){
+    payload.rows.forEach(r=>{ const c=Object.assign({},r,{_offline:true}); arr.unshift(c); });
+  }else if(type==='update'){
+    const vals=Array.isArray(payload.match.val)?payload.match.val:[payload.match.val];
+    arr.forEach(item=>{ if(vals.includes(item[payload.match.col])) Object.assign(item,payload.patch); });
+  }else if(type==='delete'){
+    const vals=Array.isArray(payload.match.val)?payload.match.val:[payload.match.val];
+    const kept=arr.filter(item=>!vals.includes(item[payload.match.col]));
+    arr.length=0; kept.forEach(x=>arr.push(x));
+  }
   saveCache(); updateOfflinePill();
 }
-async function insertRows(rows){
+function queueOp(table,type,payload){
+  const q=outbox(); q.push({table,type,payload,ts:Date.now()}); setOutbox(q);
+  applyLocalOp(table,type,payload);
+}
+// INSERT genérico. rows sempre recebe um id gerado no cliente, pra já poder usar na hora mesmo offline.
+async function dbInsert(table,rows){
   rows.forEach(r=>{ if(!r.id) r.id=uuid(); });
   if(navigator.onLine){
     try{
-      const {error}=await sb.from('lancamentos').insert(rows);
-      if(error){ if(isNetErr(error)){ queueInsert(rows); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false}; }
-      return {ok:true};
-    }catch(e){ if(isNetErr(e)){ queueInsert(rows); return {ok:true,queued:true}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
+      const {error}=await sb.from(table).insert(rows);
+      if(error){ if(isNetErr(error)){ queueOp(table,'insert',{rows}); return {ok:true,queued:true,rows}; } toast('Erro: '+error.message); return {ok:false,error}; }
+      return {ok:true,rows};
+    }catch(e){ if(isNetErr(e)){ queueOp(table,'insert',{rows}); return {ok:true,queued:true,rows}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
   }
-  queueInsert(rows); return {ok:true,queued:true};
+  queueOp(table,'insert',{rows}); return {ok:true,queued:true,rows};
 }
+// UPDATE genérico. val pode ser um id único ou um array (vira .in no supabase)
+async function dbUpdate(table,patch,col,val){
+  if(navigator.onLine){
+    try{
+      const base=sb.from(table).update(patch);
+      const {error}=Array.isArray(val)?await base.in(col,val):await base.eq(col,val);
+      if(error){ if(isNetErr(error)){ queueOp(table,'update',{patch,match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false,error}; }
+      applyLocalOp(table,'update',{patch,match:{col,val}});
+      return {ok:true};
+    }catch(e){ if(isNetErr(e)){ queueOp(table,'update',{patch,match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
+  }
+  queueOp(table,'update',{patch,match:{col,val}}); return {ok:true,queued:true};
+}
+// DELETE genérico. val pode ser um id único ou um array (vira .in no supabase)
+async function dbDelete(table,col,val){
+  if(navigator.onLine){
+    try{
+      const base=sb.from(table).delete();
+      const {error}=Array.isArray(val)?await base.in(col,val):await base.eq(col,val);
+      if(error){ if(isNetErr(error)){ queueOp(table,'delete',{match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false,error}; }
+      applyLocalOp(table,'delete',{match:{col,val}});
+      return {ok:true};
+    }catch(e){ if(isNetErr(e)){ queueOp(table,'delete',{match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
+  }
+  queueOp(table,'delete',{match:{col,val}}); return {ok:true,queued:true};
+}
+// compat: código antigo chama insertRows(rows) pra lançamentos
+async function insertRows(rows){ return dbInsert('lancamentos',rows); }
 let _flushing=false;
 async function flushOutbox(){
   updateOfflinePill();
@@ -616,14 +660,29 @@ async function flushOutbox(){
   try{
     for(const op of q){
       try{
-        const clean=op.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
-        const {error}=await sb.from('lancamentos').upsert(clean,{onConflict:'id'});
+        let error;
+        if(op.rows && !op.table){
+          // formato antigo (antes de existir update/delete na fila): sempre insert em lancamentos
+          const clean=op.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
+          ({error}=await sb.from('lancamentos').upsert(clean,{onConflict:'id'}));
+        }else if(op.type==='insert'){
+          const clean=op.payload.rows.map(r=>{ const c=Object.assign({},r); delete c._offline; return c; });
+          ({error}=await sb.from(op.table).upsert(clean,{onConflict:'id'}));
+        }else if(op.type==='update'){
+          const base=sb.from(op.table).update(op.payload.patch);
+          const val=op.payload.match.val;
+          ({error}=Array.isArray(val)?await base.in(op.payload.match.col,val):await base.eq(op.payload.match.col,val));
+        }else if(op.type==='delete'){
+          const base=sb.from(op.table).delete();
+          const val=op.payload.match.val;
+          ({error}=Array.isArray(val)?await base.in(op.payload.match.col,val):await base.eq(op.payload.match.col,val));
+        }
         if(error){ keep.push(op); lastErr=error.message; } else { sent++; }
       }catch(e){ keep.push(op); lastErr=(e&&e.message)||String(e); }
     }
   }finally{ _flushing=false; }
   setOutbox(keep);
-  if(sent>0){ try{ await loadAll(); }catch(e){} render(); toast(sent+' lançamento(s) sincronizado(s) ✅'); }
+  if(sent>0){ try{ await loadAll(); }catch(e){} render(); toast(sent+' alteração(ões) sincronizada(s) ✅'); }
   if(keep.length && lastErr && !isNetErr({message:lastErr})) toast('Sincronização falhou: '+lastErr);
   updateOfflinePill();
 }
@@ -1201,11 +1260,12 @@ async function aiConfirmarExclusao(){
   const l=window._aiPropExclusao; if(!l)return;
   if(!iaPodeExcluir()){toast('Exclusão via IA está desligada');return;}
   if(l.user_id!==USER.id){toast('Só posso excluir seus próprios lançamentos');return;}
-  const {error}=await sb.from('lancamentos').delete().eq('id',l.id);
-  if(error){toast('Erro: '+error.message);return;}
+  const r=await dbDelete('lancamentos','id',l.id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
   window._aiPropExclusao=null;
-  _aiMsgs.push({role:'assistant',content:'Excluído ✅ '+l.descricao+' · '+brl(Number(l.valor))});
-  await loadAll(); renderAssistente();
+  _aiMsgs.push({role:'assistant',content:(r&&r.queued?'Excluído (offline, sincroniza quando voltar a internet) ✅ ':'Excluído ✅ ')+l.descricao+' · '+brl(Number(l.valor))});
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  renderAssistente();
 }
 async function aiConfirmarLanc(){
   const p=window._aiProposta; if(!p)return;
@@ -1672,9 +1732,10 @@ function calcVal(s){
 async function toggleLancPago(id){
   const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
   if(l.status==='pago'){
-    const {error}=await sb.from('lancamentos').update({status:'pendente'}).eq('id',id);
-    if(error){toast('Erro: '+error.message);return;}
-    await loadAll(); render(); toast('Voltou a pendente (virtual)');
+    const r=await dbUpdate('lancamentos',{status:'pendente'},'id',id);
+    if(r&&r.error){toast('Erro: '+r.error.message);return;}
+    if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+    render(); toast(r&&r.queued?'Voltou a pendente (offline) — sincroniza depois':'Voltou a pendente (virtual)');
     return;
   }
   // pendente → abre caixinha pra ajustar conta/valor antes de efetivar
@@ -1697,15 +1758,16 @@ async function confirmarLanc(id){
   const valor=calcVal($('cfValor').value);
   if(!(valor>0)){toast('Valor inválido');return;}
   const conta_id=$('cfConta').value||l.conta_id;
-  const {error}=await sb.from('lancamentos').update({status:'pago',valor,conta_id}).eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
+  const r=await dbUpdate('lancamentos',{status:'pago',valor,conta_id},'id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
-  await loadAll(); render();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  render();
   if(l.tipo==='transferencia'){
     const dest=contaById(l.conta_destino_id);
     if(dest && dest.eh_investimento){ alocarAporte(valor); return; }
   }
-  toast('Confirmado — entrou na conta ✅');
+  toast(r&&r.queued?'Confirmado (offline) — sincroniza depois':'Confirmado — entrou na conta ✅');
 }
 function alocarAporte(valor){
   const invs=DATA.investimentos.filter(i=>!i.arquivado && i.user_id===USER.id);
@@ -1734,19 +1796,21 @@ function apToggleNovo(){ const v=$('apInv')?$('apInv').value:''; const w=$('apNo
 function apTsel(){ [['apT0','poupanca'],['apT1','renda_fixa'],['apT2','outro']].forEach(([b,t])=>$(b)&&$(b).classList.toggle('on',t===window._apTipo)); }
 async function alocarAporteConfirma(valor){
   const sel=$('apInv')?$('apInv').value:'__novo__';
+  let r;
   if(sel && sel!=='__novo__'){
     const inv=DATA.investimentos.find(x=>x.id===sel); if(!inv){toast('Erro');return;}
     const novo=(Number(inv.valor_aplicado)||0)+Number(valor);
-    const {error}=await sb.from('investimentos').update({valor_aplicado:novo}).eq('id',sel);
-    if(error){toast('Erro: '+error.message);return;}
+    r=await dbUpdate('investimentos',{valor_aplicado:novo},'id',sel);
   } else {
     const nome=($('apNome')?$('apNome').value:'').trim()||'Investimento';
     let taxa=evalValor($('apTaxa')?$('apTaxa').value:''); if(isNaN(taxa)) taxa=0;
     const row={user_id:USER.id,nome,tipo:window._apTipo||'renda_fixa',valor_aplicado:Number(valor),taxa_mensal:taxa,data_aplicacao:ymd(new Date()),incluir_patrimonio:true};
-    const {error}=await sb.from('investimentos').insert(row);
-    if(error){toast('Erro: '+error.message);return;}
+    r=await dbInsert('investimentos',[row]);
   }
-  closeSheet(); await loadAll(); toast('Aporte alocado no investimento ✅'); render();
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Aporte alocado (offline) — sincroniza depois':'Aporte alocado no investimento ✅'); render();
 }
 function pendToggle(id){ if(window._pendSel.has(id))window._pendSel.delete(id); else window._pendSel.add(id); render(); }
 function transPendentes(){
@@ -1781,12 +1845,14 @@ async function efetivarConfirma(){
   const sel=pendentesList().filter(l=>window._pendSel.has(l.id));
   const novaConta=$('efetivConta')?$('efetivConta').value:'';
   const patch = novaConta ? {status:'pago', conta_id:novaConta} : {status:'pago'};
-  const {error}=await sb.from('lancamentos').update(patch).in('id',ids);
-  if(error){toast('Erro: '+error.message);return;}
-  window._pendSel.clear(); closeSheet(); await loadAll(); render();
+  const r=await dbUpdate('lancamentos',patch,'id',ids);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  window._pendSel.clear(); closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  render();
   const aportes=sel.filter(l=>l.tipo==='transferencia' && (contaById(l.conta_destino_id)||{}).eh_investimento);
   if(aportes.length===1){ alocarAporte(Number(aportes[0].valor)||0); return; }
-  toast(ids.length+' baixa(s) efetivada(s) ✅');
+  toast(ids.length+(r&&r.queued?' baixa(s) efetivada(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
 }
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
@@ -2040,9 +2106,11 @@ async function saveAjusteFatura(cartaoId){
   const compDate=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
   const comp=ymd(firstOfMonth(compDate));
   const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp};
-  const {error}=await sb.from('lancamentos').insert(row);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Fatura ajustada ✅'); renderFatura();
+  const r=await dbInsert('lancamentos',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Fatura ajustada (offline) — sincroniza depois':'Fatura ajustada ✅'); renderFatura();
 }
 async function pagarFatura(cartaoId){
   const cs=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
@@ -2058,9 +2126,11 @@ async function confirmPagarFatura(cartaoId,tot){
   const contaId=$('payConta').value;
   const c=cartaoById(cartaoId);
   const row={user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome,valor:tot,data:ymd(new Date()),status:'pago',conta_id:contaId};
-  const {error}=await sb.from('lancamentos').insert(row);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Fatura paga'); renderFatura();
+  const r=await dbInsert('lancamentos',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':'Fatura paga'); renderFatura();
 }
 
 // ============ CONTAS ============
@@ -2372,20 +2442,24 @@ async function saveOrcamento(id){
   const lim=parseFloat($('oLim').value);
   if(!(lim>0)){toast('Informe um limite válido');return;}
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
-  let error;
-  if(id){({error}=await sb.from('orcamentos').update({limite:lim}).eq('id',id));}
+  let r;
+  if(id){ r=await dbUpdate('orcamentos',{limite:lim},'id',id); }
   else{
     const catId=$('oCat').value; if(!catId){flashErr('Selecione uma categoria','oCat');return;}
-    ({error}=await sb.from('orcamentos').insert({user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim}));
+    r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim}]);
   }
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Orçamento salvo'); render();
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':'Orçamento salvo'); render();
 }
 async function delOrcamento(id){
   if(!confirm('Remover este orçamento?'))return;
-  const {error}=await sb.from('orcamentos').delete().eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Removido'); render();
+  const r=await dbDelete('orcamentos','id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Removido (offline) — sincroniza depois':'Removido'); render();
 }
 
 // barras/progresso helpers
@@ -2473,17 +2547,19 @@ async function saveInvest(id){
   const taxa=parseFloat($('iTaxa').value)||0;
   const data=$('iData').value||ymd(new Date());
   const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false};
-  let error;
-  if(id)({error}=await sb.from('investimentos').update(row).eq('id',id));
-  else ({error}=await sb.from('investimentos').insert(row));
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast(id?'Investimento atualizado':'Investimento criado'); render();
+  const r = id ? await dbUpdate('investimentos',row,'id',id) : await dbInsert('investimentos',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?(id?'Investimento atualizado (offline)':'Investimento criado (offline)')+' — sincroniza depois':(id?'Investimento atualizado':'Investimento criado')); render();
 }
 async function delInvest(id){
   if(!confirm('Excluir este investimento?'))return;
-  const {error}=await sb.from('investimentos').delete().eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Excluído'); render();
+  const r=await dbDelete('investimentos','id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Excluído (offline) — sincroniza depois':'Excluído'); render();
 }
 
 // ============ MONTH NAV ============
@@ -2820,9 +2896,11 @@ function ajustaStatusData(){
 async function criarCategoriaRapida(){
   const nome=prompt('Nome da nova categoria:'); if(!nome||!nome.trim()) return;
   const tipo=lancType==='receita'?'receita':'despesa';
-  const {data,error}=await sb.from('categorias').insert({user_id:USER.id,nome:nome.trim(),tipo}).select().single();
-  if(error){toast('Erro: '+error.message);return;}
-  DATA.categorias.push(data);
+  const row={user_id:USER.id,nome:nome.trim(),tipo};
+  const r=await dbInsert('categorias',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  const data=r.rows[0];
+  if(!(r&&r.queued) && !DATA.categorias.some(c=>c.id===data.id)) DATA.categorias.push(data);
   const sel=$('lCatSel');
   if(sel){
     const opt=document.createElement('option');
@@ -2832,7 +2910,7 @@ async function criarCategoriaRapida(){
     sel.value=data.id;
   }
   window._catSel=data.id;
-  toast('Categoria "'+data.nome+'" criada');
+  toast('Categoria "'+data.nome+'" criada'+(r&&r.queued?' (offline)':''));
 }
 
 // calcula a competência (1º dia do mês da fatura) p/ uma compra
@@ -2861,7 +2939,6 @@ async function saveLanc(id){
   if(lancType!=='transferencia' && !window._meio){toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
   if(!isCardPurchase && !window._lancStatus){toast('Escolha uma opção acima pra continuar');return;}
-  if(id && !navigator.onLine){ toast('Sem internet — editar precisa de conexão. Novos lançamentos podem ser feitos offline.'); return; }
 
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;
@@ -2886,7 +2963,7 @@ async function saveLanc(id){
     const rec = pv==='rec';
     const n = rec?24:(parseInt(pv)||1);
     const cartao=cartaoById(cartaoId);
-    if(id){const old=DATA.lancamentos.find(l=>l.id===id); if(old&&old.grupo_id){await sb.from('lancamentos').delete().eq('grupo_id',old.grupo_id);} else {await sb.from('lancamentos').delete().eq('id',id);} }
+    if(id){const old=DATA.lancamentos.find(l=>l.id===id); if(old&&old.grupo_id){await dbDelete('lancamentos','grupo_id',old.grupo_id);} else {await dbDelete('lancamentos','id',id);} }
     const grupo=uuid();
     const baseComp=calcCompetencia(data,cartao.dia_fechamento);
     const rows=[];
@@ -2952,9 +3029,11 @@ function addMonths(dateStr,n){
 }
 async function upsertLanc(id,row){
   if(id){
-    const {error}=await sb.from('lancamentos').update(row).eq('id',id);
-    if(error){toast('Erro: '+error.message);return;}
-    closeSheet(); await loadAll(); toast('Transação atualizada'); render(); return;
+    const r=await dbUpdate('lancamentos',row,'id',id);
+    if(r&&r.error){toast('Erro: '+r.error.message);return;}
+    closeSheet();
+    if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+    toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); return;
   }
   if(!row.id) row.id=uuid();
   const r=await insertRows([row]);
@@ -2965,16 +3044,18 @@ async function upsertLanc(id,row){
 }
 async function delLanc(id){
   const l=DATA.lancamentos.find(x=>x.id===id);
+  let r;
   if(l&&l.grupo_id){
     if(!confirm('Excluir TODAS as parcelas desta compra?'))return;
-    const {error}=await sb.from('lancamentos').delete().eq('grupo_id',l.grupo_id);
-    if(error){toast('Erro: '+error.message);return;}
+    r=await dbDelete('lancamentos','grupo_id',l.grupo_id);
   }else{
     if(!confirm('Excluir esta transação?'))return;
-    const {error}=await sb.from('lancamentos').delete().eq('id',id);
-    if(error){toast('Erro: '+error.message);return;}
+    r=await dbDelete('lancamentos','id',id);
   }
-  closeSheet(); await loadAll(); toast('Excluído'); render();
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Excluído offline — sincroniza depois':'Excluído'); render();
 }
 
 // ---- CONTA ----
@@ -3080,17 +3161,19 @@ async function saveConta(id){
   const nome=$('cNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const saldo=parseFloat($('cSaldo').value)||0;
   const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true,logo_url:window._cLogo||null};
-  let error;
-  if(id)({error}=await sb.from('contas').update(row).eq('id',id));
-  else ({error}=await sb.from('contas').insert(row));
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast(id?'Conta atualizada':'Conta criada'); render();
+  const r = id ? await dbUpdate('contas',row,'id',id) : await dbInsert('contas',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?(id?'Conta atualizada (offline)':'Conta criada (offline)')+' — sincroniza depois':(id?'Conta atualizada':'Conta criada')); render();
 }
 async function arquivarConta(id){
   if(!confirm('Arquivar esta conta? Ela some das listas mas o histórico fica.'))return;
-  const {error}=await sb.from('contas').update({arquivada:true}).eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Conta arquivada'); render();
+  const r=await dbUpdate('contas',{arquivada:true},'id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Conta arquivada (offline) — sincroniza depois':'Conta arquivada'); render();
 }
 function reajustarConta(id){
   const c=DATA.contas.find(x=>x.id===id); if(!c) return;
@@ -3115,14 +3198,17 @@ async function reajustarConfirma(id){
   const tipo = diff>0?'receita':'despesa';
   let cat=DATA.categorias.find(k=>k.user_id===USER.id && (k.nome||'').toLowerCase()==='reajuste em contas' && k.tipo===tipo);
   if(!cat){
-    const {data,error}=await sb.from('categorias').insert({user_id:USER.id,nome:'Reajuste em contas',tipo}).select().single();
-    if(error){toast('Erro: '+error.message);return;}
-    DATA.categorias.push(data); cat=data;
+    const rc=await dbInsert('categorias',[{user_id:USER.id,nome:'Reajuste em contas',tipo}]);
+    if(rc&&rc.error){toast('Erro: '+rc.error.message);return;}
+    cat=rc.rows[0];
+    if(!(rc&&rc.queued) && !DATA.categorias.some(c=>c.id===cat.id)) DATA.categorias.push(cat);
   }
   const row={user_id:USER.id,tipo,descricao:'Reajuste de saldo',valor:Math.abs(diff),data:ymd(new Date()),status:'pago',conta_id:id,categoria_id:cat.id};
-  const {error}=await sb.from('lancamentos').insert(row);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast((diff>0?'+':'−')+brl(Math.abs(diff)).replace('R$ ','R$ ')+' · saldo reajustado ✅'); render();
+  const r=await dbInsert('lancamentos',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast((diff>0?'+':'−')+brl(Math.abs(diff)).replace('R$ ','R$ ')+' · saldo reajustado'+(r&&r.queued?' (offline)':'')+' ✅'); render();
 }
 
 // ---- CARTÃO ----
@@ -3170,29 +3256,34 @@ async function saveCartao(id){
   if(!(fecha>=1&&fecha<=31)){toast('Dia de fechamento inválido');return;}
   if(!(vence>=1&&vence<=31)){toast('Dia de vencimento inválido');return;}
   const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false,logo_url:window._kLogo||null};
-  let error;
-  if(id)({error}=await sb.from('cartoes').update(row).eq('id',id));
-  else ({error}=await sb.from('cartoes').insert(row));
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast(id?'Cartão atualizado':'Cartão criado'); render();
+  const r = id ? await dbUpdate('cartoes',row,'id',id) : await dbInsert('cartoes',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?(id?'Cartão atualizado (offline)':'Cartão criado (offline)')+' — sincroniza depois':(id?'Cartão atualizado':'Cartão criado')); render();
 }
 async function arquivarCartao(id){
   if(!confirm('Arquivar este cartão?'))return;
-  const {error}=await sb.from('cartoes').update({arquivado:true}).eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Cartão arquivado'); render();
+  const r=await dbUpdate('cartoes',{arquivado:true},'id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Cartão arquivado (offline) — sincroniza depois':'Cartão arquivado'); render();
 }
 async function delCartao(id){
   const c=cartaoById(id);
   if(!confirm('Remover o cartão "'+(c?c.nome:'')+'"?\n\nEle fica guardado em "Arquivados" e você pode restaurar quando quiser.'))return;
-  const {error}=await sb.from('cartoes').update({arquivado:true}).eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Cartão removido (recuperável em Arquivados)'); render();
+  const r=await dbUpdate('cartoes',{arquivado:true},'id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Cartão removido (offline) — sincroniza depois':'Cartão removido (recuperável em Arquivados)'); render();
 }
 async function restoreCartao(id){
-  const {error}=await sb.from('cartoes').update({arquivado:false}).eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  await loadAll(); toast('Cartão restaurado ✅'); abrirArquivados();
+  const r=await dbUpdate('cartoes',{arquivado:false},'id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Cartão restaurado (offline) ✅':'Cartão restaurado ✅'); abrirArquivados();
 }
 function abrirArquivados(){
   const arq=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id);
@@ -3237,17 +3328,19 @@ function openCat(id){
 async function saveCat(id){
   const nome=$('catNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const row={user_id:USER.id,nome,icone:$('catIcone').value.trim()||null,tipo:window._catTipo||'despesa'};
-  let error;
-  if(id)({error}=await sb.from('categorias').update(row).eq('id',id));
-  else ({error}=await sb.from('categorias').insert(row));
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast(id?'Categoria atualizada':'Categoria criada'); render();
+  const r = id ? await dbUpdate('categorias',row,'id',id) : await dbInsert('categorias',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?(id?'Categoria atualizada (offline)':'Categoria criada (offline)')+' — sincroniza depois':(id?'Categoria atualizada':'Categoria criada')); render();
 }
 async function delCat(id){
   if(!confirm('Excluir categoria? As transações ficam sem categoria.'))return;
-  const {error}=await sb.from('categorias').delete().eq('id',id);
-  if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); await loadAll(); toast('Excluída'); render();
+  const r=await dbDelete('categorias','id',id);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  closeSheet();
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  toast(r&&r.queued?'Excluída (offline) — sincroniza depois':'Excluída'); render();
 }
 
 // ============ IMPORTAÇÃO MOBILLS ============

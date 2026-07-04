@@ -230,6 +230,11 @@ body.modal-open{overflow:hidden}
 
 /* atalhos rápidos */
 .quickrow{display:flex;gap:10px;margin-bottom:14px}
+.sortable-item{position:relative}
+.sortable-item.dragging{opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.4);border-radius:var(--radius)}
+.sortable-placeholder{border:2px dashed var(--line-2);border-radius:var(--radius);margin-bottom:14px;box-sizing:border-box}
+.drag-handle{position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;z-index:6;font-size:18px;letter-spacing:1px;line-height:1;cursor:grab;border-radius:8px}
+.drag-handle:active{background:var(--input-bg)}
 .quick{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--ink)}
 .quick .qi{font-size:22px;margin-bottom:4px}
 /* barra receita x despesa no hero */
@@ -1442,7 +1447,7 @@ function daybarChartHTML(dias,titulo,nota,ownerFiltro){
   const hoje=new Date();
   const maxBarPx=110;
   const fk=ownerFiltro?`'${ownerFiltro}'`:'null';
-  let html=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
+  let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
   html+=`<div class="daybars">`;
   dias.forEach(x=>{
@@ -1505,7 +1510,71 @@ function gastosDiarios(d,allSources){
   return arr;
 }
 
-// ============ HOME ============
+// ============ ARRASTAR PRA REORDENAR (segura no ⠿ e arrasta) ============
+function ordemSalva(key,defaultOrder,disponiveis){
+  let ord=null;
+  try{ ord=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
+  if(!Array.isArray(ord)) ord=defaultOrder;
+  // mantém só chaves disponíveis agora, na ordem salva, depois acrescenta as novas que faltarem
+  const out=ord.filter(k=>disponiveis.includes(k));
+  disponiveis.forEach(k=>{ if(!out.includes(k)) out.push(k); });
+  return out;
+}
+function makeSortable(containerId,storageKey){
+  const cont=$(containerId); if(!cont) return;
+  cont.querySelectorAll(':scope > .sortable-item').forEach(item=>{
+    const handle=item.querySelector('.drag-handle');
+    if(!handle || handle._bound) return;
+    handle._bound=true;
+    handle.addEventListener('pointerdown',(e)=>{
+      e.preventDefault();
+      const items=[...cont.querySelectorAll(':scope > .sortable-item')];
+      const rect=item.getBoundingClientRect();
+      const startY=e.clientY;
+      const placeholder=document.createElement('div');
+      placeholder.className='sortable-placeholder';
+      placeholder.style.height=rect.height+'px';
+      item.parentNode.insertBefore(placeholder,item.nextSibling);
+      item.classList.add('dragging');
+      item.style.position='fixed';
+      item.style.width=rect.width+'px';
+      item.style.left=rect.left+'px';
+      item.style.top=rect.top+'px';
+      item.style.margin='0';
+      document.body.appendChild(item);
+      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+      function onMove(ev){
+        const dy=ev.clientY-startY;
+        item.style.top=(rect.top+dy)+'px';
+        let next=null;
+        for(const other of items){
+          if(other===item) continue;
+          const r=other.getBoundingClientRect();
+          if(ev.clientY < r.top+r.height/2){ next=other; break; }
+        }
+        if(next && next.parentNode) next.parentNode.insertBefore(placeholder,next);
+        else if(placeholder.parentNode) placeholder.parentNode.appendChild(placeholder);
+        // autoscroll perto das bordas da tela
+        const margin=70, sc=document.scrollingElement||document.documentElement;
+        if(ev.clientY<margin) sc.scrollTop-=14;
+        else if(ev.clientY>window.innerHeight-margin) sc.scrollTop+=14;
+      }
+      function onUp(){
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onUp);
+        placeholder.parentNode.insertBefore(item,placeholder);
+        placeholder.remove();
+        item.classList.remove('dragging');
+        item.style.position=''; item.style.width=''; item.style.left=''; item.style.top=''; item.style.margin='';
+        const order=[...cont.querySelectorAll(':scope > .sortable-item')].map(x=>x.dataset.key);
+        localStorage.setItem(storageKey, JSON.stringify(order));
+      }
+      document.addEventListener('pointermove',onMove);
+      document.addEventListener('pointerup',onUp,{once:true});
+    });
+  });
+}
+const DRAG_HANDLE=`<div class="drag-handle">⠿</div>`;
 function balancoMes(d){
   const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
   let rec=0,desp=0,recPend=0;
@@ -1628,7 +1697,9 @@ function renderHome(){
   }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
 
   let html=monthNav('home');
-  // tarefas: contas pendentes atrasadas ou vencendo até amanhã (qualquer mês)
+  const blocos={};
+
+  // bloco: contas pra pagar (atrasadas/vencendo até amanhã)
   const _hj=ymd(new Date()), _am=ymd(new Date(Date.now()+86400000));
   const tarefas=DATA.lancamentos.filter(l=>
     l.tipo==='despesa' && l.status==='pendente' && !l.cartao_id &&
@@ -1636,21 +1707,23 @@ function renderHome(){
   ).sort((a,b)=>a.data<b.data?-1:1);
   if(tarefas.length){
     const totT=tarefas.reduce((a,l)=>a+Number(l.valor),0);
-    html+=`<div class="card" style="border:1.5px solid var(--coral);margin-bottom:14px">
+    let bh=`<div class="card" style="border:1.5px solid var(--coral);margin-bottom:0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <b style="font-size:14.5px">⚠️ Contas pra pagar</b>
         <span class="note"><b style="color:var(--coral)">${brl(totT)}</b></span></div>`;
     tarefas.slice(0,5).forEach(l=>{
-      html+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:9px 0">
+      bh+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:9px 0">
         <div class="mid"><div class="t" style="font-size:13.5px">${esc(l.descricao)}${duePill(l)}</div>
         <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${brl(Number(l.valor))}</div></div>
         <button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Pagar</button></div>`;
     });
-    if(tarefas.length>5) html+=`<button class="lnk" style="margin-top:6px" onclick="verTrans('pendente')">Ver todas (${tarefas.length}) ›</button>`;
-    html+=`</div>`;
+    if(tarefas.length>5) bh+=`<button class="lnk" style="margin-top:6px" onclick="verTrans('pendente')">Ver todas (${tarefas.length}) ›</button>`;
+    bh+=`</div>`;
+    blocos.alerta=bh;
   }
-  html+=`
-  <div class="card hero">
+
+  // bloco: saldo (hero)
+  blocos.saldo=`<div class="card hero" style="margin-bottom:0">
     <div class="lab">Saldo em contas ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
     ${barRecDesp(b.rec,totalGastos)}
@@ -1680,38 +1753,51 @@ function renderHome(){
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
-  // atalhos rápidos
-  html+=`<div class="quickrow">
+  // bloco: atalhos rápidos
+  blocos.quicknav=`<div class="quickrow" style="margin-bottom:0">
     <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
     <div class="quick" onclick="go('planejamento')"><div class="qi">${ICON('target',22)}</div><div>Planejar</div></div>
     <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
   </div>`;
+
+  // bloco: lembrete de contas a pagar (resumo)
   const np=pendDueList().length;
-  if(np){ html+=`<div class="card pend-alert" onclick="go('pendencias')">
+  if(np){ blocos.pendalert=`<div class="card pend-alert" onclick="go('pendencias')" style="margin-bottom:0">
     <div class="dot" style="background:#fdecec;color:var(--coral)">${ICON('receipt',20)}</div>
     <div style="flex:1"><div style="font-weight:700">${np} conta${np>1?'s':''} a pagar</div><div class="note">Vencem até o fim do mês · toque pra dar baixa</div></div>
     <span style="color:var(--muted);font-size:20px">›</span></div>`; }
 
-  // minhas contas resumo
+  // bloco: minhas contas
   const cs=contasPrincipais();
-  html+=`<div class="sec-head"><h3>Minhas contas</h3><a onclick="go('contas')">Ver todas</a></div><div class="card">`;
-  if(!cs.length) html+=`<div class="empty"><div class="ico">${ICON('bank',30)}</div><p>Você ainda não tem contas.</p><button class="btn coral sm" onclick="openConta()">Criar conta</button></div>`;
-  else cs.forEach(c=>{ html+=rowConta(c); });
-  html+=`</div>`;
+  let bc=`<div class="sec-head"><h3>Minhas contas</h3><a onclick="go('contas')">Ver todas</a></div><div class="card" style="margin-bottom:0">`;
+  if(!cs.length) bc+=`<div class="empty"><div class="ico">${ICON('bank',30)}</div><p>Você ainda não tem contas.</p><button class="btn coral sm" onclick="openConta()">Criar conta</button></div>`;
+  else cs.forEach(c=>{ bc+=rowConta(c); });
+  bc+=`</div>`;
+  blocos.contas=bc;
 
-  // recentes (ocultável — padrão oculto)
+  // bloco: últimas transações (ocultável — padrão oculto)
   const hideRec = (localStorage.getItem('gf_hideRecents')||'1')==='1';
-  html+=`<div class="sec-head"><h3>Últimas transações</h3><div style="display:flex;gap:16px">
+  let br=`<div class="sec-head"><h3>Últimas transações</h3><div style="display:flex;gap:16px">
     <a onclick="toggleRecents()">${hideRec?'Mostrar':'Ocultar'}</a>
     ${hideRec?'':`<a onclick="go('trans')">Ver todas</a>`}
   </div></div>`;
   if(!hideRec){
-    html+=`<div class="card">`;
-    if(!recents.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma transação ainda.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
-    else recents.forEach(l=>html+=rowLanc(l));
-    html+=`</div>`;
+    br+=`<div class="card" style="margin-bottom:0">`;
+    if(!recents.length) br+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma transação ainda.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
+    else recents.forEach(l=>br+=rowLanc(l));
+    br+=`</div>`;
   }
+  blocos.recentes=br;
+
+  const ordem=ordemSalva('gf_order_home',['alerta','saldo','quicknav','pendalert','contas','recentes'],Object.keys(blocos));
+  html+=`<div id="homeSortable">`;
+  ordem.forEach(k=>{
+    if(!blocos[k]) return;
+    html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocos[k]}</div>`;
+  });
+  html+=`</div>`;
   $('content').innerHTML=html;
+  makeSortable('homeSortable','gf_order_home');
 }
 function toggleRecents(){
   const cur=(localStorage.getItem('gf_hideRecents')||'1')==='1';
@@ -2414,33 +2500,35 @@ function openCatList(){
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
+  const blocos={};
   const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
   // DONUT despesas por categoria
-  html+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
-  if(!totalGasto){ html+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
+  let bcat=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
+  if(!totalGasto){ bcat+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
   else{
     const seg=gastos.map((g,i)=>({valor:g.valor,color:PALETA[i%PALETA.length]}));
-    html+=`<div style="display:flex;align-items:center;justify-content:center;margin:8px 0 4px">${donutSVG(seg,totalGasto)}</div>`;
-    html+=`<div style="margin-top:6px">`;
+    bcat+=`<div style="display:flex;align-items:center;justify-content:center;margin:8px 0 4px">${donutSVG(seg,totalGasto)}</div>`;
+    bcat+=`<div style="margin-top:6px">`;
     gastos.forEach((g,i)=>{
       const pct=(g.valor/totalGasto*100);
-      html+=`<div class="lrow" style="cursor:default">
+      bcat+=`<div class="lrow" style="cursor:default">
         <div class="dot" style="background:${PALETA[i%PALETA.length]}22;color:${PALETA[i%PALETA.length]}">${g.icone||'•'}</div>
         <div class="mid"><div class="t">${esc(g.nome)}</div><div class="s">${pct.toFixed(1)}% do mês</div></div>
         <div class="amt r">${brl(g.valor)}</div></div>`;
     });
-    html+=`</div>`;
+    bcat+=`</div>`;
   }
-  html+=`</div>`;
+  bcat+=`</div>`;
+  blocos.categoria=bcat;
   // BARRAS evolução 6 meses
   const ev=evolucaoMeses(6);
   const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
-  html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
+  let bev=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
     <div class="bars">`;
   ev.forEach(m=>{
     const hr=Math.round(m.rec/maxV*90), hd=Math.round(m.desp/maxV*90);
-    html+=`<div class="barcol">
+    bev+=`<div class="barcol">
       <div class="barpair">
         <div class="bar rec" style="height:${hr}px" title="${brl(m.rec)}"></div>
         <div class="bar desp" style="height:${hd}px" title="${brl(m.desp)}"></div>
@@ -2448,16 +2536,29 @@ function renderRelatorios(){
       <div class="barlab">${m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</div>
     </div>`;
   });
-  html+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
+  bev+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
+  blocos.evolucao=bev;
   // BARRAS gastos diários do mês (cartão + débito somados por dia da compra)
   const dias=gastosDiarios(viewMonth,true);
-  html+=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver os detalhes.', null);
+  blocos.diario=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver os detalhes.', null);
   // BARRAS gastos diários por parceiro (ex: só da Carol)
+  const defaultOrder=['diario','categoria','evolucao'];
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
-    html+=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
+    const key='diario_'+p.owner_id;
+    blocos[key]=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
+    defaultOrder.push(key);
   });
+
+  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos));
+  html+=`<div id="relSortable">`;
+  ordem.forEach(k=>{
+    if(!blocos[k]) return;
+    html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocos[k]}</div>`;
+  });
+  html+=`</div>`;
   $('content').innerHTML=html;
+  makeSortable('relSortable','gf_order_relatorios');
 }
 function donutSVG(seg,total){
   const size=180,r=70,cx=size/2,cy=size/2,sw=26;

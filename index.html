@@ -437,7 +437,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.67"; /* x */
+const APP_VER = "6.68"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1079,7 +1079,12 @@ function resumoParaIA(){
     .map(l=>`${l.data} ${l.tipo} ${l.descricao||''} ${brl(Number(l.valor))}${l.status==='pendente'?' (pendente)':''}`).join(' | ');
   const nomesContas=DATA.contas.filter(c=>!c.arquivada&&c.user_id===USER.id).map(c=>c.nome).join(', ');
   const nomesCats=DATA.categorias.filter(c=>c.user_id===USER.id).map(c=>c.nome).join(', ');
-  return `Hoje: ${hoje}. Saldos: ${contas}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
+  const hj=new Date(), prox=new Date(hj.getFullYear(),hj.getMonth()+1,1);
+  const fats=DATA.cartoes.filter(c=>!c.arquivado&&c.user_id===USER.id).map(c=>{
+    let f1=0,f2=0; try{f1=faturaTotal(c.id,hj);f2=faturaTotal(c.id,prox);}catch(e){}
+    return `${c.nome}: fatura de ${mesNome(hj)} ${brl(f1)} e de ${mesNome(prox)} ${brl(f2)} (vence dia ${c.vencimento||'?'})`;
+  }).join('; ');
+  return `Hoje: ${hoje}. Saldos: ${contas}. Faturas dos cartões: ${fats||'nenhum cartão'}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
 }
 function renderAssistente(){
   let html=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> Assistente IA</div>`;

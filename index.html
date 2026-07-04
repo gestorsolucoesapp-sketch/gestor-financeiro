@@ -236,11 +236,12 @@ body.modal-open{overflow:hidden}
 .bar{width:11px;border-radius:4px 4px 0 0;min-height:2px}
 .bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
-.daybars{display:flex;align-items:flex-end;height:110px;gap:3px;overflow-x:auto;padding-bottom:2px}
-.daycol{flex:0 0 auto;width:9px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer}
-.daybar{width:7px;border-radius:3px 3px 0 0;min-height:2px;background:var(--bar-desp)}
+.daybars{display:flex;align-items:flex-end;height:150px;gap:5px;overflow-x:auto;padding:26px 4px 2px;overflow-y:visible}
+.daycol{flex:0 0 auto;width:15px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative}
+.daybar{width:10px;border-radius:3px 3px 0 0;min-height:2px;background:var(--bar-desp)}
 .daybar.hoje{background:var(--mint,#2fbf83)}
 .daylab{font-size:9px;color:var(--muted);margin-top:5px}
+.dayval{position:absolute;bottom:100%;left:50%;transform:translateX(-50%) rotate(-55deg);transform-origin:bottom left;white-space:nowrap;font-size:8.5px;font-weight:700;color:var(--text);margin-bottom:3px;pointer-events:none}
 .legend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
 /* subhead com voltar */
@@ -1335,7 +1336,9 @@ function daybarChartHTML(dias,titulo,nota){
     const h=x.valor?Math.max(2,Math.round(x.valor/maxD*90)):2;
     const isHoje=hoje.getFullYear()===viewMonth.getFullYear()&&hoje.getMonth()===viewMonth.getMonth()&&hoje.getDate()===x.dia;
     const showLab=(x.dia===1)||(x.dia%5===0)||(x.dia===dias.length);
+    const val=x.valor?`<div class="dayval">${brl(x.valor).replace('R$ ','')}</div>`:'';
     html+=`<div class="daycol" onclick="toast('Dia ${x.dia}: ${brl(x.valor)}')">
+      ${val}
       <div class="daybar${isHoje?' hoje':''}" style="height:${h}px"></div>
       <div class="daylab">${showLab?x.dia:''}</div>
     </div>`;

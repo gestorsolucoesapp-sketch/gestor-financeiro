@@ -1190,7 +1190,7 @@ function renderAssistente(){
       <b>${p.tipo==='receita'?'Receita':'Despesa'}: ${esc(p.descricao)}</b>
       <div class="note">${brl(p.valor)} · ${p.data} · ${esc(p.conta_nome||'')} · ${esc(p.categoria_nome||'')}</div>
       <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="btn" style="flex:1;margin:0" onclick="aiConfirmarLanc()">Lançar</button>
+        <button id="aiBtnLancar" class="btn" style="flex:1;margin:0" onclick="aiConfirmarLanc(this)">Lançar</button>
         <button class="btn ghost" style="flex:1;margin:0" onclick="window._aiProposta=null;renderAssistente()">Cancelar</button>
       </div></div>`;
   }
@@ -1201,7 +1201,7 @@ function renderAssistente(){
       <b>Excluir: ${esc(l.descricao)}</b>
       <div class="note">${brl(Number(l.valor))} · ${l.data} · ${esc(cat?cat.nome:'')}${conta?' · '+esc(conta.nome):''}</div>
       <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="btn coral" style="flex:1;margin:0" onclick="aiConfirmarExclusao()">Excluir</button>
+        <button id="aiBtnExcluir" class="btn coral" style="flex:1;margin:0" onclick="aiConfirmarExclusao(this)">Excluir</button>
         <button class="btn ghost" style="flex:1;margin:0" onclick="window._aiPropExclusao=null;renderAssistente()">Cancelar</button>
       </div></div>`;
   }
@@ -1256,26 +1256,34 @@ async function aiEnviar(){
   }
   window._aiPend=false; renderAssistente();
 }
-async function aiConfirmarExclusao(){
+async function aiConfirmarExclusao(btn){
   const l=window._aiPropExclusao; if(!l)return;
+  if(window._aiActionBusy)return;
   if(!iaPodeExcluir()){toast('Exclusão via IA está desligada');return;}
   if(l.user_id!==USER.id){toast('Só posso excluir seus próprios lançamentos');return;}
+  window._aiActionBusy=true;
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.textContent='Excluindo…'; }
   const r=await dbDelete('lancamentos','id',l.id);
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  window._aiActionBusy=false;
+  if(r&&r.error){ toast('Erro: '+r.error.message); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.textContent='Excluir'; } return; }
   window._aiPropExclusao=null;
   _aiMsgs.push({role:'assistant',content:(r&&r.queued?'Excluído (offline, sincroniza quando voltar a internet) ✅ ':'Excluído ✅ ')+l.descricao+' · '+brl(Number(l.valor))});
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
   renderAssistente();
 }
-async function aiConfirmarLanc(){
+async function aiConfirmarLanc(btn){
   const p=window._aiProposta; if(!p)return;
+  if(window._aiActionBusy)return;
   const norm=s=>normDesc(s||'');
   const conta=DATA.contas.find(c=>!c.arquivada&&c.user_id===USER.id&&norm(c.nome).includes(norm(p.conta_nome)))||DATA.contas.find(c=>!c.arquivada&&c.user_id===USER.id);
   const cat=DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome)===norm(p.categoria_nome))||DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome).includes(norm(p.categoria_nome)));
   if(!(p.valor>0)){toast('Valor inválido');return;}
+  window._aiActionBusy=true;
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.textContent='Lançando…'; }
   const row={user_id:USER.id,tipo:p.tipo,descricao:p.descricao,valor:p.valor,data:p.data,status:'pago',conta_id:conta?conta.id:null,categoria_id:cat?cat.id:null};
   const r=await insertRows([row]);
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  window._aiActionBusy=false;
+  if(r&&r.error){ toast('Erro: '+r.error.message); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.textContent='Lançar'; } return; }
   window._aiProposta=null;
   _aiMsgs.push({role:'assistant',content:'Lançado ✅ '+p.descricao+' · '+brl(p.valor)});
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }

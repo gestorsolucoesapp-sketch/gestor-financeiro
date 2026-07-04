@@ -1448,7 +1448,7 @@ function gastosDiarios(d,allSources){
     if(l.tipo!=='despesa') continue;
     if(!l.data) continue;
     if(!inMonth(l,d)) continue;
-    if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
+    if(allSources){ const uidOk=l.user_id===USER.id||MYPARTNERS.some(p=>p.owner_id===l.user_id); if(!uidOk) continue; } else { if(!noScope(l)) continue; }
     const dia=new Date(l.data+'T00:00:00').getDate();
     if(arr[dia-1]) arr[dia-1].valor+=Number(l.valor)||0;
   }

@@ -348,7 +348,7 @@ body.modal-open{overflow:hidden}
 <div id="splash">
   <div class="splash-glow"></div>
   <div class="splash-stack">
-    <img src="assets/mark.png" class="splash-mark" alt="">
+    <img src="assets/mark.png?v=4" class="splash-mark" alt="">
     <div class="word-reveal splash-word">
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
@@ -359,7 +359,7 @@ body.modal-open{overflow:hidden}
 <!-- ================= AUTH ================= -->
 <div id="auth">
   <div class="brand">
-    <img class="logo-img" src="assets/mark.png" alt="Gestor Soluções">
+    <img class="logo-img" src="assets/mark.png?v=4" alt="Gestor Soluções">
     <div class="word-reveal brand-word">
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
@@ -474,7 +474,9 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.72"; /* x */
+const APP_VER = "6.73"; /* x */
+const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
+const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -615,7 +617,7 @@ function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xx
 // ============ OFFLINE (fila genérica: insert/update/delete em qualquer tabela) ============
 function isNetErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('failed to fetch')||m.includes('load failed')||m.includes('networkerror')||m.includes('network request failed')||m.includes('fetch event')||m.includes('offline'); }
 function saveCache(){ try{ localStorage.setItem('gf_cache', JSON.stringify({contas:DATA.contas,categorias:DATA.categorias,cartoes:DATA.cartoes,lancamentos:DATA.lancamentos,orcamentos:DATA.orcamentos,investimentos:DATA.investimentos})); }catch(e){} }
-function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; return true; } }catch(e){} return false; }
+function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; try{ const p=JSON.parse(localStorage.getItem('gf_partners')||'null'); if(p){ MYPARTNERS=p.partners||[]; MYSHARES=p.shares||[]; updateSourceSeg(); } }catch(e){} return true; } }catch(e){} return false; }
 function outbox(){ try{ return JSON.parse(localStorage.getItem('gf_outbox')||'[]'); }catch(e){ return []; } }
 function setOutbox(q){ try{ localStorage.setItem('gf_outbox', JSON.stringify(q)); }catch(e){} }
 // tabela -> chave correspondente em DATA (pra aplicar a mudança localmente na hora, mesmo sem internet)
@@ -1005,6 +1007,67 @@ function traduzErro(m){
   return m;
 }
 
+// ============ LICENÇA / ASSINATURA ============
+function licCache(){try{return JSON.parse(localStorage.getItem('gf_lic')||'null')}catch(e){return null}}
+function setLicCache(o){try{localStorage.setItem('gf_lic',JSON.stringify(o))}catch(e){}}
+function licStatus(l){
+  if(!l) return {ok:true,tipo:'novo'};
+  const hoje=ymd(new Date());
+  if(l.status==='bloqueado') return {ok:false,motivo:'bloqueado'};
+  if(l.status==='liberado') return {ok:true,tipo:'liberado'};
+  if(l.status==='pago'){ if(l.pago_ate && l.pago_ate>=hoje) return {ok:true,tipo:'pago',ate:l.pago_ate}; return {ok:false,motivo:'pagamento vencido'}; }
+  if(l.teste_ate && l.teste_ate>=hoje){ const dias=Math.round((new Date(l.teste_ate+'T00:00:00')-new Date(hoje+'T00:00:00'))/86400000); return {ok:true,tipo:'teste',dias}; }
+  return {ok:false,motivo:'teste encerrado'};
+}
+async function checarLicenca(isLogin){
+  if(!USER || USER.id===ADMIN_ID) return true;
+  if(!navigator.onLine){ const st=licStatus(licCache()); if(!st.ok){mostrarPaywall(st);return false;} return true; }
+  try{
+    const nome=(USER.user_metadata&&USER.user_metadata.nome)||'';
+    await sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:nome,p_minutos:0,p_login:!!isLogin});
+  }catch(e){}
+  let lic=null;
+  try{ const {data}=await sb.from('licencas').select('*').eq('user_id',USER.id).maybeSingle(); lic=data; }catch(e){}
+  if(lic) setLicCache(lic);
+  const st=licStatus(lic||licCache());
+  if(!st.ok){ mostrarPaywall(st); return false; }
+  if(st.tipo==='teste' && st.dias!=null && st.dias<=3) toast('Seu teste grátis termina em '+st.dias+' dia'+(st.dias===1?'':'s'));
+  return true;
+}
+function mostrarPaywall(st){
+  ['app','fab','iaFab','tabbar'].forEach(id=>{const e=$(id); if(e)e.classList.add('hidden');});
+  let el=$('paywall');
+  if(!el){ el=document.createElement('div'); el.id='paywall'; document.body.appendChild(el); }
+  el.style.cssText='position:fixed;inset:0;z-index:99998;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto';
+  const motivo=(st&&st.motivo==='bloqueado')?'Seu acesso está bloqueado.':'Seu período de teste terminou.';
+  el.innerHTML=`<div class="card" style="max-width:420px;width:100%;text-align:center">
+    <div style="font-size:44px;margin-bottom:6px">🔒</div>
+    <h2 style="margin:0 0 8px">${motivo}</h2>
+    <p class="note" style="margin-bottom:18px">Pra continuar usando o Gestor Financeiro, fale com a gente e ative sua assinatura. Seus dados continuam guardados em segurança.</p>
+    <a class="btn" style="text-decoration:none" href="https://wa.me/${WHATS_SUPORTE}?text=${encodeURIComponent('Quero ativar minha assinatura do Gestor Financeiro. Meu e-mail: ')}${encodeURIComponent(USER?USER.email:'')}">💬 Falar no WhatsApp</a>
+    <button class="btn ghost" onclick="revalidarLicenca()">Já ativei — verificar de novo</button>
+    <button class="btn ghost" onclick="doLogout()">Sair da conta</button>
+  </div>`;
+}
+async function revalidarLicenca(){
+  const ok=await checarLicenca(false);
+  if(ok){
+    const e=$('paywall'); if(e)e.remove();
+    ['app','tabbar'].forEach(id=>{const x=$(id);if(x)x.classList.remove('hidden');});
+    if($('fab'))$('fab').classList.remove('hidden');
+    updateIaFab(); render(); toast('Acesso liberado ✅');
+  } else toast('Ainda não localizei a ativação. Se já pagou, aguarde um instante e tente de novo.');
+}
+// contador de tempo de uso: +1 min a cada minuto com o app visível
+setInterval(()=>{
+  try{
+    if(!USER || USER.id===ADMIN_ID) return;
+    if(!navigator.onLine) return;
+    if(document.visibilityState!=='visible') return;
+    sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:'',p_minutos:1,p_login:false});
+  }catch(e){}
+},60000);
+
 // ============ BOOT ============
 async function afterLogin(userArg){
   let user=userArg||null;
@@ -1018,6 +1081,8 @@ async function afterLogin(userArg){
   updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   await loadAll();
+  const _licOk=await checarLicenca(true);
+  if(!_licOk) return;
   try{ await maybeSeedCategorias(); }catch(e){}
   try{ updateBell(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
@@ -1122,9 +1187,16 @@ async function loadAll(){
   DATA.investimentos = inv.error ? [] : inv.data;
   saveCache(); updateOfflinePill();
   const sh=await sb.from('compartilhamentos').select('*');
-  const shares = sh.error ? [] : sh.data;
-  MYPARTNERS = shares.filter(s=>s.viewer_id===USER.id && s.status==='ativo').map(s=>({owner_id:s.owner_id, apelido:s.apelido||'Parceiro', id:s.id}));
-  MYSHARES   = shares.filter(s=>s.owner_id===USER.id);
+  if(sh.error){
+    // erro passageiro (ex: instabilidade do Supabase): NÃO some com a Carol — mantém o que já tinha ou o cache
+    if(!MYPARTNERS.length){
+      try{ const c=JSON.parse(localStorage.getItem('gf_partners')||'null'); if(c){ MYPARTNERS=c.partners||[]; MYSHARES=c.shares||[]; } }catch(e){}
+    }
+  }else{
+    MYPARTNERS = sh.data.filter(s=>s.viewer_id===USER.id && s.status==='ativo').map(s=>({owner_id:s.owner_id, apelido:s.apelido||'Parceiro', id:s.id}));
+    MYSHARES   = sh.data.filter(s=>s.owner_id===USER.id);
+    try{ localStorage.setItem('gf_partners', JSON.stringify({partners:MYPARTNERS, shares:MYSHARES})); }catch(e){}
+  }
   if(source!=='eu' && source!=='casal' && !MYPARTNERS.some(p=>p.owner_id===source)) source='eu';
   updateSourceSeg();
   updateBell();
@@ -1170,6 +1242,7 @@ function render(){
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='tema')renderTema();
   else if(tab==='assistente')renderAssistente();
+  else if(tab==='clientes')renderClientes();
 }
 
 // ============ ASSISTENTE IA ============
@@ -2361,6 +2434,11 @@ function renderConfig(){
     ${temaRow('dark','Modo escuro','Tema escuro sempre',ICON('moon',20),'#3b6fd6')}
     ${temaRow('auto','Automático','Segue o modo claro/escuro do sistema',ICON('phone',20),'#2f8f66',true)}
   </div>`;
+  if(USER.id===ADMIN_ID){
+    html+=`<div class="page-title" style="margin-top:20px">Administração</div><div class="card">
+      ${hubItem('users','👑 Clientes do Gestor','Assinaturas, teste grátis e uso',"go('clientes')",'#e0a020')}
+    </div>`;
+  }
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
@@ -2379,6 +2457,78 @@ function renderConfig(){
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
   $('content').innerHTML=html;
+}
+// ============ ADMIN: CLIENTES ============
+function fmtBrData(d){ if(!d) return '—'; try{ const dt=new Date((String(d).length<=10)?(d+'T00:00:00'):d); return dt.toLocaleDateString('pt-BR'); }catch(e){ return String(d); } }
+async function renderClientes(){
+  if(USER.id!==ADMIN_ID){go('home');return;}
+  $('content').innerHTML=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> 👑 Clientes do Gestor</div><div class="loading"><div class="spin"></div></div>`;
+  let rows=[];
+  try{ const {data,error}=await sb.rpc('admin_clientes'); if(error)throw error; rows=data||[]; }
+  catch(e){ $('content').innerHTML=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> 👑 Clientes do Gestor</div><div class="card">Erro: ${esc(e.message||String(e))}<div class="note" style="margin-top:6px">Já rodou o SQL de licenças no Supabase? Me chama que te passo de novo.</div></div>`; return; }
+  window._cliRows=rows;
+  desenharClientes(window._cliFiltro||'');
+}
+function desenharClientes(filtro){
+  window._cliFiltro=filtro||'';
+  const all=window._cliRows||[];
+  const rows=all.filter(r=>!filtro || (r.email||'').toLowerCase().includes(filtro) || (r.nome||'').toLowerCase().includes(filtro));
+  const stat={total:all.length,teste:0,pag:0,venc:0};
+  all.forEach(r=>{const s=licStatus(r); if(!s.ok)stat.venc++; else if(s.tipo==='teste')stat.teste++; else stat.pag++;});
+  let html=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> 👑 Clientes do Gestor</div>`;
+  html+=`<div class="field"><input id="cliBusca" placeholder="🔎 Buscar por nome ou email…" value="${esc(filtro)}" oninput="desenharClientes(this.value.toLowerCase())"></div>`;
+  html+=`<div style="display:flex;gap:8px;margin-bottom:14px">
+    ${[['Total',stat.total,'var(--ink)'],['Em teste',stat.teste,'#3b82f6'],['Pagantes',stat.pag,'var(--mint)'],['Vencidos',stat.venc,'var(--coral)']].map(([l,v,c])=>`<div class="card" style="flex:1;text-align:center;padding:12px;margin:0"><div style="font-size:22px;font-weight:800;color:${c}">${v}</div><div class="note">${l}</div></div>`).join('')}
+  </div>`;
+  if(!rows.length) html+=`<div class="card"><div class="empty"><div class="ico">👥</div><p>${filtro?'Ninguém bate com a busca.':'Nenhum cliente ainda. Quando alguém criar conta, aparece aqui.'}</p></div></div>`;
+  rows.forEach(r=>{
+    const s=licStatus(r);
+    const pill=r.status==='bloqueado'?`<span class="pill" style="background:#fdecec;color:#d64545;font-weight:700">Bloqueado</span>`
+      : !s.ok?`<span class="pill" style="background:#fdecec;color:#d64545;font-weight:700">Vencido</span>`
+      : s.tipo==='teste'?`<span class="pill" style="background:#e8eefc;color:#3b5bdb;font-weight:700">Em teste</span>`
+      : s.tipo==='pago'?`<span class="pill" style="background:#e7f6ee;color:#1f7a4d;font-weight:700">Pagante</span>`
+      : `<span class="pill" style="background:#e7f6ee;color:#1f7a4d;font-weight:700">Liberado</span>`;
+    const venc = r.status==='liberado'?'<b style="color:var(--mint)">sem vencimento</b>'
+      : r.status==='pago'?('pago até <b>'+fmtBrData(r.pago_ate)+'</b>')
+      : r.teste_ate?('teste até <b>'+fmtBrData(r.teste_ate)+'</b>'+(s.ok&&s.dias!=null?' · <b style="color:var(--mint)">faltam '+s.dias+' dia'+(s.dias===1?'':'s')+'</b>':''))
+      : '—';
+    html+=`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0"><b style="font-size:16px">${esc(r.nome||r.email||'—')}</b><div class="note" style="word-break:break-all">${esc(r.email||'')}</div></div>${pill}
+      </div>
+      <div class="note" style="margin-top:8px">${venc} · cadastro ${fmtBrData(r.criado_em)} · últ. acesso ${fmtBrData(r.ultimo_acesso)}</div>
+      <div class="note">🔑 ${r.logins||0} logins · ⏱️ ${Math.round(r.minutos_uso||0)} min de uso · 1º acesso ${fmtBrData(r.primeiro_acesso)}</div>
+      <div class="note">🧾 ${r.n_lanc||0} lançamentos · 🏦 ${r.n_contas||0} contas · 💳 ${r.n_cartoes||0} cartões</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+        <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','mais7')">+7 dias</button>
+        <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','mais30')">+30 dias</button>
+        <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','definir')">📅 Definir</button>
+        <button class="btn sm" style="margin:0;background:#1f7a4d;color:#fff" onclick="adminAcao('${r.user_id}','pago')">Marcar pago</button>
+        <button class="btn sm" style="margin:0;background:var(--mint);color:#fff" onclick="adminAcao('${r.user_id}','liberar')">Liberar total</button>
+        <button class="btn sm" style="margin:0;background:var(--coral);color:#fff" onclick="adminAcao('${r.user_id}','bloquear')">Bloquear</button>
+        ${r.email?`<a class="btn sm ghost" style="margin:0;text-decoration:none" href="mailto:${esc(r.email)}">✉️ E-mail</a>`:''}
+      </div>
+    </div>`;
+  });
+  html+=`<button class="btn outline" onclick="renderClientes()">↻ Atualizar</button>`;
+  $('content').innerHTML=html;
+  if(filtro){ const i=$('cliBusca'); if(i){ i.focus(); try{i.setSelectionRange(filtro.length,filtro.length);}catch(e){} } }
+}
+async function adminAcao(uid,acao){
+  const r=(window._cliRows||[]).find(x=>x.user_id===uid); if(!r)return;
+  const hojeD=new Date(); const hoje=ymd(hojeD);
+  const somaDias=(d)=>{ const b=(r.teste_ate&&r.teste_ate>=hoje)?new Date(r.teste_ate+'T00:00:00'):new Date(hojeD); b.setDate(b.getDate()+d); return ymd(b); };
+  let patch=null;
+  if(acao==='mais7') patch={status:'teste',teste_ate:somaDias(7)};
+  else if(acao==='mais30') patch={status:'teste',teste_ate:somaDias(30)};
+  else if(acao==='definir'){ const v=prompt('Teste até (AAAA-MM-DD):', r.teste_ate||hoje); if(!v)return; if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){toast('Data inválida — use AAAA-MM-DD');return;} patch={status:'teste',teste_ate:v}; }
+  else if(acao==='pago'){ const b=(r.pago_ate&&r.pago_ate>=hoje)?new Date(r.pago_ate+'T00:00:00'):new Date(hojeD); b.setMonth(b.getMonth()+1); patch={status:'pago',pago_ate:ymd(b)}; }
+  else if(acao==='liberar') patch={status:'liberado'};
+  else if(acao==='bloquear'){ if(!confirm('Bloquear o acesso deste cliente? Ele verá a tela de assinatura ao entrar.'))return; patch={status:'bloqueado'}; }
+  if(!patch)return;
+  const {error}=await sb.from('licencas').update(patch).eq('user_id',uid);
+  if(error){toast('Erro: '+error.message);return;}
+  toast('Atualizado ✅'); renderClientes();
 }
 function temaRow(mode,titulo,sub,iconHtml,color,isLast){
   const sel=themeMode()===mode;

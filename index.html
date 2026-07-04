@@ -1005,6 +1005,7 @@ async function afterLogin(userArg){
   try{ iniciarRealtime(); }catch(e){}
   go('home');
   maybeShowInstall();
+  setTimeout(maybeShowPushPrompt, 2500);
   checkBancoURL();
   updateOfflinePill();
   flushOutbox();
@@ -1048,7 +1049,7 @@ function updateBell(){
   else badge.classList.add('hidden');
 }
 function abrirNotificacoes(){
-  const lista=partnerLancs().slice(0,40);
+  const lista=partnerLancs().slice(0,10);
   let h=`<h2>Notificações</h2>`;
   if(MYPARTNERS.length && pushSuportado()){
     h+=`<button class="btn outline" style="margin-bottom:12px" onclick="ativarPush()">🔔 Ativar aviso na tela bloqueada</button>`;
@@ -1066,8 +1067,9 @@ function abrirNotificacoes(){
       const sinal=l.tipo==='receita'?'+':(l.tipo==='despesa'?'-':'');
       const cls=l.tipo==='receita'?'g':(l.tipo==='despesa'?'r':'b');
       const dt=new Date((l.criado_em||l.data)).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      const hr=l.criado_em?(' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})):'';
       h+=`<div class="lrow"><div class="dot">${isNew?'🟢':(cat?cat.icone:'🔔')}</div>
-        <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}</div><div class="s">${dt}${cat?' · '+esc(cat.nome):''}</div></div>
+        <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}</div><div class="s">${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
         <div class="amt ${cls}">${sinal}${brl(Number(l.valor))}</div></div>`;
     });
     h+=`</div>`;
@@ -3565,6 +3567,22 @@ function urlB64ToUint8(base64){
 function pushSuportado(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
 async function jaInscrito(){
   try{ const reg=await navigator.serviceWorker.ready; const s=await reg.pushManager.getSubscription(); return !!s; }catch(e){ return false; }
+}
+function pushDismissed(){ return localStorage.getItem('gf_push_dismiss')==='1'; }
+function dismissPush(){ localStorage.setItem('gf_push_dismiss','1'); closeSheet(); }
+async function maybeShowPushPrompt(){
+  try{
+    if(!pushSuportado()) return;
+    if(!MYPARTNERS.length) return; // só faz sentido se tem parceiro pra receber aviso de lançamento
+    if(pushDismissed()) return;
+    if(isIOS() && !isStandalone()) return; // no iPhone precisa instalar primeiro
+    if(Notification.permission==='denied') return;
+    if(await jaInscrito()) return;
+    openSheet(`<h2>🔔 Ativar avisos</h2>
+      <div class="note">Quer receber um aviso na tela bloqueada sempre que ${esc(MYPARTNERS[0].apelido)} lançar algo?</div>
+      <button class="btn" style="margin-top:14px" onclick="ativarPush()">Ativar aviso na tela bloqueada</button>
+      <button class="btn ghost" onclick="dismissPush()">Agora não</button>`);
+  }catch(e){}
 }
 async function ativarPush(){
   if(!pushSuportado()){ toast('Este aparelho não suporta notificações push'); return; }

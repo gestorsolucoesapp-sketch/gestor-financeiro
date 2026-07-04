@@ -252,7 +252,7 @@ body.modal-open{overflow:hidden}
 .daylab{font-size:9.5px;color:var(--muted);margin-top:5px}
 .dayval{white-space:nowrap;font-size:8.8px;font-weight:800;pointer-events:none;line-height:1}
 .dayval.in{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);font-size:8px}
-.dayval.out{color:var(--text);margin-bottom:4px}
+.dayval.out{color:var(--ink);margin-bottom:4px}
 .legend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
 /* subhead com voltar */
@@ -1201,7 +1201,7 @@ function renderAssistente(){
   if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
   for(const m of _aiMsgs){
     const mine=m.role==='user';
-    html+=`<div style="align-self:${mine?'flex-end':'flex-start'};max-width:85%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.4;white-space:pre-wrap;background:${mine?'var(--emerald)':'var(--input-bg)'};color:${mine?'var(--on-hero)':'var(--text)'}">${esc(m.content)}</div>`;
+    html+=`<div style="align-self:${mine?'flex-end':'flex-start'};max-width:85%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.4;white-space:pre-wrap;background:${mine?'var(--emerald)':'var(--input-bg)'};color:${mine?'var(--on-hero)':'var(--ink)'}">${esc(m.content)}</div>`;
   }
   if(window._aiPend) html+=`<div style="align-self:flex-start" class="note">Pensando…</div>`;
   if(window._aiProposta){
@@ -1227,7 +1227,7 @@ function renderAssistente(){
   }
   html+=`</div>`;
   html+=`<div style="display:flex;gap:8px;margin-top:12px">
-    <input id="aiInput" placeholder="Escreva aqui…" style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--input-bg);color:var(--text);font-size:15px" onkeydown="if(event.key==='Enter')aiEnviar()">
+    <input id="aiInput" placeholder="Escreva aqui…" style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--input-bg);color:var(--ink);font-size:15px" onkeydown="if(event.key==='Enter')aiEnviar()">
     <button class="btn" style="width:auto;margin:0;padding:0 18px" onclick="aiEnviar()">➤</button>
   </div>`;
   $('content').innerHTML=html;
@@ -1788,7 +1788,7 @@ function renderPendencias(){
 function verTrans(f){ window._transFilter=f||'all'; window._pendSel.clear(); go('trans'); }
 function verParceiroLancs(){ if(MYPARTNERS.length){ source=MYPARTNERS[0].owner_id; updateSourceSeg(); } window._transFilter='all'; window._pendSel.clear(); go('trans'); }
 function insertOp(id,ch){const el=document.getElementById(id);if(!el)return;el.value+=ch;el.focus();}
-function opChips(id){return `<div style="display:flex;gap:8px;margin:-6px 0 12px">${['+','-','×','÷'].map(o=>`<button type="button" onclick="insertOp('${id}','${o==='×'?'*':o==='÷'?'/':o}')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--line-2);background:var(--input-bg);color:var(--text);font-size:17px;font-weight:700">${o}</button>`).join('')}</div>`;}
+function opChips(id){return `<div style="display:flex;gap:8px;margin:-6px 0 12px">${['+','-','×','÷'].map(o=>`<button type="button" onclick="insertOp('${id}','${o==='×'?'*':o==='÷'?'/':o}')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--line-2);background:var(--input-bg);color:var(--ink);font-size:17px;font-weight:700">${o}</button>`).join('')}</div>`;}
 function calcVal(s){
   s=String(s||'').replace(/,/g,'.').replace(/\s/g,'');
   if(!s) return NaN;
@@ -2451,8 +2451,8 @@ function donutSVG(seg,total){
     off+=len;
   });
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${arcs}
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="#6f7d79">Total</text>
-    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="700" fill="#0c1c1a">${brl(total).replace('R$ ','R$')}</text></svg>`;
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="var(--muted)">Total</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">${brl(total).replace('R$ ','R$')}</text></svg>`;
 }
 
 // ============ PLANEJAMENTO (ORÇAMENTO) ============

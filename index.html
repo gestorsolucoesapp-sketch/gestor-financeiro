@@ -182,6 +182,7 @@ body.modal-open{overflow:hidden}
 .fab{position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom) + 74px);z-index:31;
   width:56px;height:56px;border-radius:18px;background:var(--coral);color:#fff;font-size:28px;
   display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(232,101,78,.45)}
+.iafab{left:18px;right:auto;background:#7c5cff;box-shadow:0 8px 22px rgba(124,92,255,.45)}
 
 /* sheet / modal */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
@@ -235,6 +236,11 @@ body.modal-open{overflow:hidden}
 .bar{width:11px;border-radius:4px 4px 0 0;min-height:2px}
 .bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
+.daybars{display:flex;align-items:flex-end;height:110px;gap:3px;overflow-x:auto;padding-bottom:2px}
+.daycol{flex:0 0 auto;width:9px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer}
+.daybar{width:7px;border-radius:3px 3px 0 0;min-height:2px;background:var(--bar-desp)}
+.daybar.hoje{background:var(--mint,#2fbf83)}
+.daylab{font-size:9px;color:var(--muted);margin-top:5px}
 .legend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
 /* subhead com voltar */
@@ -384,6 +390,9 @@ body.modal-open{overflow:hidden}
 </div>
 
 <button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
+<button class="fab iafab hidden" id="iaFab" onclick="go('assistente')" title="Assistente IA">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg>
+</button>
 <div id="addMenu" class="addmenu hidden" onclick="if(event.target===this)closeAddMenu()">
   <div class="addmenu-inner">
     <div class="amrow">
@@ -908,6 +917,7 @@ async function afterLogin(userArg){
   USER=user;
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
+  updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   await loadAll();
   try{ await maybeSeedCategorias(); }catch(e){}
@@ -1047,7 +1057,7 @@ async function maybeSeedCategorias(){
 
 // ============ NAV ============
 function setScope(s){scope=s;document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.scope===s));applyTema(s);render();}
-function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();}
+function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();updateIaFab();}
 function render(){
   if(tab==='home')renderHome();
   else if(tab==='trans')renderTrans();
@@ -1063,6 +1073,15 @@ function render(){
 }
 
 // ============ ASSISTENTE IA ============
+function iaBubbleAtiva(){ return localStorage.getItem('gf_ia_bubble_off')!=='1'; }
+function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1'); updateIaFab(); if(tab==='assistente') renderAssistente(); }
+function iaPodeExcluir(){ return localStorage.getItem('gf_ia_pode_excluir')==='1'; }
+function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); }
+function updateIaFab(){
+  const b=$('iaFab'); if(!b) return;
+  const show = iaBubbleAtiva() && tab!=='assistente';
+  b.classList.toggle('hidden', !show);
+}
 let _aiMsgs=[]; // {role:'user'|'assistant', content:string}
 function resumoParaIA(){
   const hoje=ymd(new Date()); const ym=hoje.slice(0,7);
@@ -1088,8 +1107,18 @@ function resumoParaIA(){
 }
 function renderAssistente(){
   let html=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> Assistente IA</div>`;
+  html+=`<div class="card" style="padding:12px 14px;margin-bottom:12px">
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2);padding:6px 0">
+      <div class="mid"><div class="t" style="font-size:14px">Bolha flutuante</div><div class="s">Acesso rápido em qualquer tela</div></div>
+      <button class="switch ${iaBubbleAtiva()?'on':''}" onclick="toggleIaBubble(${iaBubbleAtiva()?'false':'true'})"><span class="knob"></span></button>
+    </div>
+    <div class="lrow" style="cursor:default;border-bottom:none;padding:6px 0">
+      <div class="mid"><div class="t" style="font-size:14px">IA pode excluir lançamentos</div><div class="s">Só os seus, nunca os da Carol</div></div>
+      <button class="switch ${iaPodeExcluir()?'on':''}" onclick="toggleIaExcluir(${iaPodeExcluir()?'false':'true'})"><span class="knob"></span></button>
+    </div>
+  </div>`;
   html+=`<div id="aiChat" class="card" style="min-height:300px;display:flex;flex-direction:column;gap:10px;padding:14px">`;
-  if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?") ou peça um lançamento ("lança 50 de padaria no Nubank hoje").</div>`;
+  if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
   for(const m of _aiMsgs){
     const mine=m.role==='user';
     html+=`<div style="align-self:${mine?'flex-end':'flex-start'};max-width:85%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.4;white-space:pre-wrap;background:${mine?'var(--emerald)':'var(--input-bg)'};color:${mine?'var(--on-hero)':'var(--text)'}">${esc(m.content)}</div>`;
@@ -1105,6 +1134,17 @@ function renderAssistente(){
         <button class="btn ghost" style="flex:1;margin:0" onclick="window._aiProposta=null;renderAssistente()">Cancelar</button>
       </div></div>`;
   }
+  if(window._aiPropExclusao){
+    const l=window._aiPropExclusao;
+    const cat=catById(l.categoria_id); const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+    html+=`<div class="card" style="border:1.5px solid var(--coral);margin:0">
+      <b>Excluir: ${esc(l.descricao)}</b>
+      <div class="note">${brl(Number(l.valor))} · ${l.data} · ${esc(cat?cat.nome:'')}${conta?' · '+esc(conta.nome):''}</div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn coral" style="flex:1;margin:0" onclick="aiConfirmarExclusao()">Excluir</button>
+        <button class="btn ghost" style="flex:1;margin:0" onclick="window._aiPropExclusao=null;renderAssistente()">Cancelar</button>
+      </div></div>`;
+  }
   html+=`</div>`;
   html+=`<div style="display:flex;gap:8px;margin-top:12px">
     <input id="aiInput" placeholder="Escreva aqui…" style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--input-bg);color:var(--text);font-size:15px" onkeydown="if(event.key==='Enter')aiEnviar()">
@@ -1117,13 +1157,13 @@ async function aiEnviar(){
   const inp=$('aiInput'); const txt=(inp.value||'').trim(); if(!txt||window._aiPend)return;
   inp.value='';
   _aiMsgs.push({role:'user',content:txt});
-  window._aiPend=true; window._aiProposta=null; renderAssistente();
+  window._aiPend=true; window._aiProposta=null; window._aiPropExclusao=null; renderAssistente();
   try{
     const {data:{session}}=await sb.auth.getSession();
     const r=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'content-type':'application/json','authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),'apikey':SUPABASE_KEY},
-      body:JSON.stringify({mensagens:_aiMsgs.slice(-10),resumo:resumoParaIA()})
+      body:JSON.stringify({mensagens:_aiMsgs.slice(-10),resumo:resumoParaIA(),pode_excluir:iaPodeExcluir()})
     });
     const d=await r.json();
     if(!d.ok) throw new Error(d.erro||'Falha na função');
@@ -1132,6 +1172,22 @@ async function aiEnviar(){
     if(obj && obj.acao==='criar_lancamento'){
       window._aiProposta={tipo:obj.tipo==='receita'?'receita':'despesa',descricao:obj.descricao||'Lançamento',valor:+obj.valor||0,data:obj.data||ymd(new Date()),conta_nome:obj.conta_nome||'',categoria_nome:obj.categoria_nome||''};
       _aiMsgs.push({role:'assistant',content:'Preparei o lançamento abaixo — confirma?'});
+    }else if(obj && obj.acao==='excluir_lancamento'){
+      if(!iaPodeExcluir()){
+        _aiMsgs.push({role:'assistant',content:'Exclusão por voz está desligada. Ative em "IA pode excluir lançamentos" aqui em cima.'});
+      }else{
+        const norm=s=>normDesc(s||'');
+        const alvo=DATA.lancamentos.filter(l=>l.user_id===USER.id)
+          .filter(l=> !obj.data || l.data===obj.data)
+          .filter(l=> !obj.descricao || norm(l.descricao).includes(norm(obj.descricao)) || norm(obj.descricao).includes(norm(l.descricao)))
+          .sort((a,b)=> (b.criado_em||'')<(a.criado_em||'')?-1:1)[0];
+        if(!alvo){
+          _aiMsgs.push({role:'assistant',content:'Não achei um lançamento seu que bata com isso. Confere a descrição/data?'});
+        }else{
+          window._aiPropExclusao=alvo;
+          _aiMsgs.push({role:'assistant',content:'Achei esse lançamento — confirma a exclusão?'});
+        }
+      }
     }else{
       _aiMsgs.push({role:'assistant',content:(obj&&obj.texto)||d.texto||'Não entendi, tenta de novo?'});
     }
@@ -1140,6 +1196,16 @@ async function aiEnviar(){
   }
   window._aiPend=false; renderAssistente();
 }
+async function aiConfirmarExclusao(){
+  const l=window._aiPropExclusao; if(!l)return;
+  if(!iaPodeExcluir()){toast('Exclusão via IA está desligada');return;}
+  if(l.user_id!==USER.id){toast('Só posso excluir seus próprios lançamentos');return;}
+  const {error}=await sb.from('lancamentos').delete().eq('id',l.id);
+  if(error){toast('Erro: '+error.message);return;}
+  window._aiPropExclusao=null;
+  _aiMsgs.push({role:'assistant',content:'Excluído ✅ '+l.descricao+' · '+brl(Number(l.valor))});
+  await loadAll(); renderAssistente();
+}
 async function aiConfirmarLanc(){
   const p=window._aiProposta; if(!p)return;
   const norm=s=>normDesc(s||'');
@@ -1147,7 +1213,7 @@ async function aiConfirmarLanc(){
   const cat=DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome)===norm(p.categoria_nome))||DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome).includes(norm(p.categoria_nome)));
   if(!(p.valor>0)){toast('Valor inválido');return;}
   const row={user_id:USER.id,tipo:p.tipo,descricao:p.descricao,valor:p.valor,data:p.data,status:'pago',conta_id:conta?conta.id:null,categoria_id:cat?cat.id:null};
-  const r=await insertRows('lancamentos',[row]);
+  const r=await insertRows([row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   window._aiProposta=null;
   _aiMsgs.push({role:'assistant',content:'Lançado ✅ '+p.descricao+' · '+brl(p.valor)});
@@ -1187,6 +1253,17 @@ function noScope(l){
   const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
   return conta&&conta.tipo===scope;
 }
+function noScopeAll(l){
+  // como noScope, mas ignora o filtro "De quem" (Eu/Carol/Casal) — sempre inclui eu + parceiros
+  const uidOk = l.user_id===USER.id || MYPARTNERS.some(p=>p.owner_id===l.user_id);
+  if(!uidOk) return false;
+  if(scope==='familia') return lancFamiliar(l);
+  if(lancFamiliar(l)) return false;
+  if(scope==='tudo') return true;
+  if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
+  const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+  return conta&&conta.tipo===scope;
+}
 function inMonth(l,d){const ld=new Date(l.data+'T00:00:00');return ld>=firstOfMonth(d)&&ld<=new Date(d.getFullYear(),d.getMonth()+1,0);}
 // Para relatórios: lançamentos de cartão contam no mês da FATURA (competência), não da compra
 function inMonthRep(l,d){
@@ -1196,12 +1273,12 @@ function inMonthRep(l,d){
   }
   return inMonth(l,d);
 }
-function gastosPorCategoria(d){
+function gastosPorCategoria(d,allSources){
   const map={};
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
     if(!inMonthRep(l,d)) continue;
-    if(!noScope(l)) continue;
+    if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
     const cat=catById(l.categoria_id);
     const key=cat?cat.id:'_sem';
     if(!map[key]) map[key]={nome:cat?cat.nome:'Sem categoria',icone:cat?cat.icone:'❓',valor:0};
@@ -1219,7 +1296,7 @@ function gastoCategoriaMes(catId,d){
   }
   return s;
 }
-function evolucaoMeses(n){
+function evolucaoMeses(n,allSources){
   const out=[];
   for(let i=n-1;i>=0;i--){
     const d=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-i,1);
@@ -1227,12 +1304,58 @@ function evolucaoMeses(n){
     for(const l of DATA.lancamentos){
       if(l.tipo==='transferencia') continue;
       if(!inMonthRep(l,d)) continue;
-      if(!noScope(l)) continue;
+      if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
       if(l.tipo==='receita') rec+=Number(l.valor)||0; else desp+=Number(l.valor)||0;
     }
     out.push({mes:d,rec,desp});
   }
   return out;
+}
+// Gastos diários de um parceiro específico (ex: só da Carol), sempre pela data da compra
+function gastosDiariosPartner(d,ownerId){
+  const diasNoMes=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(l.user_id!==ownerId) continue;
+    if(!l.data) continue;
+    if(!inMonth(l,d)) continue;
+    const dia=new Date(l.data+'T00:00:00').getDate();
+    if(arr[dia-1]) arr[dia-1].valor+=Number(l.valor)||0;
+  }
+  return arr;
+}
+function daybarChartHTML(dias,titulo,nota){
+  const maxD=Math.max(1,...dias.map(x=>x.valor));
+  const hoje=new Date();
+  let html=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
+  if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
+  html+=`<div class="daybars">`;
+  dias.forEach(x=>{
+    const h=x.valor?Math.max(2,Math.round(x.valor/maxD*90)):2;
+    const isHoje=hoje.getFullYear()===viewMonth.getFullYear()&&hoje.getMonth()===viewMonth.getMonth()&&hoje.getDate()===x.dia;
+    const showLab=(x.dia===1)||(x.dia%5===0)||(x.dia===dias.length);
+    html+=`<div class="daycol" onclick="toast('Dia ${x.dia}: ${brl(x.valor)}')">
+      <div class="daybar${isHoje?' hoje':''}" style="height:${h}px"></div>
+      <div class="daylab">${showLab?x.dia:''}</div>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  return html;
+}
+// Gastos diários do mês: soma despesas pela DATA da compra (cartão + débito juntos), não pela competência da fatura
+function gastosDiarios(d,allSources){
+  const diasNoMes=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(!l.data) continue;
+    if(!inMonth(l,d)) continue;
+    if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
+    const dia=new Date(l.data+'T00:00:00').getDate();
+    if(arr[dia-1]) arr[dia-1].valor+=Number(l.valor)||0;
+  }
+  return arr;
 }
 
 // ============ HOME ============
@@ -1780,6 +1903,10 @@ function rowLanc(l){
     sub=(cat?esc(cat.nome):'Sem categoria')+(conta?' · '+esc(conta.nome):'');
   }
   const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+  let hora='';
+  if(l.tipo==='despesa' && l.criado_em){
+    hora=' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
   const parc=(l.parcelas&&l.parcelas>1)?` <span class="pill neg">${l.parcela}/${l.parcelas}</span>`:'';
   const fixo=isFixo(l)?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">fixo</span>`:'';
   const pend=duePill(l);
@@ -1791,7 +1918,7 @@ function rowLanc(l){
   }
   return `<div class="lrow" onclick="openLanc('${l.id}')">
     <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
-    <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt} · ${sub}</div></div>
+    <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt}${hora} · ${sub}</div></div>
     <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>${chk}</div>`;
 }
 
@@ -2130,7 +2257,8 @@ function openCatList(){
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
-  const gastos=gastosPorCategoria(viewMonth);
+  html+=`<div class="note" style="padding:0 2px 10px">Somando despesas de todo mundo (você e Carol).</div>`;
+  const gastos=gastosPorCategoria(viewMonth,true);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
   // DONUT despesas por categoria
   html+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
@@ -2150,7 +2278,7 @@ function renderRelatorios(){
   }
   html+=`</div>`;
   // BARRAS evolução 6 meses
-  const ev=evolucaoMeses(6);
+  const ev=evolucaoMeses(6,true);
   const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
   html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
     <div class="bars">`;
@@ -2165,6 +2293,14 @@ function renderRelatorios(){
     </div>`;
   });
   html+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
+  // BARRAS gastos diários do mês (cartão + débito somados por dia da compra)
+  const dias=gastosDiarios(viewMonth,true);
+  html+=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver o valor.');
+  // BARRAS gastos diários por parceiro (ex: só da Carol)
+  MYPARTNERS.forEach(p=>{
+    const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
+    html+=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia.`);
+  });
   $('content').innerHTML=html;
 }
 function donutSVG(seg,total){

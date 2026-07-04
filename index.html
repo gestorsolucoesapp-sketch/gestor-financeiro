@@ -43,24 +43,24 @@ input,select{font-family:inherit;font-size:16px}
 #splash{position:fixed;inset:0;z-index:100000;background:#020111;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #splash.done{opacity:0;transition:opacity .5s ease;pointer-events:none}
 .splash-stack{display:flex;flex-direction:column;align-items:center;position:relative;z-index:2}
-.splash-mark{width:min(34vw,132px);height:auto;animation:markPop .55s cubic-bezier(.2,.9,.3,1.2) both}
+.splash-mark{width:min(34vw,132px);height:auto;animation:markPop .85s cubic-bezier(.2,.9,.3,1.15) both}
 .splash-glow{position:absolute;width:120vw;height:120vw;max-width:560px;max-height:560px;border-radius:50%;z-index:1;
   background:radial-gradient(circle,rgba(72,110,235,.32) 0%,rgba(120,60,200,.16) 40%,transparent 68%);
-  animation:splGlow 1.9s ease-in-out both}
-@keyframes markPop{0%{opacity:0;transform:scale(.4) translateY(14px)}60%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
+  animation:splGlow 2.4s ease-in-out both}
+@keyframes markPop{0%{opacity:0;transform:scale(.4) translateY(14px)}65%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes splGlow{0%{opacity:0;transform:scale(.5)}45%{opacity:1}100%{opacity:.55;transform:scale(1.05)}}
 .word-reveal{display:flex;margin-top:8px}
 .word-reveal span{font-family:var(--font);font-weight:800;letter-spacing:.5px;
   background:linear-gradient(100deg,#59B4FF,#7C7CF0 55%,#A85CFF);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   opacity:0;display:inline-block;transform:translateY(14px) scale(.7);
-  animation:letterIn .45s cubic-bezier(.2,.9,.3,1.3) forwards;
-  animation-delay:calc(.5s + var(--i) * .07s)}
+  animation:letterIn .55s cubic-bezier(.2,.9,.3,1.3) forwards;
+  animation-delay:calc(.85s + var(--i) * .12s)}
 .splash-word span{font-size:42px}
 .brand-word span{font-size:34px}
 @keyframes letterIn{to{opacity:1;transform:translateY(0) scale(1)}}
 .splash-tag{margin-top:10px;color:#8fa0c8;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
-  opacity:0;animation:tagIn .5s ease forwards;animation-delay:1.05s}
+  opacity:0;animation:tagIn .6s ease forwards;animation-delay:1.75s}
 @keyframes tagIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 #auth::before{content:'';position:fixed;inset:0;background:radial-gradient(90% 50% at 50% 8%, rgba(28,48,110,.35) 0%, transparent 70%);pointer-events:none}
 .brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:22px;margin-top:-8px;position:relative}
@@ -3572,7 +3572,7 @@ function localSession(){
   if(ls && ls.user){ await afterLogin(ls.user); return; }
   initLoginUI();
 })().finally(()=>{
-  const min=1350, dt=Date.now()-window._splashT0;
+  const min=2300, dt=Date.now()-window._splashT0;
   setTimeout(()=>{
     const sp=document.getElementById('splash');
     if(sp){ sp.classList.add('done'); setTimeout(()=>sp.remove(),600); }

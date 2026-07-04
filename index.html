@@ -474,7 +474,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.73"; /* x */
+const APP_VER = "6.74"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -616,6 +616,9 @@ function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}));}
 // ============ OFFLINE (fila genérica: insert/update/delete em qualquer tabela) ============
 function isNetErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('failed to fetch')||m.includes('load failed')||m.includes('networkerror')||m.includes('network request failed')||m.includes('fetch event')||m.includes('offline'); }
+function isAuthErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('jwt')||m.includes('unauthorized')||m.includes('401')||m.includes('token'); }
+async function fixAuth(){ try{ await sb.auth.refreshSession(); return true; }catch(e){ return false; } }
+function vibra(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||25); }catch(e){} }
 function saveCache(){ try{ localStorage.setItem('gf_cache', JSON.stringify({contas:DATA.contas,categorias:DATA.categorias,cartoes:DATA.cartoes,lancamentos:DATA.lancamentos,orcamentos:DATA.orcamentos,investimentos:DATA.investimentos})); }catch(e){} }
 function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; try{ const p=JSON.parse(localStorage.getItem('gf_partners')||'null'); if(p){ MYPARTNERS=p.partners||[]; MYSHARES=p.shares||[]; updateSourceSeg(); } }catch(e){} return true; } }catch(e){} return false; }
 function outbox(){ try{ return JSON.parse(localStorage.getItem('gf_outbox')||'[]'); }catch(e){ return []; } }
@@ -645,7 +648,8 @@ async function dbInsert(table,rows){
   rows.forEach(r=>{ if(!r.id) r.id=uuid(); });
   if(navigator.onLine){
     try{
-      const {error}=await sb.from(table).insert(rows);
+      let {error}=await sb.from(table).insert(rows);
+      if(error && isAuthErr(error) && await fixAuth()){ ({error}=await sb.from(table).insert(rows)); }
       if(error){ if(isNetErr(error)){ queueOp(table,'insert',{rows}); return {ok:true,queued:true,rows}; } toast('Erro: '+error.message); return {ok:false,error}; }
       return {ok:true,rows};
     }catch(e){ if(isNetErr(e)){ queueOp(table,'insert',{rows}); return {ok:true,queued:true,rows}; } toast('Erro: '+(e.message||e)); return {ok:false}; }
@@ -656,8 +660,9 @@ async function dbInsert(table,rows){
 async function dbUpdate(table,patch,col,val){
   if(navigator.onLine){
     try{
-      const base=sb.from(table).update(patch);
-      const {error}=Array.isArray(val)?await base.in(col,val):await base.eq(col,val);
+      const run=async()=>{ const base=sb.from(table).update(patch); return Array.isArray(val)?await base.in(col,val):await base.eq(col,val); };
+      let {error}=await run();
+      if(error && isAuthErr(error) && await fixAuth()){ ({error}=await run()); }
       if(error){ if(isNetErr(error)){ queueOp(table,'update',{patch,match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false,error}; }
       applyLocalOp(table,'update',{patch,match:{col,val}});
       return {ok:true};
@@ -669,8 +674,9 @@ async function dbUpdate(table,patch,col,val){
 async function dbDelete(table,col,val){
   if(navigator.onLine){
     try{
-      const base=sb.from(table).delete();
-      const {error}=Array.isArray(val)?await base.in(col,val):await base.eq(col,val);
+      const run=async()=>{ const base=sb.from(table).delete(); return Array.isArray(val)?await base.in(col,val):await base.eq(col,val); };
+      let {error}=await run();
+      if(error && isAuthErr(error) && await fixAuth()){ ({error}=await run()); }
       if(error){ if(isNetErr(error)){ queueOp(table,'delete',{match:{col,val}}); return {ok:true,queued:true}; } toast('Erro: '+error.message); return {ok:false,error}; }
       applyLocalOp(table,'delete',{match:{col,val}});
       return {ok:true};
@@ -1094,9 +1100,9 @@ async function afterLogin(userArg){
   flushOutbox();
   if(!window._offlineHooked){
     window._offlineHooked=true;
-    window.addEventListener('online', ()=>{ updateOfflinePill(); flushOutbox(); });
+    window.addEventListener('online', ()=>{ try{sb.auth.getSession();}catch(e){} updateOfflinePill(); flushOutbox(); });
     window.addEventListener('offline', updateOfflinePill);
-    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateOfflinePill(); flushOutbox(); } });
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{sb.auth.getSession();}catch(e){} updateOfflinePill(); flushOutbox(); } });
     setInterval(()=>{ if(outbox().length) flushOutbox(); }, 15000);
   }
 }
@@ -1397,7 +1403,7 @@ async function aiConfirmarExclusao(btn){
   window._aiActionBusy=false;
   if(r&&r.error){ toast('Erro: '+r.error.message); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.textContent='Excluir'; } return; }
   window._aiPropExclusao=null;
-  _aiMsgs.push({role:'assistant',content:(r&&r.queued?'Excluído (offline, sincroniza quando voltar a internet) ✅ ':'Excluído ✅ ')+l.descricao+' · '+brl(Number(l.valor))});
+  vibra(); _aiMsgs.push({role:'assistant',content:(r&&r.queued?'Excluído (offline, sincroniza quando voltar a internet) ✅ ':'Excluído ✅ ')+l.descricao+' · '+brl(Number(l.valor))});
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
   renderAssistente();
 }
@@ -1415,7 +1421,7 @@ async function aiConfirmarLanc(btn){
   window._aiActionBusy=false;
   if(r&&r.error){ toast('Erro: '+r.error.message); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.textContent='Lançar'; } return; }
   window._aiProposta=null;
-  _aiMsgs.push({role:'assistant',content:'Lançado ✅ '+p.descricao+' · '+brl(p.valor)});
+  vibra(); _aiMsgs.push({role:'assistant',content:'Lançado ✅ '+p.descricao+' · '+brl(p.valor)});
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
   renderAssistente();
 }
@@ -1991,7 +1997,7 @@ async function toggleLancPago(id){
     const r=await dbUpdate('lancamentos',{status:'pendente'},'id',id);
     if(r&&r.error){toast('Erro: '+r.error.message);return;}
     if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-    render(); toast(r&&r.queued?'Voltou a pendente (offline) — sincroniza depois':'Voltou a pendente (virtual)');
+    vibra(); render(); toast(r&&r.queued?'Voltou a pendente (offline) — sincroniza depois':'Voltou a pendente (virtual)');
     return;
   }
   // pendente → abre caixinha pra ajustar conta/valor antes de efetivar
@@ -2023,7 +2029,7 @@ async function confirmarLanc(id){
     const dest=contaById(l.conta_destino_id);
     if(dest && dest.eh_investimento){ alocarAporte(valor); return; }
   }
-  toast(r&&r.queued?'Confirmado (offline) — sincroniza depois':'Confirmado — entrou na conta ✅');
+  vibra(); toast(r&&r.queued?'Confirmado (offline) — sincroniza depois':'Confirmado — entrou na conta ✅');
 }
 function alocarAporte(valor){
   const invs=DATA.investimentos.filter(i=>!i.arquivado && i.user_id===USER.id);
@@ -2108,7 +2114,7 @@ async function efetivarConfirma(){
   render();
   const aportes=sel.filter(l=>l.tipo==='transferencia' && (contaById(l.conta_destino_id)||{}).eh_investimento);
   if(aportes.length===1){ alocarAporte(Number(aportes[0].valor)||0); return; }
-  toast(ids.length+(r&&r.queued?' baixa(s) efetivada(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
+  vibra(); toast(ids.length+(r&&r.queued?' baixa(s) efetivada(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
 }
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
@@ -2386,7 +2392,7 @@ async function confirmPagarFatura(cartaoId,tot){
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':'Fatura paga'); renderFatura();
+  vibra(); toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':'Fatura paga'); renderFatura();
 }
 
 // ============ CONTAS ============
@@ -2707,9 +2713,9 @@ function renderRelatorios(){
   });
   bev+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
   blocos.evolucao=bev;
-  // BARRAS gastos diários do mês (cartão + débito somados por dia da compra)
-  const dias=gastosDiarios(viewMonth,true);
-  blocos.diario=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver os detalhes.', null);
+  // BARRAS gastos diários — só os MEUS (o da Carol fica separado logo abaixo)
+  const dias=gastosDiariosPartner(viewMonth,USER.id);
+  blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Só os seus gastos (conta e cartão), pelo dia da compra. Toque numa barra pra ver os detalhes.', USER.id);
   // BARRAS gastos diários por parceiro (ex: só da Carol)
   const defaultOrder=['diario','categoria','evolucao'];
   MYPARTNERS.forEach(p=>{
@@ -3344,7 +3350,7 @@ async function saveLanc(id){
     const r=await insertRows(rows);
     if(!r.ok) return;
     closeSheet();
-    if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
+    vibra(); if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
     else { await loadAll(); toast(rec?'Recorrência criada (24 meses)':(id?'Compra atualizada':'Compra registrada')); render(); }
     return;
   }
@@ -3386,7 +3392,7 @@ async function upsertLanc(id,row){
     if(r&&r.error){toast('Erro: '+r.error.message);return;}
     closeSheet();
     if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-    toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); return;
+    vibra(); toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); return;
   }
   if(!row.id) row.id=uuid();
   const r=await insertRows([row]);
@@ -3408,7 +3414,7 @@ async function delLanc(id){
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?'Excluído offline — sincroniza depois':'Excluído'); render();
+  vibra(); toast(r&&r.queued?'Excluído offline — sincroniza depois':'Excluído'); render();
 }
 
 // ---- CONTA ----

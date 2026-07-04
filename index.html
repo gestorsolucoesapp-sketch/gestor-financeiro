@@ -1419,10 +1419,11 @@ function brlShort(v){
   const n=Math.round(Number(v)||0);
   return n.toLocaleString('pt-BR');
 }
-function daybarChartHTML(dias,titulo,nota){
+function daybarChartHTML(dias,titulo,nota,ownerFiltro){
   const maxD=Math.max(1,...dias.map(x=>x.valor));
   const hoje=new Date();
   const maxBarPx=110;
+  const fk=ownerFiltro?`'${ownerFiltro}'`:'null';
   let html=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
   html+=`<div class="daybars">`;
@@ -1431,7 +1432,7 @@ function daybarChartHTML(dias,titulo,nota){
     const isHoje=hoje.getFullYear()===viewMonth.getFullYear()&&hoje.getMonth()===viewMonth.getMonth()&&hoje.getDate()===x.dia;
     const lab=x.valor?brlShort(x.valor):'';
     const inside=h>=26; // se a barra for alta o suficiente, valor entra dentro dela; senão fica em cima
-    html+=`<div class="daycol" onclick="toast('Dia ${x.dia}: ${brl(x.valor)}')">
+    html+=`<div class="daycol" onclick="abrirDiaDetalhe(${x.dia},${fk})">
       ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
       <div class="daybar${isHoje?' hoje':''}" style="height:${h}px">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
       <div class="daylab">${x.dia}</div>
@@ -1439,6 +1440,37 @@ function daybarChartHTML(dias,titulo,nota){
   });
   html+=`</div></div>`;
   return html;
+}
+function abrirDiaDetalhe(dia,ownerFiltro){
+  const dataStr=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),dia));
+  const itens=DATA.lancamentos.filter(l=>{
+    if(l.tipo!=='despesa') return false;
+    if(l.data!==dataStr) return false;
+    if(ownerFiltro) return l.user_id===ownerFiltro;
+    return l.user_id===USER.id || MYPARTNERS.some(p=>p.owner_id===l.user_id);
+  }).sort((a,b)=> (b.criado_em||'')<(a.criado_em||'')?-1:1);
+  const total=itens.reduce((a,l)=>a+Number(l.valor||0),0);
+  const dtLab=new Date(dataStr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});
+  let h=`<h2>${dtLab}</h2><div class="note" style="margin-top:-8px;margin-bottom:12px">Total do dia: <b style="color:var(--coral)">${brl(total)}</b></div>`;
+  if(!itens.length){
+    h+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma despesa nesse dia.</p></div>`;
+  }else{
+    h+=`<div class="card" style="margin:0">`;
+    itens.forEach(l=>{
+      const cat=catById(l.categoria_id);
+      const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+      const vis=catVisual(cat,l.tipo);
+      const dono=(!ownerFiltro && l.user_id!==USER.id)?` <span class="pill neg">${esc(apelidoDe(l.user_id))}</span>`:'';
+      let hora='';
+      if(l.criado_em){ hora=' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+      h+=`<div class="lrow" style="cursor:default">
+        <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
+        <div class="mid"><div class="t">${esc(l.descricao)}${dono}</div><div class="s">${conta?esc(conta.nome):'Sem conta'}${hora}${cat?' · '+esc(cat.nome):''}</div></div>
+        <div class="amt r">${brl(Number(l.valor))}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  openSheet(h);
 }
 // Gastos diários do mês: soma despesas pela DATA da compra (cartão + débito juntos), não pela competência da fatura
 function gastosDiarios(d,allSources){
@@ -2401,11 +2433,11 @@ function renderRelatorios(){
   html+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
   // BARRAS gastos diários do mês (cartão + débito somados por dia da compra)
   const dias=gastosDiarios(viewMonth,true);
-  html+=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver o valor.');
+  html+=daybarChartHTML(dias, `Gastos diários — ${mesNome(viewMonth)}`, 'Cartão + débito somados no dia em que o gasto aconteceu (todo mundo). Toque numa barra pra ver os detalhes.', null);
   // BARRAS gastos diários por parceiro (ex: só da Carol)
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
-    html+=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia.`);
+    html+=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
   });
   $('content').innerHTML=html;
 }

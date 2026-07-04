@@ -1187,6 +1187,20 @@ function resumoParaIA(){
   }).join('; ');
   return `Hoje: ${hoje}. Saldos: ${contas}. Faturas dos cartões: ${fats||'nenhum cartão'}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
 }
+function renderLimiteIA(){
+  const l=window._aiLimite; if(!l||l.requests_restantes==null) return '';
+  const rest=parseInt(l.requests_restantes), lim=parseInt(l.requests_limite)||rest;
+  const pct=lim?Math.max(0,Math.min(100,rest/lim*100)):100;
+  const critico=pct<20;
+  let resetTxt='';
+  if(l.requests_reset){ const d=new Date(l.requests_reset); if(!isNaN(d)) resetTxt=' · renova '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+  return `<div style="padding:10px 0 2px;border-top:1px solid var(--line-2);margin-top:6px">
+    <div class="s" style="display:flex;justify-content:space-between;margin-bottom:5px">
+      <span>Uso da IA (janela atual)</span><span style="color:${critico?'var(--coral)':'var(--muted)'}">${rest}/${lim} pedidos${resetTxt}</span>
+    </div>
+    <div class="prog"><div class="progfill" style="width:${pct}%;background:${critico?'var(--coral)':'var(--mint)'}"></div></div>
+  </div>`;
+}
 function renderAssistente(){
   let html=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> Assistente IA</div>`;
   html+=`<div class="card" style="padding:12px 14px;margin-bottom:12px">
@@ -1198,6 +1212,7 @@ function renderAssistente(){
       <div class="mid"><div class="t" style="font-size:14px">IA pode excluir lançamentos</div><div class="s">Só os seus, nunca os da Carol</div></div>
       <button class="switch ${iaPodeExcluir()?'on':''}" onclick="toggleIaExcluir(${iaPodeExcluir()?'false':'true'})"><span class="knob"></span></button>
     </div>
+    ${renderLimiteIA()}
   </div>`;
   html+=`<div id="aiChat" class="card" style="min-height:300px;display:flex;flex-direction:column;gap:10px;padding:14px">`;
   if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
@@ -1249,6 +1264,7 @@ async function aiEnviar(){
     });
     const d=await r.json();
     if(!d.ok) throw new Error(d.erro||'Falha na função');
+    if(d.limite) window._aiLimite=d.limite;
     let obj=null;
     try{ obj=JSON.parse(String(d.texto||'').replace(/```json|```/g,'').trim()); }catch(e){}
     if(obj && obj.acao==='criar_lancamento'){
@@ -3574,14 +3590,28 @@ async function maybeShowPushPrompt(){
   try{
     if(!pushSuportado()) return;
     if(!MYPARTNERS.length) return; // só faz sentido se tem parceiro pra receber aviso de lançamento
-    if(pushDismissed()) return;
     if(isIOS() && !isStandalone()) return; // no iPhone precisa instalar primeiro
     if(Notification.permission==='denied') return;
     if(await jaInscrito()) return;
+    if(Notification.permission==='granted'){
+      // já autorizado antes — não pergunta de novo, só garante a inscrição em silêncio
+      ativarPushSilencioso();
+      return;
+    }
+    if(pushDismissed()) return; // já perguntou e a pessoa disse "agora não" — não insiste de novo
     openSheet(`<h2>🔔 Ativar avisos</h2>
       <div class="note">Quer receber um aviso na tela bloqueada sempre que ${esc(MYPARTNERS[0].apelido)} lançar algo?</div>
       <button class="btn" style="margin-top:14px" onclick="ativarPush()">Ativar aviso na tela bloqueada</button>
       <button class="btn ghost" onclick="dismissPush()">Agora não</button>`);
+  }catch(e){}
+}
+async function ativarPushSilencioso(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    await sb.from('push_subs').upsert({user_id:USER.id, subscription:sub, endpoint:j.endpoint},{onConflict:'user_id,endpoint'});
   }catch(e){}
 }
 async function ativarPush(){

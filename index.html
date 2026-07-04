@@ -437,7 +437,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.65"; /* x */
+const APP_VER = "6.66"; /* x */
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============ STATE ============
@@ -1059,6 +1059,95 @@ function render(){
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='tema')renderTema();
+  else if(tab==='assistente')renderAssistente();
+}
+
+// ============ ASSISTENTE IA ============
+let _aiMsgs=[]; // {role:'user'|'assistant', content:string}
+function resumoParaIA(){
+  const hoje=ymd(new Date()); const ym=hoje.slice(0,7);
+  const contas=DATA.contas.filter(c=>!c.arquivada&&c.user_id===USER.id).map(c=>`${c.nome}: ${brl(saldoConta(c.id))}`).join('; ');
+  const cats={};
+  DATA.lancamentos.forEach(l=>{
+    if(l.user_id!==USER.id||l.tipo!=='despesa')return;
+    if((l.data||'').slice(0,7)!==ym)return;
+    const c=catById(l.categoria_id); const n=c?c.nome:'Sem categoria';
+    cats[n]=(cats[n]||0)+Number(l.valor||0);
+  });
+  const gastos=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`${n}: ${brl(v)}`).join('; ');
+  const ult=DATA.lancamentos.filter(l=>l.user_id===USER.id&&l.data<=hoje).slice(0,25)
+    .map(l=>`${l.data} ${l.tipo} ${l.descricao||''} ${brl(Number(l.valor))}${l.status==='pendente'?' (pendente)':''}`).join(' | ');
+  const nomesContas=DATA.contas.filter(c=>!c.arquivada&&c.user_id===USER.id).map(c=>c.nome).join(', ');
+  const nomesCats=DATA.categorias.filter(c=>c.user_id===USER.id).map(c=>c.nome).join(', ');
+  return `Hoje: ${hoje}. Saldos: ${contas}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
+}
+function renderAssistente(){
+  let html=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> Assistente IA</div>`;
+  html+=`<div id="aiChat" class="card" style="min-height:300px;display:flex;flex-direction:column;gap:10px;padding:14px">`;
+  if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?") ou peça um lançamento ("lança 50 de padaria no Nubank hoje").</div>`;
+  for(const m of _aiMsgs){
+    const mine=m.role==='user';
+    html+=`<div style="align-self:${mine?'flex-end':'flex-start'};max-width:85%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.4;white-space:pre-wrap;background:${mine?'var(--emerald)':'var(--input-bg)'};color:${mine?'var(--on-hero)':'var(--text)'}">${esc(m.content)}</div>`;
+  }
+  if(window._aiPend) html+=`<div style="align-self:flex-start" class="note">Pensando…</div>`;
+  if(window._aiProposta){
+    const p=window._aiProposta;
+    html+=`<div class="card" style="border:1.5px solid var(--mint);margin:0">
+      <b>${p.tipo==='receita'?'Receita':'Despesa'}: ${esc(p.descricao)}</b>
+      <div class="note">${brl(p.valor)} · ${p.data} · ${esc(p.conta_nome||'')} · ${esc(p.categoria_nome||'')}</div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn" style="flex:1;margin:0" onclick="aiConfirmarLanc()">Lançar</button>
+        <button class="btn ghost" style="flex:1;margin:0" onclick="window._aiProposta=null;renderAssistente()">Cancelar</button>
+      </div></div>`;
+  }
+  html+=`</div>`;
+  html+=`<div style="display:flex;gap:8px;margin-top:12px">
+    <input id="aiInput" placeholder="Escreva aqui…" style="flex:1;padding:13px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--input-bg);color:var(--text);font-size:15px" onkeydown="if(event.key==='Enter')aiEnviar()">
+    <button class="btn" style="width:auto;margin:0;padding:0 18px" onclick="aiEnviar()">➤</button>
+  </div>`;
+  $('content').innerHTML=html;
+  const box=$('aiChat'); if(box) box.scrollTop=box.scrollHeight;
+}
+async function aiEnviar(){
+  const inp=$('aiInput'); const txt=(inp.value||'').trim(); if(!txt||window._aiPend)return;
+  inp.value='';
+  _aiMsgs.push({role:'user',content:txt});
+  window._aiPend=true; window._aiProposta=null; renderAssistente();
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const r=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
+      method:'POST',
+      headers:{'content-type':'application/json','authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),'apikey':SUPABASE_KEY},
+      body:JSON.stringify({mensagens:_aiMsgs.slice(-10),resumo:resumoParaIA()})
+    });
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.erro||'Falha na função');
+    let obj=null;
+    try{ obj=JSON.parse(String(d.texto||'').replace(/```json|```/g,'').trim()); }catch(e){}
+    if(obj && obj.acao==='criar_lancamento'){
+      window._aiProposta={tipo:obj.tipo==='receita'?'receita':'despesa',descricao:obj.descricao||'Lançamento',valor:+obj.valor||0,data:obj.data||ymd(new Date()),conta_nome:obj.conta_nome||'',categoria_nome:obj.categoria_nome||''};
+      _aiMsgs.push({role:'assistant',content:'Preparei o lançamento abaixo — confirma?'});
+    }else{
+      _aiMsgs.push({role:'assistant',content:(obj&&obj.texto)||d.texto||'Não entendi, tenta de novo?'});
+    }
+  }catch(e){
+    _aiMsgs.push({role:'assistant',content:'Erro: '+(e.message||e)+'. Confere se a função ai-chat está publicada.'});
+  }
+  window._aiPend=false; renderAssistente();
+}
+async function aiConfirmarLanc(){
+  const p=window._aiProposta; if(!p)return;
+  const norm=s=>normDesc(s||'');
+  const conta=DATA.contas.find(c=>!c.arquivada&&c.user_id===USER.id&&norm(c.nome).includes(norm(p.conta_nome)))||DATA.contas.find(c=>!c.arquivada&&c.user_id===USER.id);
+  const cat=DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome)===norm(p.categoria_nome))||DATA.categorias.find(c=>c.user_id===USER.id&&norm(c.nome).includes(norm(p.categoria_nome)));
+  if(!(p.valor>0)){toast('Valor inválido');return;}
+  const row={user_id:USER.id,tipo:p.tipo,descricao:p.descricao,valor:p.valor,data:p.data,status:'pago',conta_id:conta?conta.id:null,categoria_id:cat?cat.id:null};
+  const r=await insertRows('lancamentos',[row]);
+  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  window._aiProposta=null;
+  _aiMsgs.push({role:'assistant',content:'Lançado ✅ '+p.descricao+' · '+brl(p.valor)});
+  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  renderAssistente();
 }
 // ---- INVESTIMENTOS: cálculos ----
 function mesesDesde(dataStr){
@@ -1887,6 +1976,7 @@ function renderConfig(){
     </div>
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
+    ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
     ${hubItem('palette','Cores do app','Personalize o tema e todas as cores',"go('tema')",'#e0a020')}
     ${hubItem('download','Importar do Mobills','Suba o CSV exportado',"triggerImport()",'#3b6fd6')}

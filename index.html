@@ -1850,7 +1850,7 @@ function renderFatura(){
   const c=cartaoById(faturaCartaoId); if(!c){go('cartoes');return;}
   const m=firstOfMonth(faturaMonth);
   const itens=DATA.lancamentos.filter(l=>l.cartao_id===c.id && l.competencia && faturaYm(l.competencia, c)===ymd(m).slice(0,7))
-    .sort((a,b)=>a.data<b.data?-1:1);
+    .sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1));
   const tot=itens.reduce((a,l)=>a+valFatura(l),0);
   let html=`<div class="lrow" style="border:none;padding:4px 0 12px;cursor:pointer" onclick="go('cartoes')"><span style="font-size:20px;margin-right:4px">‹</span><b>${esc(c.nome)}</b></div>`;
   html+=monthNav('fatura');

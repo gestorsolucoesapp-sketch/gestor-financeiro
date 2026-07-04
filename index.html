@@ -1257,6 +1257,7 @@ async function aiEnviar(){
         const norm=s=>normDesc(s||'');
         const alvo=DATA.lancamentos.filter(l=>l.user_id===USER.id)
           .filter(l=> !obj.data || l.data===obj.data)
+          .filter(l=> obj.valor==null || obj.valor==='' || Math.abs(Number(l.valor)-Number(obj.valor))<0.005)
           .filter(l=> !obj.descricao || norm(l.descricao).includes(norm(obj.descricao)) || norm(obj.descricao).includes(norm(l.descricao)))
           .sort((a,b)=> (b.criado_em||'')<(a.criado_em||'')?-1:1)[0];
         if(!alvo){

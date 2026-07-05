@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.93"; /* x */
+const APP_VER = "6.94"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2207,7 +2207,7 @@ function renderHome(){
       <div class="srow tap" onclick="verTrans('despesa')"><span>Contas pagas</span><b>${brl(sd.pagas)}</b></div>
       <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar</span><b>${brl(sd.aPagar)}</b></div>
       ${gc>0?`<div class="srow tap" onclick="go('cartoes')"><span>Gastos no cartão</span><b>${brl(gc)}</b></div>`:''}
-      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b>${brl(sd.invest)}</b></div>`:''}
+      ${sd.invest>0?`<div class="srow inv"><span>Investimentos${(_futuro && !projInvest())?' <span style="color:var(--mint);font-weight:800">*</span>':''}</span><b>${brl(sd.invest)}</b></div>${(_futuro && !projInvest())?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">* não descontado do saldo previsto (é patrimônio). Mude em Mais.</div>`:''}`:''}
       ${(MYPARTNERS.length>0 && (source==='eu'||source==='casal'))?(()=>{
         const nome=MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge';
         const pago=sd.pagoConjuge||0;

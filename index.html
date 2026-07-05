@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.91"; /* x */
+const APP_VER = "6.92"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2181,7 +2181,10 @@ function renderHome(){
 
   // bloco: saldo (hero)
   const _mesAntView=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1);
-  const _sobraAnterior = _futuro ? saldoProjetado(_mesAntView) : 0;
+  const _hojeMA=new Date();
+  const _mesAntEhAtual = (_mesAntView.getFullYear()*12+_mesAntView.getMonth()) === (_hojeMA.getFullYear()*12+_hojeMA.getMonth());
+  // sobra do mês anterior: se for o mês atual, é o balanço de fechamento (o que realmente vai sobrar); se for futuro, é o previsto
+  const _sobraAnterior = _futuro ? (_mesAntEhAtual ? balancoFechamento(_hojeMA) : saldoProjetado(_mesAntView)) : 0;
   blocos.saldo=`<div class="card hero" style="margin-bottom:0">
     <div class="lab">${_futuro?'Saldo previsto':'Saldo em contas'} ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>

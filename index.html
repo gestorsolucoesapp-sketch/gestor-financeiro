@@ -73,6 +73,7 @@ input,select{font-family:inherit;font-size:16px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
 .field input,.field select,.field textarea{width:100%;max-width:100%;min-width:0;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--input-bg);color:var(--ink);outline:none;font-family:inherit;font-size:15px}
 body.modal-open{overflow:hidden}
+body.modal-open .fab{display:none !important}
 .field select{text-overflow:ellipsis}
 .field input:focus,.field select:focus{border-color:var(--mint)}
 .field .err-flash,input.err-flash,select.err-flash{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(239,68,68,.25)!important;animation:errShake .35s}
@@ -495,7 +496,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.05"; /* z2 */
+const APP_VER = "7.06"; /* z2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){

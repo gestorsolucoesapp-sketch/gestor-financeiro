@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.84"; /* x */
+const APP_VER = "6.85"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2986,7 +2986,11 @@ function excluirConta(){
       try{ await sb.from('compartilhamentos').delete().eq('owner_id',USER.id); }catch(e){}
       try{ await sb.from('licencas').delete().eq('user_id',USER.id); }catch(e){}
     }catch(e){ toast('Erro ao apagar dados: '+(e.message||e)); return; }
-    try{ localStorage.clear(); }catch(e){}
+    try{
+      // limpa só o essencial da sessão/cache — preserva temas/cores/ordem de outras contas
+      ['gf_cache','gf_outbox','gf_lic','gf_partners'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});
+      try{ if(USER&&USER.email) localStorage.removeItem('savedPass:'+USER.email); }catch(e){}
+    }catch(e){}
     toast('Conta excluída. Até logo.');
     setTimeout(()=>doLogout(),1200);
   });

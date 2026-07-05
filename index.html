@@ -81,11 +81,11 @@ body.modal-open{overflow:hidden}
   background:var(--emerald);color:#fff;font-weight:700;font-size:15px;transition:filter .15s}
 .btn:active{filter:brightness(.92)}
 .btn.coral{background:var(--coral)}
-.btn.ghost{background:transparent;color:var(--emerald);font-weight:600}
+.btn.ghost{background:transparent;color:var(--nav-on);font-weight:600}
 .btn.sm{width:auto;padding:9px 14px;font-size:13px;border-radius:10px}
 .btn.outline{background:var(--card);border:1.5px solid var(--line-2);color:var(--ink)}
 .auth-switch{text-align:center;margin-top:16px;font-size:13px;color:var(--muted)}
-.auth-switch b{color:var(--emerald);cursor:pointer}
+.auth-switch b{color:var(--nav-on);cursor:pointer}
 .msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-bottom:14px}
 .msg.err{background:#fdeceb;color:#b5392c}
 .msg.ok{background:#e7f6ee;color:#1a7a4f}
@@ -141,7 +141,7 @@ body.modal-open{overflow:hidden}
 .dot svg{display:block}
 .limbar{height:6px;border-radius:6px;background:#e9e4dc;overflow:hidden;margin-top:10px}
 .limbar-fill{height:100%;border-radius:6px;background:var(--mint);transition:width .3s}
-.lnk{color:var(--emerald);font-weight:700;font-size:13px}
+.lnk{color:var(--nav-on);font-weight:700;font-size:13px}
 .pend-alert{display:flex;align-items:center;gap:12px;margin-bottom:14px;cursor:pointer}
 .pend-g{font-size:12px;font-weight:700;color:var(--muted);text-transform:capitalize;padding:10px 2px 4px}
 .pend-row{cursor:pointer;border-radius:10px}
@@ -190,8 +190,15 @@ body.modal-open{overflow:hidden}
 .tabbar button.on{color:var(--nav-on)}
 .fab{position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom) + 74px);z-index:31;
   width:56px;height:56px;border-radius:18px;background:var(--coral);color:#fff;font-size:28px;
-  display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(232,101,78,.45)}
+  display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(232,101,78,.45);transition:transform .08s,filter .08s}
+.fab:active{transform:scale(.9);filter:brightness(.9)}
 .iafab{left:18px;right:auto;background:#7c5cff;box-shadow:0 8px 22px rgba(124,92,255,.45)}
+.obfab{left:18px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 140px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite}
+@keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
+/* feedback de toque global */
+button,.btn,.lnk,.quick,a[onclick],[onclick]{transition:transform .08s ease,filter .08s ease,background .08s ease}
+button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:active{filter:brightness(1.25)}
+.btn:active,.quick:active{transform:scale(.97)}
 
 /* sheet / modal */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
@@ -420,7 +427,11 @@ body.modal-open{overflow:hidden}
 
 <button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
 <button class="fab iafab hidden" id="iaFab" onclick="go('assistente')" title="Assistente IA">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:1px"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg>
+  <span style="font-size:9px;font-weight:800;letter-spacing:.5px;line-height:1">IA</span>
+</button>
+<button class="fab obfab hidden" id="obFab" onclick="go('tutorial')" title="Primeiros passos">
+  <span style="font-size:22px;line-height:1">🚀</span>
 </button>
 <div id="addMenu" class="addmenu hidden" onclick="if(event.target===this)closeAddMenu()">
   <div class="addmenu-inner">
@@ -475,7 +486,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.79"; /* x */
+const APP_VER = "6.80"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1074,11 +1085,11 @@ function obChecks(){
   const desp=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='despesa').length;
   const rec=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='receita').length;
   return [
-    {k:'conta',   n:1, titulo:'Cadastre suas contas',      sub:'Banco, carteira… com o saldo atual de cada uma', ok:minhasContas>=1, acao:'openConta()',  btn:'Criar conta', skip:false},
-    {k:'cartao',  n:2, titulo:'Cadastre seus cartões',     sub:'Com dia de fechamento e de vencimento da fatura', ok:meusCartoes>=1,  acao:'openCartao()', btn:'Criar cartão', skip:true},
-    {k:'casal',   n:3, titulo:'Conecte com seu cônjuge',   sub:'Cada um usa a própria conta e vocês veem tudo junto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
-    {k:'despesas',n:4, titulo:'Lance 2 despesas',          sub:'Ex: mercado e um gasto no cartão — pra pegar o jeito', ok:desp>=2, prog:Math.min(desp,2)+'/2', acao:"openLanc(null,'despesa')", btn:'Lançar despesa', skip:false},
-    {k:'receita', n:5, titulo:'Lance sua receita',         sub:'Seu salário ou outra entrada de dinheiro', ok:rec>=1, acao:"openLanc(null,'receita')", btn:'Lançar receita', skip:false},
+    {k:'conta',   n:1, titulo:'Cadastre suas contas',      sub:'Banco, carteira e dinheiro — com o saldo atual de cada uma', ok:minhasContas>=1, acao:'openConta()',  btn:'Adicionar conta', skip:false},
+    {k:'cartao',  n:2, titulo:'Cadastre seus cartões',     sub:'Informe o dia de fechamento e de vencimento da fatura', ok:meusCartoes>=1,  acao:'openCartao()', btn:'Adicionar cartão', skip:true},
+    {k:'receita', n:3, titulo:'Registre sua receita',      sub:'Seu salário ou outra entrada de dinheiro do mês', ok:rec>=1, acao:"openLanc(null,'receita')", btn:'Registrar receita', skip:false},
+    {k:'despesas',n:4, titulo:'Registre 2 despesas',       sub:'Uma no débito e uma no cartão, para conhecer o fluxo', ok:desp>=2, prog:Math.min(desp,2)+'/2', acao:"openLanc(null,'despesa')", btn:'Registrar despesa', skip:false},
+    {k:'casal',   n:5, titulo:'Conecte com seu cônjuge',   sub:'Cada um usa a própria conta e vocês acompanham tudo em conjunto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
   ];
 }
 function renderTutorial(){
@@ -1086,39 +1097,58 @@ function renderTutorial(){
   const feitos=steps.filter(s=>s.ok||(s.skip&&obSkip(s.k))).length;
   const pct=Math.round(feitos/steps.length*100);
   let html=`<div class="page-title">👋 Primeiros passos</div>
-  <div class="note" style="margin:-6px 2px 12px">Bem-vindo ao Gestor! Siga as etapas abaixo pra deixar tudo pronto. Pode explorar as abas de baixo à vontade — este checklist fica te esperando.</div>
+  <div class="card" style="background:linear-gradient(120deg,#7c5cff,#a855ff);color:#fff;border:none">
+    <b style="font-size:15px">Configure o app em poucos minutos</b>
+    <div style="font-size:13.5px;opacity:.95;margin-top:4px;line-height:1.5">Concluir estas etapas é <b>essencial</b> para o Gestor calcular seus saldos, faturas e relatórios corretamente. Sem elas, os números não fecham. Leva menos de 5 minutos.</div>
+  </div>
   <div class="card" style="padding:14px 16px">
-    <div class="s" style="display:flex;justify-content:space-between;margin-bottom:6px"><b>Seu progresso</b><span>${feitos} de ${steps.length}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ink)"><b>Seu progresso</b><span style="color:var(--muted)">${feitos} de ${steps.length}</span></div>
     <div class="prog"><div class="progfill" style="width:${pct}%;background:var(--mint)"></div></div>
-  </div>`;
+  </div>
+  <button class="btn outline" style="margin:2px 0 14px" onclick="addTudoRapido()">➕ Adicionar várias contas e cartões de uma vez</button>`;
   steps.forEach(s=>{
     const pulou=s.skip&&obSkip(s.k)&&!s.ok;
     const done=s.ok||pulou;
-    html+=`<div class="card" style="display:flex;gap:12px;align-items:flex-start;${done?'opacity:.75':''}">
-      <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${done?'background:var(--mint);color:#fff':'background:var(--input-bg);color:var(--muted);border:1.5px solid var(--line-2)'}">${done?'✓':s.n}</div>
+    html+=`<div class="card" style="display:flex;gap:12px;align-items:flex-start;${done?'opacity:.7':''}">
+      <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${done?'background:var(--mint);color:#fff':'background:var(--input-bg);color:var(--ink);border:1.5px solid var(--line-2)'}">${done?'✓':s.n}</div>
       <div style="flex:1;min-width:0">
-        <b>${s.titulo}${s.prog&&!s.ok?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">${s.prog}</span>`:''}${pulou?' <span class="pill">pulado</span>':''}</b>
-        <div class="note" style="margin:2px 0 10px">${s.sub}</div>
+        <b style="color:var(--ink)">${s.titulo}${s.prog&&!s.ok?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">${s.prog}</span>`:''}${pulou?' <span class="pill">pulado</span>':''}</b>
+        <div class="s" style="margin:2px 0 10px">${s.sub}</div>
         ${done?'':`<div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn sm" style="margin:0" onclick="${s.acao}">${s.btn}</button>
-          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Não tenho / depois</button>`:''}
+          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Não se aplica</button>`:''}
         </div>`}
       </div>
     </div>`;
   });
-  html+=`<button class="btn" onclick="concluirTutorial()">Concluir e começar a usar ✅</button>`;
+  html+=`<button class="btn" onclick="concluirTutorial()">Concluir e ver meus relatórios</button>
+  <button class="btn ghost" onclick="dispensarTutorial()">Não mostrar mais</button>`;
   $('content').innerHTML=html;
+}
+function dispensarTutorial(){
+  if(!confirm('Ocultar o guia de primeiros passos? Você poderá reabri-lo depois em Mais.'))return;
+  localStorage.setItem('gf_ob_hide_'+USER.id,'1');
+  localStorage.setItem(obKey(),'1');
+  updateIaFab(); go('home');
+}
+function addTudoRapido(){
+  openSheet(`<h2>Adicionar em sequência</h2>
+    <div class="note" style="margin-bottom:14px">Cadastre tudo de uma vez, sem sair daqui. Ao salvar cada item, o formulário volta para você adicionar o próximo.</div>
+    <button class="btn" onclick="window._addLoop='conta';openConta()">➕ Adicionar contas em sequência</button>
+    <button class="btn" onclick="window._addLoop='cartao';openCartao()">➕ Adicionar cartões em sequência</button>
+    <button class="btn ghost" onclick="window._addLoop=null;closeSheet()">Concluído</button>`);
 }
 function concluirTutorial(){
   const faltam=obChecks().filter(s=>!s.ok && !(s.skip&&obSkip(s.k)));
   if(faltam.length){
     vibra(60);
-    toast('Refaça as etapas que faltam: '+faltam.map(s=>s.n+'. '+s.titulo).join(' · '));
+    toast('Ainda faltam etapas: '+faltam.map(s=>s.n+'. '+s.titulo).join(' · '));
     return;
   }
   localStorage.setItem(obKey(),'1');
-  vibra(); toast('Tudo pronto — bom controle! 🎉');
-  go('home');
+  vibra(); toast('Configuração concluída ✅');
+  updateIaFab();
+  go('relatorios');
 }
 
 // ============ LICENÇA / ASSINATURA ============
@@ -1371,9 +1401,13 @@ function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1');
 function iaPodeExcluir(){ return localStorage.getItem('gf_ia_pode_excluir')==='1'; }
 function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); }
 function updateIaFab(){
-  const b=$('iaFab'); if(!b) return;
-  const show = iaBubbleAtiva() && tab!=='assistente';
-  b.classList.toggle('hidden', !show);
+  const b=$('iaFab');
+  if(b){ const show = iaBubbleAtiva() && tab!=='assistente'; b.classList.toggle('hidden', !show); }
+  const ob=$('obFab');
+  if(ob){
+    const mostrar = USER && !obDone() && localStorage.getItem('gf_ob_hide_'+USER.id)!=='1' && tab!=='tutorial';
+    ob.classList.toggle('hidden', !mostrar);
+  }
 }
 let _aiMsgs=[]; // {role:'user'|'assistant', content:string}
 function resumoParaIA(){
@@ -1426,7 +1460,10 @@ function renderAssistente(){
     ${renderLimiteIA()}
   </div>`;
   html+=`<div id="aiChat" class="card" style="min-height:300px;display:flex;flex-direction:column;gap:10px;padding:14px">`;
-  if(!_aiMsgs.length) html+=`<div class="note">Pergunte sobre seus gastos ("quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
+  if(!_aiMsgs.length){
+    const pnome=MYPARTNERS.length?esc(MYPARTNERS[0].apelido):'';
+    html+=`<div class="note">Pergunte sobre suas finanças (${pnome?`"quanto ${pnome} gastou esse mês?", `:''}"quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
+  }
   for(const m of _aiMsgs){
     const mine=m.role==='user';
     html+=`<div style="align-self:${mine?'flex-end':'flex-start'};max-width:85%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.4;white-space:pre-wrap;background:${mine?'var(--emerald)':'var(--input-bg)'};color:${mine?'var(--on-hero)':'var(--ink)'}">${esc(m.content)}</div>`;
@@ -2715,6 +2752,7 @@ function renderConfig(){
   html+=`<div class="page-title" style="margin-top:20px">Zona de risco</div><div class="card">
     ${hubItem('trash','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()",'#e8654e')}
     ${hubItem('alert','Começar do zero','Apaga absolutamente tudo e recomeça',"wipeTudo()",'#d6473a')}
+    ${hubItem('trash','Excluir minha conta','Apaga sua conta e todos os dados definitivamente',"excluirConta()",'#d6473a')}
   </div>`;
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;
   html+=`<button class="btn ghost" style="margin-top:10px" onclick="doLogout()">Sair da conta</button>`;
@@ -2905,6 +2943,24 @@ async function doWipeValores(){
   await loadAll(); toast('Valores limpos ✅'); go('home');
 }
 function wipeTudo(){ pedirSenha('Começar do zero', doWipeTudo); }
+function excluirConta(){
+  if(!confirm('Isto vai apagar PERMANENTEMENTE sua conta e todos os seus dados. Não dá pra desfazer. Continuar?')) return;
+  pedirSenha('Excluir minha conta', async ()=>{
+    try{
+      await sb.from('lancamentos').delete().eq('user_id',USER.id);
+      await sb.from('orcamentos').delete().eq('user_id',USER.id);
+      await sb.from('investimentos').delete().eq('user_id',USER.id);
+      await sb.from('cartoes').delete().eq('user_id',USER.id);
+      await sb.from('contas').delete().eq('user_id',USER.id);
+      await sb.from('categorias').delete().eq('user_id',USER.id);
+      try{ await sb.from('compartilhamentos').delete().eq('owner_id',USER.id); }catch(e){}
+      try{ await sb.from('licencas').delete().eq('user_id',USER.id); }catch(e){}
+    }catch(e){ toast('Erro ao apagar dados: '+(e.message||e)); return; }
+    try{ localStorage.clear(); }catch(e){}
+    toast('Conta excluída. Até logo.');
+    setTimeout(()=>doLogout(),1200);
+  });
+}
 async function doWipeTudo(){
   toast('Zerando…');
   for(const t of ['lancamentos','orcamentos','cartoes','contas','categorias']){
@@ -3212,7 +3268,7 @@ function openSheet(inner){
   $('modalRoot').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grip"></div><div class="sheet-scroll">${inner}</div></div></div>`;
   document.body.classList.add('modal-open');
 }
-function closeSheet(){$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');}
+function closeSheet(){window._addLoop=null;$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');}
 
 // ---- LANÇAMENTO ----
 let lancType='despesa';
@@ -3453,7 +3509,9 @@ function renderMeio(e){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
       h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
-      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="updateFaturaNote()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}</select><div class="note" id="parcNote"></div></div>`;
+      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="onParcelasChange()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}<option value="custom" ${!e.recorrente&&e.parcelas>24?'selected':''}>✏️ Mais de 24x…</option></select>
+        <input id="lParcelasN" type="number" inputmode="numeric" min="2" placeholder="Quantas parcelas? (ex: 36)" value="${(e.parcelas>24)?e.parcelas:''}" style="margin-top:8px;display:${(e.parcelas>24)?'block':'none'}" onchange="updateFaturaNote()">
+        <div class="note" id="parcNote"></div></div>`;
     }
     // cartão não usa status pago/pendente (vira fatura)
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
@@ -3481,12 +3539,23 @@ function renderMeio(e){
   const lp=$('lParcelas'); if(lp){lp.addEventListener('change',()=>{updateParcNote();updateFaturaNote();});$('lValor').addEventListener('input',updateParcNote);updateParcNote();}
   updateFaturaNote();
 }
+function onParcelasChange(){
+  const sel=$('lParcelas'); const inp=$('lParcelasN');
+  if(inp) inp.style.display = (sel&&sel.value==='custom') ? 'block' : 'none';
+  updateFaturaNote(); updateParcNote();
+}
+function parcelasEfetivas(){
+  const sel=$('lParcelas'); if(!sel) return 1;
+  if(sel.value==='custom'){ return Math.max(2, parseInt($('lParcelasN')?$('lParcelasN').value:'')||2); }
+  if(sel.value==='rec') return 'rec';
+  return parseInt(sel.value)||1;
+}
 function updateFaturaNote(){
   const el=$('faturaNote'); if(!el) return;
   const sel=$('lCartao'); if(!sel){ el.innerHTML=''; return; }
   const cartao=cartaoById(sel.value); if(!cartao){ el.innerHTML=''; return; }
   const data=$('lData')?$('lData').value:ymd(new Date());
-  const pv=$('lParcelas')?$('lParcelas').value:'1';
+  let pv=$('lParcelas')?$('lParcelas').value:'1'; if(pv==='custom') pv=String(parcelasEfetivas());
   const base=calcCompetencia(data, cartao.dia_fechamento);
   const venc=new Date(base.getFullYear(), base.getMonth()+cardDueOffset(cartao), 1);
   const fmt=x=>x.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
@@ -3507,7 +3576,7 @@ function updateFaturaNote(){
 }
 function updateParcNote(){
   if(!$('parcNote'))return;
-  const pv=$('lParcelas')?$('lParcelas').value:'1';
+  let pv=$('lParcelas')?$('lParcelas').value:'1'; if(pv==='custom') pv=String(parcelasEfetivas());
   const v=evalValor($('lValor').value)||0;
   if(pv==='rec'){ $('parcNote').innerHTML = v>0?`<b>${brl(v)}</b> todo mês`:''; return; }
   const n=parseInt(pv)||1;
@@ -3590,10 +3659,11 @@ async function saveLanc(id){
   if(window._meio==='cartao'){
     const cartaoId=$('lCartao')?$('lCartao').value:null;
     if(!cartaoId){toast('Selecione o cartão');return;}
-    const pv=$('lParcelas')?$('lParcelas').value:'';
-    if(!pv){toast('Escolha as parcelas (à vista, parcelado ou recorrente)');return;}
-    const rec = pv==='rec';
-    const n = rec?24:(parseInt(pv)||1);
+    const pvRaw=$('lParcelas')?$('lParcelas').value:'';
+    if(!pvRaw){toast('Escolha as parcelas (à vista, parcelado ou recorrente)');return;}
+    const rec = pvRaw==='rec';
+    const n = rec?24:(pvRaw==='custom'?parcelasEfetivas():(parseInt(pvRaw)||1));
+    if(!rec && (!(n>=1))){toast('Número de parcelas inválido');return;}
     const cartao=cartaoById(cartaoId);
     if(id){const old=DATA.lancamentos.find(l=>l.id===id); if(old&&old.grupo_id){await dbDelete('lancamentos','grupo_id',old.grupo_id);} else {await dbDelete('lancamentos','id',id);} }
     const grupo=uuid();
@@ -3697,15 +3767,15 @@ function openConta(id){
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
+    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
         <button class="btn sm" onclick="logoAuto('c')">Buscar logo</button>
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
-        <button class="btn ghost sm" onclick="clearLogo('c')">Usar cor</button>
+        <button class="btn outline sm" onclick="clearLogo('c')">Usar cor</button>
       </div>
       <div class="note">"Buscar logo" acha o ícone pelo nome do banco. Ou suba sua imagem. Ou deixe a cor.</div></div>
-    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="cTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._contaTipo='pessoal';$('cTipoP').classList.add('on');$('cTipoN').classList.remove('on')">Pessoal</button>
       <button id="cTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._contaTipo='negocio';$('cTipoN').classList.add('on');$('cTipoP').classList.remove('on')">Negócio</button>
@@ -3795,9 +3865,11 @@ async function saveConta(id){
   const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true,logo_url:window._cLogo||null};
   const r = id ? await dbUpdate('contas',row,'id',id) : await dbInsert('contas',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?(id?'Conta atualizada (offline)':'Conta criada (offline)')+' — sincroniza depois':(id?'Conta atualizada':'Conta criada')); render();
+  vibra();
+  toast(r&&r.queued?(id?'Conta atualizada (offline)':'Conta criada (offline)')+' — sincroniza depois':(id?'Conta atualizada':'Conta criada'));
+  if(!id && window._addLoop==='conta'){ openConta(); return; }
+  closeSheet(); render();
 }
 async function arquivarConta(id){
   if(!confirm('Arquivar esta conta? Ela some das listas mas o histórico fica.'))return;
@@ -3890,9 +3962,11 @@ async function saveCartao(id){
   const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false,logo_url:window._kLogo||null};
   const r = id ? await dbUpdate('cartoes',row,'id',id) : await dbInsert('cartoes',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?(id?'Cartão atualizado (offline)':'Cartão criado (offline)')+' — sincroniza depois':(id?'Cartão atualizado':'Cartão criado')); render();
+  vibra();
+  toast(r&&r.queued?(id?'Cartão atualizado (offline)':'Cartão criado (offline)')+' — sincroniza depois':(id?'Cartão atualizado':'Cartão criado'));
+  if(!id && window._addLoop==='cartao'){ openCartao(); return; }
+  closeSheet(); render();
 }
 async function arquivarCartao(id){
   if(!confirm('Arquivar este cartão?'))return;

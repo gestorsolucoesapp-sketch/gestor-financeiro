@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.85"; /* x */
+const APP_VER = "6.86"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -835,6 +835,25 @@ function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').clas
 // ===== contas salvas no login =====
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+// ===== SINCRONIZAÇÃO DE PREFERÊNCIAS (tema, cores, ordem) NO SERVIDOR =====
+const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents'];
+function coletarPrefs(){ const o={}; PREF_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; }); return o; }
+function aplicarPrefs(o){ if(!o) return; PREF_KEYS.forEach(k=>{ if(o[k]!=null){ try{localStorage.setItem(k,o[k]);}catch(e){} } }); }
+let _prefSaveT=null;
+function salvarPrefs(){
+  if(!USER||!navigator.onLine) return;
+  clearTimeout(_prefSaveT);
+  _prefSaveT=setTimeout(async()=>{
+    try{ await sb.from('preferencias').upsert({user_id:USER.id,dados:coletarPrefs(),atualizado_em:new Date().toISOString()},{onConflict:'user_id'}); }catch(e){}
+  },800);
+}
+async function carregarPrefs(){
+  if(!USER||!navigator.onLine) return;
+  try{
+    const {data}=await sb.from('preferencias').select('dados').eq('user_id',USER.id).maybeSingle();
+    if(data&&data.dados){ aplicarPrefs(data.dados); }
+  }catch(e){}
+}
 function getSavedEmails(){return lsGet('savedEmails',[]);}
 function rememberEmail(email){let arr=getSavedEmails().filter(e=>e!==email);arr.unshift(email);lsSet('savedEmails',arr.slice(0,6));lsSet('lastEmail',email);}
 function forgetEmail(email){lsSet('savedEmails',getSavedEmails().filter(e=>e!==email));try{localStorage.removeItem('savedPass:'+email);}catch(e){}if(lsGet('lastEmail','')===email)lsSet('lastEmail','');renderSavedAccounts();}
@@ -904,7 +923,7 @@ function getTemas(){
   if(!all){ const old=lsGet('tema',null); all = old?{tudo:old}:{}; lsSet('temas',all); }
   return all;
 }
-function setTema(sc,t){const all=getTemas();all[sc]=t;lsSet('temas',all);}
+function setTema(sc,t){const all=getTemas();all[sc]=t;lsSet('temas',all);salvarPrefs();}
 function getTema(sc){sc=sc||scope||'tudo';const all=getTemas();return Object.assign({},TEMA_DEFAULT,all[sc]||all['tudo']||{});}
 function _hx(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}
 function lighten(hex,amt){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return '#'+_hx(r+(255-r)*amt)+_hx(g+(255-g)*amt)+_hx(b+(255-b)*amt);}
@@ -957,7 +976,7 @@ function applyTema(sc){
 }
 function themeMode(){ const m=localStorage.getItem('gf_theme_mode'); if(m) return m; return (localStorage.getItem('gf_dark')==='1')?'dark':'light'; }
 function effectiveDark(m){ m=m||themeMode(); if(m==='auto') return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); return m==='dark'; }
-function setThemeMode(m){ localStorage.setItem('gf_theme_mode',m); localStorage.setItem('gf_dark', effectiveDark(m)?'1':'0'); applyTema(scope); render(); }
+function setThemeMode(m){ localStorage.setItem('gf_theme_mode',m); localStorage.setItem('gf_dark', effectiveDark(m)?'1':'0'); applyTema(scope); render(); salvarPrefs(); }
 if(window.matchMedia){
   try{
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{
@@ -1244,6 +1263,8 @@ async function afterLogin(userArg){
   updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   await loadAll();
+  await carregarPrefs();
+  applyTema(scope); updateIaFab();
   const _licOk=await checarLicenca(true);
   if(!_licOk) return;
   // usuário antigo (já tem dados) não vê tutorial; usuário novo cai nele
@@ -1416,11 +1437,11 @@ function render(){
 
 // ============ ASSISTENTE IA ============
 function iaBubbleAtiva(){ return localStorage.getItem('gf_ia_bubble_off')!=='1'; }
-function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1'); updateIaFab(); if(tab==='assistente') renderAssistente(); }
+function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1'); updateIaFab(); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
 function iaPodeExcluir(){ return localStorage.getItem('gf_ia_pode_excluir')==='1'; }
-function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); }
+function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
 function iaCor(){ return localStorage.getItem('gf_ia_cor')||'#7c5cff'; }
-function setIaCor(c){ localStorage.setItem('gf_ia_cor',c); aplicaIaCor(); if(tab==='assistente') renderAssistente(); }
+function setIaCor(c){ localStorage.setItem('gf_ia_cor',c); aplicaIaCor(); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
 function aplicaIaCor(){ const b=$('iaFab'); if(b){ const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; } }
 function updateIaFab(){
   const b=$('iaFab');
@@ -1952,7 +1973,7 @@ function makeSortable(containerId,storageKey){
         item.classList.remove('dragging');
         item.style.position=''; item.style.width=''; item.style.left=''; item.style.top=''; item.style.margin='';
         const order=[...cont.querySelectorAll(':scope > .sortable-item')].map(x=>x.dataset.key);
-        localStorage.setItem(storageKey, JSON.stringify(order));
+        localStorage.setItem(storageKey, JSON.stringify(order)); salvarPrefs();
       }
       document.addEventListener('pointermove',onMove);
       document.addEventListener('pointerup',onUp,{once:true});
@@ -2188,7 +2209,7 @@ function renderHome(){
 function toggleRecents(){
   const cur=(localStorage.getItem('gf_hideRecents')||'1')==='1';
   localStorage.setItem('gf_hideRecents', cur?'0':'1');
-  render();
+  render(); salvarPrefs();
 }
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);

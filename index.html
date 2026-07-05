@@ -496,7 +496,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.08"; /* z2 */
+const APP_VER = "7.09"; /* z2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -2317,14 +2317,14 @@ function renderHome(){
   // bloco: melhor cartão pra comprar hoje (mais prazo até a cobrança)
   const mc=melhorCartaoCompra();
   if(mc && mc.dias>=20){
-    blocos.melhorcartao=`<div class="card" onclick="openLanc(null,'despesa_cartao')" style="margin-bottom:0;cursor:pointer;border:1px solid var(--mint)">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66;flex-shrink:0">${ICON('card',20)}</div>
+    blocos.melhorcartao=`<div class="card" onclick="openLanc(null,'despesa_cartao')" style="margin-bottom:0;cursor:pointer;border:1px solid var(--mint);padding:11px 13px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66;flex-shrink:0;width:34px;height:34px">${ICON('card',17)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14.5px">💡 Melhor cartão pra comprar hoje: ${esc(mc.cartao.nome)}</div>
-          <div class="note">Compras de hoje só serão cobradas em ~${mc.dias} dias. Mais prazo pra pagar!</div>
+          <div style="font-weight:700;font-size:13px">💡 Melhor cartão pra comprar hoje: ${esc(mc.cartao.nome)}</div>
+          <div class="note" style="font-size:11.5px;margin-top:1px">Compras de hoje só entram na fatura daqui a ~${mc.dias} dias.</div>
         </div>
-        <span style="color:var(--muted);font-size:20px">›</span>
+        <span style="color:var(--muted);font-size:18px">›</span>
       </div></div>`;
   }
 

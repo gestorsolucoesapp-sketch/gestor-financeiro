@@ -496,7 +496,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.07"; /* z2 */
+const APP_VER = "7.08"; /* z2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -2314,6 +2314,20 @@ function renderHome(){
     <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
   </div>`;
 
+  // bloco: melhor cartão pra comprar hoje (mais prazo até a cobrança)
+  const mc=melhorCartaoCompra();
+  if(mc && mc.dias>=20){
+    blocos.melhorcartao=`<div class="card" onclick="openLanc(null,'despesa_cartao')" style="margin-bottom:0;cursor:pointer;border:1px solid var(--mint)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66;flex-shrink:0">${ICON('card',20)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14.5px">💡 Melhor cartão pra comprar hoje: ${esc(mc.cartao.nome)}</div>
+          <div class="note">Compras de hoje só serão cobradas em ~${mc.dias} dias. Mais prazo pra pagar!</div>
+        </div>
+        <span style="color:var(--muted);font-size:20px">›</span>
+      </div></div>`;
+  }
+
   // bloco: lembrete de contas a pagar (resumo)
   const np=pendDueList().length;
   if(np){ blocos.pendalert=`<div class="card pend-alert" onclick="go('pendencias')" style="margin-bottom:0">
@@ -2343,7 +2357,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['alerta','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['alerta','quicknav','melhorcartao','saldo','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
@@ -2735,6 +2749,32 @@ function rowLanc(l){
 }
 
 // ============ CARTÕES ============
+// Melhor cartão pra comprar HOJE: o que dá mais dias até a cobrança (acabou de fechar)
+function melhorCartaoCompra(){
+  const meus=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id && (scope==='tudo'||c.tipo===scope));
+  if(!meus.length) return null;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const diaHoje=hoje.getDate();
+  let melhor=null, maxDias=-1;
+  meus.forEach(c=>{
+    const fech=Number(c.dia_fechamento)||1;
+    const venc=Number(c.dia_vencimento)||10;
+    // em quantos dias a compra de hoje vai ser cobrada (vencimento da fatura em que ela cai)
+    // se hoje já passou do fechamento, cai na fatura que vence daqui a ~2 meses; senão, no próximo vencimento
+    let mesesAteVenc;
+    if(diaHoje>fech){
+      // compra entra na fatura que fecha no próximo mês → vence no mês seguinte ao próximo
+      mesesAteVenc = (venc>fech)?1:2;
+    }else{
+      mesesAteVenc = (venc>fech)?0:1;
+    }
+    let dv=new Date(hoje.getFullYear(), hoje.getMonth()+mesesAteVenc, Math.min(venc,28));
+    if(dv<hoje) dv=new Date(hoje.getFullYear(), hoje.getMonth()+mesesAteVenc+1, Math.min(venc,28));
+    const dias=Math.round((dv-hoje)/86400000);
+    if(dias>maxDias){ maxDias=dias; melhor={cartao:c, dias}; }
+  });
+  return melhor;
+}
 function diasParaVencCartao(c){
   const hoje=new Date(); hoje.setHours(0,0,0,0);
   let due=new Date(hoje.getFullYear(),hoje.getMonth(),Math.min(Number(c.dia_vencimento)||1,28));

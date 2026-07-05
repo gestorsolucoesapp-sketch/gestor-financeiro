@@ -411,6 +411,7 @@ button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:acti
     <div class="row1">
       <div class="hi">Olá,<b id="userName">—</b></div>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="iconbtn hidden" id="cliBtn" onclick="go('clientes')" style="position:relative" title="Clientes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.3 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg><span id="cliBadge" class="badge hidden">0</span></button>
         <button class="iconbtn" id="bellBtn" onclick="abrirNotificacoes()" style="position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellBadge" class="badge hidden">0</span></button>
         <button class="iconbtn" onclick="doLogout()" title="Sair"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
@@ -491,7 +492,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.97"; /* x */
+const APP_VER = "6.98"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1361,12 +1362,33 @@ function partnerLancs(){
     .sort((a,b)=> (b.criado_em||b.data) < (a.criado_em||a.data) ? -1 : 1);
 }
 function updateBell(){
-  const badge=$('bellBadge'); if(!badge) return;
-  if(!MYPARTNERS.length){ badge.classList.add('hidden'); return; }
-  const seen=notifSeenAt();
-  const n=partnerLancs().filter(l=> (l.criado_em||l.data) > seen).length;
-  if(n>0){ badge.textContent=n>9?'9+':n; badge.classList.remove('hidden'); }
-  else badge.classList.add('hidden');
+  const badge=$('bellBadge');
+  if(badge){
+    if(!MYPARTNERS.length){ badge.classList.add('hidden'); }
+    else {
+      const seen=notifSeenAt();
+      const n=partnerLancs().filter(l=> (l.criado_em||l.data) > seen).length;
+      if(n>0){ badge.textContent=n>9?'9+':n; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+  }
+  updateCliBadge();
+}
+async function updateCliBadge(){
+  const btn=$('cliBtn'), badge=$('cliBadge');
+  if(!btn||!badge) return;
+  if(!USER || USER.id!==ADMIN_ID){ btn.classList.add('hidden'); return; }
+  btn.classList.remove('hidden');
+  try{
+    const {data}=await sb.rpc('admin_clientes');
+    if(!data) return;
+    const outros=data.filter(c=>c.user_id!==ADMIN_ID);
+    window._totalClientes=outros.length;
+    const visto=parseInt(localStorage.getItem('gf_cli_seen')||'0');
+    const novos=Math.max(0, outros.length - visto);
+    if(novos>0){ badge.textContent=novos>9?'9+':novos; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  }catch(e){}
 }
 function abrirNotificacoes(){
   const lista=partnerLancs().slice(0,10);
@@ -2888,6 +2910,10 @@ async function renderClientes(){
   try{ const {data,error}=await sb.rpc('admin_clientes'); if(error)throw error; rows=data||[]; }
   catch(e){ $('content').innerHTML=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> 👑 Clientes do Gestor</div><div class="card">Erro: ${esc(e.message||String(e))}<div class="note" style="margin-top:6px">Já rodou o SQL de licenças no Supabase? Me chama que te passo de novo.</div></div>`; return; }
   window._cliRows=rows;
+  // marca como visto: zera o badge de novos clientes
+  const outros=rows.filter(c=>c.user_id!==ADMIN_ID);
+  localStorage.setItem('gf_cli_seen', String(outros.length));
+  const badge=$('cliBadge'); if(badge) badge.classList.add('hidden');
   desenharClientes(window._cliFiltro||'');
 }
 function desenharClientes(filtro){

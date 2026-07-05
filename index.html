@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.86"; /* x */
+const APP_VER = "6.87"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1241,14 +1241,32 @@ async function revalidarLicenca(){
   } else toast('Ainda não localizei a ativação. Se já pagou, aguarde um instante e tente de novo.');
 }
 // contador de tempo de uso: +1 min a cada minuto com o app visível
-setInterval(()=>{
+// contador de tempo de uso: mede tempo real em primeiro plano e envia ao sair/minimizar
+let _usoDesde = Date.now();
+let _usoAcum = 0;
+function _usoTick(){
+  if(document.visibilityState==='visible'){ _usoAcum += Date.now()-_usoDesde; }
+  _usoDesde = Date.now();
+}
+async function flushUso(){
   try{
     if(!USER || USER.id===ADMIN_ID) return;
+    _usoTick();
+    const min = _usoAcum/60000;
+    if(min < 0.15) return; // menos de ~9s, ignora
+    _usoAcum = 0;
     if(!navigator.onLine) return;
-    if(document.visibilityState!=='visible') return;
-    sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:'',p_minutos:1,p_login:false});
+    sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:'',p_minutos:min,p_login:false});
   }catch(e){}
-},60000);
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden'){ flushUso(); }
+  else { _usoDesde = Date.now(); }
+});
+window.addEventListener('pagehide', flushUso);
+window.addEventListener('beforeunload', flushUso);
+setInterval(flushUso, 120000); // e também a cada 2 min como rede de segurança
+
 
 // ============ BOOT ============
 async function afterLogin(userArg){
@@ -1322,9 +1340,9 @@ function updateBell(){
 }
 function abrirNotificacoes(){
   const lista=partnerLancs().slice(0,10);
-  let h=`<h2>Notificações</h2>`;
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Notificações</h2><button class="btn ghost sm" style="margin:0;width:auto" onclick="closeSheet()">Fechar</button></div>`;
   if(MYPARTNERS.length && pushSuportado()){
-    h+=`<button class="btn outline" style="margin-bottom:12px" onclick="ativarPush()">🔔 Ativar aviso na tela bloqueada</button>`;
+    h+=`<button class="btn outline" style="margin:10px 0 12px" onclick="ativarPush()">🔔 Ativar aviso na tela bloqueada</button>`;
   }
   if(!MYPARTNERS.length){
     h+=`<div class="empty"><div class="ico">🔔</div><p>Conecte a conta da sua esposa para receber avisos quando ela lançar algo.</p><button class="btn coral sm" onclick="closeSheet();abrirConectar()">Conectar conta</button></div>`;
@@ -1335,12 +1353,13 @@ function abrirNotificacoes(){
     h+=`<div class="card" style="margin-top:6px">`;
     lista.forEach(l=>{
       const cat=catById(l.categoria_id);
+      const vis=catVisual(cat,l.tipo);
       const isNew=(l.criado_em||l.data)>seen;
       const sinal=l.tipo==='receita'?'+':(l.tipo==='despesa'?'-':'');
       const cls=l.tipo==='receita'?'g':(l.tipo==='despesa'?'r':'b');
       const dt=new Date((l.criado_em||l.data)).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
       const hr=l.criado_em?(' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})):'';
-      h+=`<div class="lrow"><div class="dot">${isNew?'🟢':(cat?cat.icone:'🔔')}</div>
+      h+=`<div class="lrow"><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color};position:relative">${ICON(vis.icon,18)}${isNew?'<span style="position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--card)"></span>':''}</div>
         <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}</div><div class="s">${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
         <div class="amt ${cls}">${sinal}${brl(Number(l.valor))}</div></div>`;
     });
@@ -2850,6 +2869,7 @@ function desenharClientes(filtro){
       ${(r.fone||r.cidade)?`<div class="note">${r.fone?`📱 <a href="https://wa.me/55${(r.fone||'').replace(/\\D/g,'')}" style="color:var(--nav-on)">${esc(r.fone)}</a>`:''}${(r.fone&&r.cidade)?' · ':''}${r.cidade?'📍 '+esc(r.cidade)+(r.uf?'/'+esc(r.uf):''):''}</div>`:''}
       <div class="note">🔑 ${r.logins||0} logins · ⏱️ ${Math.round(r.minutos_uso||0)} min de uso · 1º acesso ${fmtBrData(r.primeiro_acesso)}</div>
       <div class="note">🧾 ${r.n_lanc||0} lançamentos · 🏦 ${r.n_contas||0} contas · 💳 ${r.n_cartoes||0} cartões</div>
+      ${r.conjuges!=null?`<div class="note">👫 ${r.conjuges>0?`<b style="color:var(--mint)">Cônjuge conectado</b> (${r.conjuges} ativo${r.conjuges>1?'s':''})`:'sem cônjuge conectado'}</div>`:''}
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
         <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','mais7')">+7 dias</button>
         <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','mais30')">+30 dias</button>
@@ -2857,6 +2877,7 @@ function desenharClientes(filtro){
         <button class="btn sm" style="margin:0;background:#1f7a4d;color:#fff" onclick="adminAcao('${r.user_id}','pago')">Marcar pago</button>
         <button class="btn sm" style="margin:0;background:var(--mint);color:#fff" onclick="adminAcao('${r.user_id}','liberar')">Liberar total</button>
         <button class="btn sm" style="margin:0;background:var(--coral);color:#fff" onclick="adminAcao('${r.user_id}','bloquear')">Bloquear</button>
+        <button class="btn sm" style="margin:0;background:#7a1f1f;color:#fff" onclick="adminAcao('${r.user_id}','excluir')">🗑 Excluir</button>
         ${r.email?`<a class="btn sm ghost" style="margin:0;text-decoration:none" href="mailto:${esc(r.email)}">✉️ E-mail</a>`:''}
       </div>
     </div>`;
@@ -2876,6 +2897,12 @@ async function adminAcao(uid,acao){
   else if(acao==='pago'){ const b=(r.pago_ate&&r.pago_ate>=hoje)?new Date(r.pago_ate+'T00:00:00'):new Date(hojeD); b.setMonth(b.getMonth()+1); patch={status:'pago',pago_ate:ymd(b)}; }
   else if(acao==='liberar') patch={status:'liberado'};
   else if(acao==='bloquear'){ if(!confirm('Bloquear o acesso deste cliente? Ele verá a tela de assinatura ao entrar.'))return; patch={status:'bloqueado'}; }
+  else if(acao==='excluir'){
+    if(!confirm('Remover "'+(r.nome||r.email||'cliente')+'" do painel? Isso apaga o registro de licença dele (os dados financeiros dele não são apagados por aqui).'))return;
+    const {error}=await sb.from('licencas').delete().eq('user_id',uid);
+    if(error){toast('Erro: '+error.message);return;}
+    toast('Cliente removido do painel'); renderClientes(); return;
+  }
   if(!patch)return;
   const {error}=await sb.from('licencas').update(patch).eq('user_id',uid);
   if(error){toast('Erro: '+error.message);return;}

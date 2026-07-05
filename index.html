@@ -486,7 +486,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.81"; /* x */
+const APP_VER = "6.82"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1400,9 +1400,12 @@ function iaBubbleAtiva(){ return localStorage.getItem('gf_ia_bubble_off')!=='1';
 function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1'); updateIaFab(); if(tab==='assistente') renderAssistente(); }
 function iaPodeExcluir(){ return localStorage.getItem('gf_ia_pode_excluir')==='1'; }
 function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); }
+function iaCor(){ return localStorage.getItem('gf_ia_cor')||'#7c5cff'; }
+function setIaCor(c){ localStorage.setItem('gf_ia_cor',c); aplicaIaCor(); if(tab==='assistente') renderAssistente(); }
+function aplicaIaCor(){ const b=$('iaFab'); if(b){ const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; } }
 function updateIaFab(){
   const b=$('iaFab');
-  if(b){ const show = iaBubbleAtiva() && tab!=='assistente'; b.classList.toggle('hidden', !show); }
+  if(b){ const show = iaBubbleAtiva() && tab!=='assistente'; b.classList.toggle('hidden', !show); const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; }
   const ob=$('obFab');
   if(ob){
     const mostrar = USER && !obDone() && localStorage.getItem('gf_ob_hide_'+USER.id)!=='1' && tab!=='tutorial';
@@ -1453,13 +1456,20 @@ function renderAssistente(){
       <div class="mid"><div class="t" style="font-size:14px">Bolha flutuante</div><div class="s">Acesso rápido em qualquer tela</div></div>
       <button class="switch ${iaBubbleAtiva()?'on':''}" onclick="toggleIaBubble(${iaBubbleAtiva()?'false':'true'})"><span class="knob"></span></button>
     </div>
-    <div class="lrow" style="cursor:default;border-bottom:none;padding:6px 0">
-      <div class="mid"><div class="t" style="font-size:14px">IA pode excluir lançamentos</div><div class="s">Só os seus, nunca os da Carol</div></div>
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2);padding:6px 0">
+      <div class="mid"><div class="t" style="font-size:14px">IA pode excluir lançamentos</div><div class="s">Só os seus, nunca os do seu cônjuge</div></div>
       <button class="switch ${iaPodeExcluir()?'on':''}" onclick="toggleIaExcluir(${iaPodeExcluir()?'false':'true'})"><span class="knob"></span></button>
+    </div>
+    <div class="lrow" style="cursor:default;border-bottom:none;padding:8px 0 4px">
+      <div class="mid"><div class="t" style="font-size:14px">Cor da bolha</div><div class="s">Escolha a cor do botão de IA</div></div>
+      <div style="display:flex;gap:8px">
+        ${['#7c5cff','#2f8f66','#e8654e','#3b82f6','#e0a020','#d6473a'].map(c=>`<button onclick="setIaCor('${c}')" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${iaCor()===c?'var(--ink)':'transparent'}"></button>`).join('')}
+      </div>
     </div>
     ${renderLimiteIA()}
   </div>`;
-  html+=`<div id="aiChat" class="card" style="min-height:300px;display:flex;flex-direction:column;gap:10px;padding:14px">`;
+  const temMsg=_aiMsgs.length>0;
+  html+=`<div id="aiChat" class="card" style="${temMsg?'min-height:300px;':''}display:flex;flex-direction:column;gap:10px;padding:14px">`;
   if(!_aiMsgs.length){
     const pnome=MYPARTNERS.length?esc(MYPARTNERS[0].apelido):'';
     html+=`<div class="note">Pergunte sobre suas finanças (${pnome?`"quanto ${pnome} gastou esse mês?", `:''}"quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;

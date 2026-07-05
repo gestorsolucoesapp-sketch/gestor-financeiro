@@ -392,6 +392,11 @@ button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:acti
       <h2>Criar conta</h2>
       <div class="sub">Leva menos de um minuto</div>
       <div class="field"><label>Nome</label><input id="suNome" type="text" autocomplete="name" placeholder="Seu nome"></div>
+      <div class="field"><label>WhatsApp / celular</label><input id="suFone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(19) 99999-9999"></div>
+      <div style="display:flex;gap:10px">
+        <div class="field" style="flex:1"><label>Cidade</label><input id="suCidade" type="text" autocomplete="address-level2" placeholder="Sua cidade"></div>
+        <div class="field" style="width:88px"><label>UF</label><input id="suUF" type="text" maxlength="2" autocapitalize="characters" placeholder="SP" style="text-transform:uppercase"></div>
+      </div>
       <div class="field"><label>E-mail</label><input id="suEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email" placeholder="voce@email.com"></div>
       <div class="field"><label>Senha</label><input id="suPass" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
       <button class="btn coral" onclick="doSignup()">Criar conta</button>
@@ -486,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.82"; /* x */
+const APP_VER = "6.83"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1049,9 +1054,13 @@ function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>'
 
 async function doSignup(){
   const nome=$('suNome').value.trim(), email=$('suEmail').value.trim(), pass=$('suPass').value;
+  const fone=$('suFone')?$('suFone').value.trim():'', cidade=$('suCidade')?$('suCidade').value.trim():'', uf=$('suUF')?$('suUF').value.trim().toUpperCase():'';
   if(!nome||!email||pass.length<6){authErr('Preencha nome, e-mail e senha (mín. 6 caracteres).');return;}
-  const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{nome}}});
+  if(!fone){authErr('Informe seu WhatsApp/celular.');return;}
+  if(!cidade||!uf){authErr('Informe sua cidade e estado (UF).');return;}
+  const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{nome,fone,cidade,uf}}});
   if(error){authErr(traduzErro(error.message));return;}
+  window._signupExtra={fone,cidade,uf};
   if(data.session){ rememberEmail(email); _promptAfterSignup=true; await afterLogin(); }
   else { authOk('Conta criada! Confirme o e-mail (se pedido) e faça login.'); showLogin(); }
 }
@@ -1167,8 +1176,18 @@ async function checarLicenca(isLogin){
   if(!USER || USER.id===ADMIN_ID) return true;
   if(!navigator.onLine){ const st=licStatus(licCache()); if(!st.ok){mostrarPaywall(st);return false;} return true; }
   try{
-    const nome=(USER.user_metadata&&USER.user_metadata.nome)||'';
-    await sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:nome,p_minutos:0,p_login:!!isLogin});
+    const md=USER.user_metadata||{};
+    const nome=md.nome||'';
+    const fone=(window._signupExtra&&window._signupExtra.fone)||md.fone||'';
+    const cidade=(window._signupExtra&&window._signupExtra.cidade)||md.cidade||'';
+    const uf=(window._signupExtra&&window._signupExtra.uf)||md.uf||'';
+    try{
+      await sb.rpc('registrar_acesso2',{p_email:USER.email||'',p_nome:nome,p_fone:fone,p_cidade:cidade,p_uf:uf,p_minutos:0,p_login:!!isLogin});
+    }catch(e2){
+      // se a função nova ainda não foi criada no banco, usa a antiga
+      await sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:nome,p_minutos:0,p_login:!!isLogin});
+    }
+    window._signupExtra=null;
   }catch(e){}
   let lic=null;
   try{ const {data}=await sb.from('licencas').select('*').eq('user_id',USER.id).maybeSingle(); lic=data; }catch(e){}
@@ -2807,6 +2826,7 @@ function desenharClientes(filtro){
         <div style="min-width:0"><b style="font-size:16px">${esc(r.nome||r.email||'—')}</b><div class="note" style="word-break:break-all">${esc(r.email||'')}</div></div>${pill}
       </div>
       <div class="note" style="margin-top:8px">${venc} · cadastro ${fmtBrData(r.criado_em)} · últ. acesso ${fmtBrData(r.ultimo_acesso)}</div>
+      ${(r.fone||r.cidade)?`<div class="note">${r.fone?`📱 <a href="https://wa.me/55${(r.fone||'').replace(/\\D/g,'')}" style="color:var(--nav-on)">${esc(r.fone)}</a>`:''}${(r.fone&&r.cidade)?' · ':''}${r.cidade?'📍 '+esc(r.cidade)+(r.uf?'/'+esc(r.uf):''):''}</div>`:''}
       <div class="note">🔑 ${r.logins||0} logins · ⏱️ ${Math.round(r.minutos_uso||0)} min de uso · 1º acesso ${fmtBrData(r.primeiro_acesso)}</div>
       <div class="note">🧾 ${r.n_lanc||0} lançamentos · 🏦 ${r.n_contas||0} contas · 💳 ${r.n_cartoes||0} cartões</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">

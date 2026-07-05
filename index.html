@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.87"; /* x */
+const APP_VER = "6.88"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -810,6 +810,25 @@ function saldoConta(contaId){
   return s;
 }
 function saldoTotal(){return contasPrincipais().reduce((a,c)=>a+saldoConta(c.id),0);}
+// Saldo projetado: no mês atual/passado = saldo real; nos meses FUTUROS = sobra do mês anterior + receitas - despesas do mês
+function saldoProjetado(d){
+  const hoje=new Date();
+  const ymView=d.getFullYear()*12+d.getMonth();
+  const ymHoje=hoje.getFullYear()*12+hoje.getMonth();
+  const real=saldoTotal();
+  if(ymView<=ymHoje) return real; // mês atual ou passado: saldo real de hoje
+  // meses futuros: parte do saldo de hoje e vai somando o resultado (receitas - saídas) de cada mês até o mês visto
+  let saldo=real;
+  for(let m=ymHoje+1; m<=ymView; m++){
+    const dd=new Date(Math.floor(m/12), m%12, 1);
+    const bb=balancoMes(dd);
+    const ss=saidasMes(dd);
+    const gcart=gastoCartaoMes(dd);
+    const saidasTot=ss.pagas+ss.aPagar+gcart+(ss.conjuge||0); // investimento não sai do bolso (fica no patrimônio)
+    saldo = saldo + bb.rec - saidasTot;
+  }
+  return saldo;
+}
 function saldoPendConta(contaId){
   const c=contaById(contaId); if(!c) return 0;
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
@@ -2095,7 +2114,9 @@ function gastoCartaoMes(d){
   return s;
 }
 function renderHome(){
-  const tot=saldoTotal();
+  const _hoje=new Date();
+  const _futuro = (viewMonth.getFullYear()*12+viewMonth.getMonth()) > (_hoje.getFullYear()*12+_hoje.getMonth());
+  const tot=_futuro ? saldoProjetado(viewMonth) : saldoTotal();
   const b=balancoMes(viewMonth);
   const gc=gastoCartaoMes(viewMonth);
   const sd=saidasMes(viewMonth);
@@ -2149,8 +2170,9 @@ function renderHome(){
 
   // bloco: saldo (hero)
   blocos.saldo=`<div class="card hero" style="margin-bottom:0">
-    <div class="lab">Saldo em contas ${scope!=='tudo'?'· '+scope:''}</div>
+    <div class="lab">${_futuro?'Saldo previsto':'Saldo em contas'} ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
+    ${_futuro?`<div class="note" style="color:rgba(255,255,255,.75);margin:-4px 0 8px">Projeção: sobra dos meses anteriores + receitas − gastos previstos</div>`:''}
     ${barRecDesp(b.rec,totalGastos)}
     <div class="balrow">
       <div class="b tap" onclick="verTrans('receita')"><div class="l">Receitas</div><div class="v g">${brl(b.rec)}</div></div>

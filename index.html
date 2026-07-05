@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.92"; /* x */
+const APP_VER = "6.93"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2134,7 +2134,15 @@ function renderHome(){
   const totalGastos=sd.pagas+sd.aPagar+gc+sd.invest+sd.conjuge;
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  const balCard=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+  // Balanço: no mês atual = saldo + a receber - a pagar; nos futuros = resultado do mês (receitas - gastos), sem misturar com o saldo já projetado
+  let balCard;
+  if(_futuro){
+    let saidasMesTot=sd.aPagar+gcRest+(sd.conjuge||0);
+    if(projInvest()) saidasMesTot+=(sd.invest||0);
+    balCard=b.rec-saidasMesTot;
+  }else{
+    balCard=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+  }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
   const recents=DATA.lancamentos.filter(l=>{

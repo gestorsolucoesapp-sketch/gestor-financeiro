@@ -106,7 +106,7 @@ body.modal-open{overflow:hidden}
 .seg button{flex:1;padding:8px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
-.content{flex:1;padding:16px;padding-bottom:130px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
+.content{flex:1;padding:16px;padding-bottom:210px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
 /* cards */
@@ -195,6 +195,8 @@ body.modal-open{overflow:hidden}
 .iafab{left:16px;right:auto;background:#7c5cff;box-shadow:0 6px 18px rgba(124,92,255,.5)}
 .obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 140px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite}
 @keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
+.fab,.iafab,.obfab{transition:opacity .25s ease,transform .08s,filter .08s}
+body.scrolling .fab{opacity:.25}
 /* feedback de toque global */
 button,.btn,.lnk,.quick,a[onclick],[onclick]{transition:transform .08s ease,filter .08s ease,background .08s ease}
 button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:active{filter:brightness(1.25)}
@@ -492,7 +494,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.98"; /* x */
+const APP_VER = "6.99"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1336,6 +1338,16 @@ async function afterLogin(userArg){
     window.addEventListener('offline', updateOfflinePill);
     document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{sb.auth.getSession();}catch(e){} updateOfflinePill(); flushOutbox(); } });
     setInterval(()=>{ if(outbox().length) flushOutbox(); }, 15000);
+    // esconde os botões flutuantes enquanto rola, mostra ao parar
+    let _scrollT=null;
+    const _cont=$('content');
+    if(_cont){
+      _cont.addEventListener('scroll', ()=>{
+        document.body.classList.add('scrolling');
+        clearTimeout(_scrollT);
+        _scrollT=setTimeout(()=>document.body.classList.remove('scrolling'), 550);
+      }, {passive:true});
+    }
   }
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----

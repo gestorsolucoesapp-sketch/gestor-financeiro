@@ -475,7 +475,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.76"; /* x */
+const APP_VER = "6.77"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2257,9 +2257,13 @@ function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
   let list=DATA.lancamentos.filter(l=>{
     if(!srcOk(l.user_id)) return false;
-    if(l.cartao_id) return false; // gastos de cartão ficam na aba Cartões (fatura)
-    const ld=new Date(l.data+'T00:00:00');
-    if(ld<ini||ld>fim) return false;
+    if(l.cartao_id){
+      // compras de cartão entram no mês da FATURA (competência) — parcelas futuras aparecem nos meses certos
+      if(!inMonthRep(l,viewMonth)) return false;
+    }else{
+      const ld=new Date(l.data+'T00:00:00');
+      if(ld<ini||ld>fim) return false;
+    }
     if(scope==='familia') return lancFamiliar(l);
     if(lancFamiliar(l)) return false;
     if(scope==='tudo') return true;

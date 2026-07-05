@@ -494,7 +494,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.02"; /* x2 */
+const APP_VER = "7.03"; /* x2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -524,12 +524,14 @@ function toggleDemoNovo(){
     // guarda os dados reais e esvazia tudo (como cliente novo veria)
     window._demoBackup={DATA:JSON.parse(JSON.stringify(DATA)), MP:MYPARTNERS, MS:MYSHARES};
     DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[],investimentos:[]};
-    MYPARTNERS=[]; MYSHARES=[];
+    MYPARTNERS=[]; MYSHARES=[]; source='eu'; scope='tudo';
+    try{ updateSourceSeg(); }catch(e){}
     toast('👁️ Modo cliente novo — assim que a pessoa vê ao entrar. Toque de novo pra sair.');
     go('tutorial');
   }else{
     // restaura os dados reais
     if(window._demoBackup){ DATA=window._demoBackup.DATA; MYPARTNERS=window._demoBackup.MP; MYSHARES=window._demoBackup.MS; window._demoBackup=null; }
+    try{ updateSourceSeg(); }catch(e){}
     toast('Voltou ao normal ✅');
     go('home');
   }

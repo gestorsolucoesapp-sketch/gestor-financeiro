@@ -192,7 +192,7 @@ body.modal-open{overflow:hidden}
   width:50px;height:50px;border-radius:15px;background:var(--coral);color:#fff;font-size:25px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(232,101,78,.5);transition:opacity .3s,transform .08s,filter .08s;opacity:.82}
 .fab:active{transform:scale(.9);filter:brightness(.9);opacity:1}
-.iafab{left:16px;right:auto;background:#7c5cff;box-shadow:0 4px 14px rgba(124,92,255,.5)}
+.iafab{left:16px;right:auto;background:#2f8f66;box-shadow:0 4px 14px rgba(47,143,102,.5)}
 .obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 142px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite;opacity:1}
 @keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
 .fab,.iafab,.obfab{transition:opacity .25s ease,transform .08s,filter .08s}
@@ -494,7 +494,17 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.00"; /* x */
+const APP_VER = "7.01"; /* x */
+// reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
+try{
+  if(localStorage.getItem('gf_layout_v')!=='2'){
+    localStorage.removeItem('gf_order_home');
+    localStorage.removeItem('gf_order_relatorios');
+    if(!localStorage.getItem('gf_theme_mode')) localStorage.setItem('gf_theme_mode','auto');
+    if(!localStorage.getItem('gf_ia_cor')) localStorage.setItem('gf_ia_cor','#2f8f66');
+    localStorage.setItem('gf_layout_v','2');
+  }
+}catch(e){}
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1007,7 +1017,7 @@ function applyTema(sc){
     s.setProperty('--nav-on', t.emerald);
   }
 }
-function themeMode(){ const m=localStorage.getItem('gf_theme_mode'); if(m) return m; return (localStorage.getItem('gf_dark')==='1')?'dark':'light'; }
+function themeMode(){ const m=localStorage.getItem('gf_theme_mode'); if(m) return m; return 'auto'; }
 function effectiveDark(m){ m=m||themeMode(); if(m==='auto') return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); return m==='dark'; }
 function setThemeMode(m){ localStorage.setItem('gf_theme_mode',m); localStorage.setItem('gf_dark', effectiveDark(m)?'1':'0'); applyTema(scope); render(); salvarPrefs(); }
 if(window.matchMedia){
@@ -1523,7 +1533,7 @@ function iaBubbleAtiva(){ return localStorage.getItem('gf_ia_bubble_off')!=='1';
 function toggleIaBubble(v){ localStorage.setItem('gf_ia_bubble_off', v?'0':'1'); updateIaFab(); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
 function iaPodeExcluir(){ return localStorage.getItem('gf_ia_pode_excluir')==='1'; }
 function toggleIaExcluir(v){ localStorage.setItem('gf_ia_pode_excluir', v?'1':'0'); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
-function iaCor(){ return localStorage.getItem('gf_ia_cor')||'#7c5cff'; }
+function iaCor(){ return localStorage.getItem('gf_ia_cor')||'#2f8f66'; }
 function setIaCor(c){ localStorage.setItem('gf_ia_cor',c); aplicaIaCor(); if(tab==='assistente') renderAssistente(); salvarPrefs(); }
 function aplicaIaCor(){ const b=$('iaFab'); if(b){ const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; } }
 function updateIaFab(){
@@ -2295,7 +2305,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['alerta','saldo','quicknav','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['alerta','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
@@ -3201,13 +3211,16 @@ function renderRelatorios(){
   const dias=gastosDiariosPartner(viewMonth,USER.id);
   blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Só os seus gastos (conta e cartão), pelo dia da compra. Toque numa barra pra ver os detalhes.', USER.id);
   // BARRAS gastos diários por parceiro (ex: só da Carol)
-  const defaultOrder=['diario','categoria','evolucao'];
+  const defaultOrder=['diario'];
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
     const key='diario_'+p.owner_id;
     blocos[key]=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
     defaultOrder.push(key);
-    // gastos anuais + variação % mês a mês
+  });
+  defaultOrder.push('categoria','evolucao');
+  MYPARTNERS.forEach(p=>{
+    // gastos anuais + variação % mês a mês (mais pra baixo)
     const ano=viewMonth.getFullYear();
     const vals=gastosMensaisAno(p.owner_id,ano);
     blocos['anual_'+p.owner_id]=anualChartHTML(vals, `Gastos por mês — ${esc(p.apelido)} · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');

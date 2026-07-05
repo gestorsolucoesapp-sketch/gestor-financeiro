@@ -486,7 +486,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.80"; /* x */
+const APP_VER = "6.81"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -3291,6 +3291,7 @@ function pickAdd(tipo){
 function openLanc(id, preset){
   const editing=id?DATA.lancamentos.find(l=>l.id===id):null;
   if(editing && !souDono(editing.user_id)){ toast('👀 Somente leitura · '+apelidoDe(editing.user_id)); return; }
+  window._recTipo='variavel';
   lancType = editing ? editing.tipo : (preset==='receita'?'receita':(preset==='transferencia'?'transferencia':'despesa'));
   window._presetMeio = preset==='despesa_cartao'?'cartao':(preset==='despesa_conta'?'conta':null);
   const contas=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);
@@ -3422,6 +3423,12 @@ function checkBancoURL(){
   }catch(e){}
 }
 function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);if(!window._lancEdit)ajustaStatusData();}
+function setRecTipo(t){
+  window._recTipo=t;
+  const bf=$('recFixo'),bv=$('recVar'); if(bf&&bv){bf.classList.toggle('on',t==='fixo');bv.classList.toggle('on',t!=='fixo');}
+  const sel=$('lRecorr'); if(sel){ sel.value = t==='fixo'?'12':'0'; onRecorrChange(); }
+  const nt=$('recTipoNote'); if(nt) nt.innerHTML = t==='fixo'?'Vou repetir essa entrada pelos próximos 12 meses automaticamente.':'Entrada avulsa, só neste mês (você pode repetir abaixo se quiser).';
+}
 function onRecorrChange(){
   const sel=$('lRecorr'); const inp=$('lRecorrN'); if(!sel)return;
   if(inp) inp.style.display = sel.value==='custom' ? 'block' : 'none';
@@ -3518,10 +3525,16 @@ function renderMeio(e){
   }else{
     h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
+      if(lancType==='receita'){
+        h+=`<div class="field"><label>Tipo de receita</label><div class="seg2">
+          <button id="recFixo" onclick="setRecTipo('fixo')" class="${window._recTipo==='fixo'?'on':''}">Fixa (salário)</button>
+          <button id="recVar" onclick="setRecTipo('variavel')" class="${window._recTipo!=='fixo'?'on':''}">Variável</button>
+        </div><div class="note" id="recTipoNote">${window._recTipo==='fixo'?'Vou repetir essa entrada pelos próximos 12 meses automaticamente.':'Entrada avulsa, só neste mês (você pode repetir abaixo se quiser).'}</div></div>`;
+      }
       h+=`<div class="field"><label>Repetir mensalmente</label>
-        <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12">Por 12 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
+        <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12" ${window._recTipo==='fixo'?'selected':''}>Por 12 meses</option><option value="24">Por 24 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
         <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
-        <div class="note" id="recorrNote">Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.</div></div>`;
+        <div class="note" id="recorrNote">${lancType==='receita'?'Repete essa entrada nos próximos meses (salário, aluguel recebido, mesada…).':'Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.'}</div></div>`;
     }
     if(lancType==='despesa'){
       if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');

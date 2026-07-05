@@ -496,7 +496,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.06"; /* z2 */
+const APP_VER = "7.07"; /* z2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -1319,7 +1319,7 @@ async function flushUso(){
     if(!USER || USER.id===ADMIN_ID) return;
     _usoTick();
     const min = _usoAcum/60000;
-    if(min < 0.15) return; // menos de ~9s, ignora
+    if(min < 0.05) return; // menos de ~3s, ignora
     _usoAcum = 0;
     if(!navigator.onLine) return;
     sb.rpc('registrar_acesso',{p_email:USER.email||'',p_nome:'',p_minutos:min,p_login:false});
@@ -1331,7 +1331,8 @@ document.addEventListener('visibilitychange', ()=>{
 });
 window.addEventListener('pagehide', flushUso);
 window.addEventListener('beforeunload', flushUso);
-setInterval(flushUso, 120000); // e também a cada 2 min como rede de segurança
+// envia a cada 30s ENQUANTO o app está aberto (iPhone congela JS ao minimizar, então não dá pra confiar só no "sair")
+setInterval(()=>{ if(document.visibilityState==='visible') flushUso(); }, 30000);
 
 
 // ============ BOOT ============
@@ -2967,6 +2968,7 @@ function renderConfig(){
 }
 // ============ ADMIN: CLIENTES ============
 function fmtBrData(d){ if(!d) return '—'; try{ const dt=new Date((String(d).length<=10)?(d+'T00:00:00'):d); return dt.toLocaleDateString('pt-BR'); }catch(e){ return String(d); } }
+function fmtBrDataHora(d){ if(!d) return '—'; try{ const dt=new Date(d); const dia=dt.toLocaleDateString('pt-BR'); const hora=dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); return dia+' às '+hora; }catch(e){ return String(d); } }
 async function renderClientes(){
   if(USER.id!==ADMIN_ID){go('home');return;}
   $('content').innerHTML=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> 👑 Clientes do Gestor</div><div class="loading"><div class="spin"></div></div>`;
@@ -3007,7 +3009,7 @@ function desenharClientes(filtro){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="min-width:0"><b style="font-size:16px">${esc(r.nome||r.email||'—')}</b><div class="note" style="word-break:break-all">${esc(r.email||'')}</div></div>${pill}
       </div>
-      <div class="note" style="margin-top:8px">${venc} · cadastro ${fmtBrData(r.criado_em)} · últ. acesso ${fmtBrData(r.ultimo_acesso)}</div>
+      <div class="note" style="margin-top:8px">${venc} · cadastro ${fmtBrData(r.criado_em)} · últ. acesso ${fmtBrDataHora(r.ultimo_acesso)}</div>
       ${(r.fone||r.cidade)?`<div class="note">${r.fone?`📱 <a href="https://wa.me/55${(r.fone||'').replace(/\\D/g,'')}" style="color:var(--nav-on)">${esc(r.fone)}</a>`:''}${(r.fone&&r.cidade)?' · ':''}${r.cidade?'📍 '+esc(r.cidade)+(r.uf?'/'+esc(r.uf):''):''}</div>`:''}
       <div class="note">🔑 ${r.logins||0} logins · ⏱️ ${Math.round(r.minutos_uso||0)} min de uso · 1º acesso ${fmtBrData(r.primeiro_acesso)}</div>
       <div class="note">🧾 ${r.n_lanc||0} lançamentos · 🏦 ${r.n_contas||0} contas · 💳 ${r.n_cartoes||0} cartões</div>

@@ -378,6 +378,7 @@ body.modal-open{overflow:hidden}
       <label class="savepass-row"><input type="checkbox" id="liSavePass"> Salvar senha neste aparelho</label>
       <button class="btn" onclick="doLogin()">Entrar</button>
       <div class="auth-switch">Não tem conta? <b onclick="showSignup()">Criar agora</b></div>
+      <div class="auth-switch" style="margin-top:6px"><b onclick="esqueciSenha()">Esqueci minha senha</b></div>
     </div>
     <!-- signup -->
     <div id="signupForm" class="hidden">
@@ -474,7 +475,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.75"; /* x */
+const APP_VER = "6.76"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -816,6 +817,27 @@ function forgetEmail(email){lsSet('savedEmails',getSavedEmails().filter(e=>e!==e
 function savePassFor(email,pass){try{localStorage.setItem('savedPass:'+email,btoa(unescape(encodeURIComponent(pass))));}catch(e){}}
 function getPassFor(email){try{const v=localStorage.getItem('savedPass:'+email);return v?decodeURIComponent(escape(atob(v))):'';}catch(e){return'';}}
 function selecionarConta(email){const p=getPassFor(email);$('liEmail').value=email;if(p){$('liPass').value=p;if($('liSavePass'))$('liSavePass').checked=true;}else{$('liPass').value='';$('liPass').focus();}}
+async function esqueciSenha(){
+  let email=($('liEmail')&&$('liEmail').value.trim())||'';
+  if(!email){ email=(prompt('Qual o e-mail da sua conta?')||'').trim(); if(!email) return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error){ toast('Erro: '+error.message); return; }
+  toast('Pronto! Enviamos um link pra '+email+' — confira também o spam.');
+}
+function mostrarNovaSenha(){
+  openSheet(`<h2>🔑 Criar nova senha</h2>
+    <div class="note" style="margin-bottom:12px">Você chegou pelo link de recuperação. Defina sua nova senha abaixo.</div>
+    <div class="field"><label>Nova senha</label><input id="npSenha" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
+    <button class="btn" onclick="salvarNovaSenha()">Salvar nova senha</button>`);
+}
+async function salvarNovaSenha(){
+  const p=$('npSenha').value;
+  if(!p||p.length<6){toast('A senha precisa ter pelo menos 6 caracteres');return;}
+  const {error}=await sb.auth.updateUser({password:p});
+  if(error){toast('Erro: '+error.message);return;}
+  closeSheet(); vibra(); toast('Senha alterada ✅');
+}
+sb.auth.onAuthStateChange((ev)=>{ if(ev==='PASSWORD_RECOVERY'){ setTimeout(mostrarNovaSenha,600); } });
 function renderSavedAccounts(){
   const wrap=$('savedAccounts'); if(!wrap) return;
   const arr=getSavedEmails(), last=lsGet('lastEmail','');
@@ -921,6 +943,25 @@ if(window.matchMedia){
 }
 function isDark(){return effectiveDark();}
 function toggleDark(v){ setThemeMode(v?'dark':'light'); }
+function exportarCSV(){
+  const linhas=[['Data','Descrição','Valor','Tipo','Status','Categoria','Conta/Cartão','Competência','De quem']];
+  const rows=[...DATA.lancamentos].sort((a,b)=>a.data<b.data?-1:1);
+  rows.forEach(l=>{
+    const cat=catById(l.categoria_id);
+    const fonte=l.cartao_id?(cartaoById(l.cartao_id)||{}).nome:(contaById(l.conta_id)||{}).nome;
+    linhas.push([
+      l.data||'', (l.descricao||'').replace(/;/g,','), String(Number(l.valor||0)).replace('.',','),
+      l.tipo||'', l.status||'', cat?cat.nome:'', fonte||'', l.competencia||'', apelidoDe(l.user_id)||''
+    ]);
+  });
+  const csv='\ufeff'+linhas.map(r=>r.join(';')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='gestor-financeiro-'+ymd(new Date())+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  vibra(); toast('Planilha exportada 📊 ('+rows.length+' lançamentos)');
+}
 async function baixarBackup(){
   try{
     const meu=x=>x.user_id===USER.id;
@@ -1453,7 +1494,10 @@ async function aiEnviar(){
       _aiMsgs.push({role:'assistant',content:(obj&&obj.texto)||d.texto||'Não entendi, tenta de novo?'});
     }
   }catch(e){
-    _aiMsgs.push({role:'assistant',content:'Erro: '+(e.message||e)+'. Confere se a função ai-chat está publicada.'});
+    const msg=String(e.message||e);
+    if(msg.includes('Limite diário')) _aiMsgs.push({role:'assistant',content:'🕐 '+msg});
+    else if(msg.toLowerCase().includes('não autenticado')||msg.includes('401')) _aiMsgs.push({role:'assistant',content:'Sua sessão expirou — sai e entra de novo no app pra usar o assistente.'});
+    else _aiMsgs.push({role:'assistant',content:'Erro: '+msg+'. Confere se a função ai-chat está publicada.'});
   }
   window._aiPend=false; renderAssistente();
 }
@@ -1542,6 +1586,33 @@ function inMonthRep(l,d){
     return faturaYm(l.competencia, cartaoById(l.cartao_id))===ymd(firstOfMonth(d)).slice(0,7);
   }
   return inMonth(l,d);
+}
+// alerta quando um orçamento por categoria passa de 80% e de 100% (avisa 1x por mês por nível)
+function checarOrcamentos(){
+  try{
+    const hoje=new Date(); const am=ymd(firstOfMonth(hoje)).slice(0,7);
+    const orcs=DATA.orcamentos.filter(o=>o.user_id===USER.id && o.ano_mes===am && Number(o.limite)>0);
+    if(!orcs.length) return;
+    for(const o of orcs){
+      const gasto=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='despesa' && l.categoria_id===o.categoria_id && inMonth(l,hoje))
+        .reduce((a,l)=>a+Number(l.valor||0),0);
+      const pct=gasto/Number(o.limite)*100;
+      const cat=catById(o.categoria_id); const nome=cat?cat.nome:'categoria';
+      for(const nivel of [100,80]){
+        if(pct>=nivel){
+          const k='gf_orc_'+o.categoria_id+'_'+am+'_'+nivel;
+          if(localStorage.getItem(k)!=='1'){
+            localStorage.setItem(k,'1');
+            vibra(nivel===100?70:40);
+            toast(nivel===100
+              ? '🚨 Orçamento de '+nome+' estourou: '+brl(gasto)+' de '+brl(Number(o.limite))
+              : '⚠️ '+nome+' já usou '+Math.round(pct)+'% do orçamento do mês');
+          }
+          break; // avisa só o nível mais alto atingido
+        }
+      }
+    }
+  }catch(e){}
 }
 function gastosPorCategoria(d,allSources){
   const map={};
@@ -1955,6 +2026,7 @@ function renderHome(){
   html+=`</div>`;
   $('content').innerHTML=html;
   makeSortable('homeSortable','gf_order_home');
+  setTimeout(checarOrcamentos,400);
 }
 function toggleRecents(){
   const cur=(localStorage.getItem('gf_hideRecents')||'1')==='1';
@@ -2517,6 +2589,7 @@ function renderConfig(){
     ${hubItem('palette','Cores do app','Personalize o tema e todas as cores',"go('tema')",'#e0a020')}
     ${hubItem('download','Importar do Mobills','Suba o CSV exportado',"triggerImport()",'#3b6fd6')}
     ${hubItem('download','Backup dos dados','Baixe tudo num arquivo (JSON)',"baixarBackup()",'#2f8f66')}
+    ${hubItem('download','Exportar planilha (CSV)','Todos os lançamentos, pra Excel ou contador',"exportarCSV()",'#1f9d8a')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
     ${hubItem('users','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()",'#2f8f66')}
@@ -2798,8 +2871,19 @@ function renderRelatorios(){
     html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocos[k]}</div>`;
   });
   html+=`</div>`;
+  html+=`<button class="btn outline" onclick="compartilharResumo()">📲 Compartilhar resumo do mês no WhatsApp</button>`;
   $('content').innerHTML=html;
   makeSortable('relSortable','gf_order_relatorios');
+}
+function compartilharResumo(){
+  const b=balancoMes(viewMonth);
+  const gastos=gastosPorCategoria(viewMonth);
+  const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
+  const top=gastos.slice(0,3).map((g,i)=>(i+1)+'º '+g.nome+': '+brl(g.valor)).join('\n');
+  const txt=`📊 *Resumo ${mesNome(viewMonth)} — Gestor Financeiro*\n\n`+
+    `💰 Receitas: ${brl(b.rec)}\n💸 Despesas: ${brl(totalGasto)}\n${b.rec-totalGasto>=0?'✅ Sobrou':'🔴 Faltou'}: ${brl(Math.abs(b.rec-totalGasto))}\n\n`+
+    `*Top categorias:*\n${top||'—'}\n\n_Gerado pelo Gestor Financeiro_`;
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
 }
 function donutSVG(seg,total){
   const size=180,r=70,cx=size/2,cy=size/2,sw=26;

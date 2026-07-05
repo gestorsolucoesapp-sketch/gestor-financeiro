@@ -494,7 +494,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.03"; /* y2 */
+const APP_VER = "7.04"; /* y2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -1547,6 +1547,19 @@ function render(){
   else if(tab==='assistente')renderAssistente();
   else if(tab==='clientes')renderClientes();
   else if(tab==='tutorial')renderTutorial();
+  injetarDemoBanner();
+}
+function injetarDemoBanner(){
+  const old=$('demoBanner'); if(old) old.remove();
+  if(!_demoNovo) return;
+  const b=document.createElement('div');
+  b.id='demoBanner';
+  b.style.cssText='position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 64px);z-index:60;display:flex;justify-content:center;pointer-events:none';
+  b.innerHTML=`<div style="pointer-events:auto;background:#3b82f6;color:#fff;font-weight:700;font-size:14px;padding:11px 20px;border-radius:24px;box-shadow:0 6px 20px rgba(59,130,246,.55);display:flex;align-items:center;gap:12px">
+    👁️ Vendo como cliente novo
+    <button onclick="toggleDemoNovo()" style="background:#fff;color:#3b82f6;border:none;font-weight:800;padding:6px 14px;border-radius:16px;font-size:13px">Sair</button>
+  </div>`;
+  document.body.appendChild(b);
 }
 
 // ============ ASSISTENTE IA ============

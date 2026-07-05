@@ -475,7 +475,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.77"; /* x */
+const APP_VER = "6.78"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2270,7 +2270,7 @@ function renderTrans(){
     if(l.tipo==='transferencia') return (contaById(l.conta_id)&&contaById(l.conta_id).tipo===scope)||(contaById(l.conta_destino_id)&&contaById(l.conta_destino_id).tipo===scope);
     const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id); return conta&&conta.tipo===scope;
   });
-  list.sort((a,b)=> (a.data<b.data?1:a.data>b.data?-1:0));
+  list.sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1));
   const f=window._transFilter||'all';
   if(f==='receita') list=list.filter(l=>l.tipo==='receita');
   else if(f==='despesa') list=list.filter(l=>l.tipo==='despesa');

@@ -475,7 +475,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.78"; /* x */
+const APP_VER = "6.79"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -619,7 +619,15 @@ function uuid(){return (crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xx
 function isNetErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('failed to fetch')||m.includes('load failed')||m.includes('networkerror')||m.includes('network request failed')||m.includes('fetch event')||m.includes('offline'); }
 function isAuthErr(e){ const m=((e&&(e.message||e.msg))||'').toString().toLowerCase(); return m.includes('jwt')||m.includes('unauthorized')||m.includes('401')||m.includes('token'); }
 async function fixAuth(){ try{ await sb.auth.refreshSession(); return true; }catch(e){ return false; } }
-function vibra(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||25); }catch(e){} }
+function vibra(ms){
+  try{
+    if(navigator.vibrate){ navigator.vibrate(ms||25); return; }
+    // iPhone nao tem vibrate em navegador; truque: clicar um switch nativo escondido gera um tique tatil (iOS 17.4+)
+    let sw=document.getElementById('hapticSw');
+    if(!sw){ sw=document.createElement('input'); sw.type='checkbox'; sw.setAttribute('switch',''); sw.id='hapticSw'; sw.style.cssText='position:fixed;left:-100px;top:-100px;pointer-events:none;opacity:0'; document.body.appendChild(sw); }
+    sw.click();
+  }catch(e){}
+}
 function saveCache(){ try{ localStorage.setItem('gf_cache', JSON.stringify({contas:DATA.contas,categorias:DATA.categorias,cartoes:DATA.cartoes,lancamentos:DATA.lancamentos,orcamentos:DATA.orcamentos,investimentos:DATA.investimentos})); }catch(e){} }
 function loadCache(){ try{ const c=JSON.parse(localStorage.getItem('gf_cache')||'null'); if(c){ DATA.contas=c.contas||[]; DATA.categorias=c.categorias||[]; DATA.cartoes=c.cartoes||[]; DATA.lancamentos=c.lancamentos||[]; DATA.orcamentos=c.orcamentos||[]; DATA.investimentos=c.investimentos||[]; try{ const p=JSON.parse(localStorage.getItem('gf_partners')||'null'); if(p){ MYPARTNERS=p.partners||[]; MYSHARES=p.shares||[]; updateSourceSeg(); } }catch(e){} return true; } }catch(e){} return false; }
 function outbox(){ try{ return JSON.parse(localStorage.getItem('gf_outbox')||'[]'); }catch(e){ return []; } }
@@ -1627,6 +1635,36 @@ function gastosPorCategoria(d,allSources){
   }
   return Object.entries(map).map(([id,v])=>({id,...v})).sort((a,b)=>b.valor-a.valor);
 }
+// detalhe do que compõe uma categoria no mês (usa o MESMO filtro do donut pra bater certinho)
+function abrirCatDetalhe(catId){
+  const itens=DATA.lancamentos.filter(l=>{
+    if(l.tipo!=='despesa') return false;
+    if(!inMonthRep(l,viewMonth)) return false;
+    if(!noScope(l)) return false;
+    return (catId==='_sem') ? !l.categoria_id : l.categoria_id===catId;
+  }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1));
+  const cat=catId==='_sem'?null:catById(catId);
+  const total=itens.reduce((a,l)=>a+Number(l.valor||0),0);
+  let h=`<h2>${cat?(cat.icone?cat.icone+' ':'')+esc(cat.nome):'Sem categoria'}</h2>
+  <div class="note" style="margin-top:-8px;margin-bottom:12px">${mesNome(viewMonth)} · ${itens.length} lançamento${itens.length===1?'':'s'} · Total: <b style="color:var(--coral)">${brl(total)}</b></div>`;
+  if(!itens.length){ h+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nada nessa categoria no mês.</p></div>`; }
+  else{
+    h+=`<div class="card" style="margin:0;max-height:60vh;overflow:auto">`;
+    itens.forEach(l=>{
+      const fonte=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+      const dono=(l.user_id!==USER.id)?` <span class="pill neg">${esc(apelidoDe(l.user_id))}</span>`:'';
+      const parc=(l.parcelas&&l.parcelas>1)?` <span class="pill">${l.parcela}/${l.parcelas}</span>`:'';
+      const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      let hora='';
+      if(l.criado_em){ hora=' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+      h+=`<div class="lrow" style="cursor:default">
+        <div class="mid"><div class="t">${esc(l.descricao)}${parc}${dono}</div><div class="s">${dt}${hora}${fonte?' · '+esc(fonte.nome):''}</div></div>
+        <div class="amt r">${brl(Number(l.valor))}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  openSheet(h);
+}
 function gastoCategoriaMes(catId,d){
   let s=0;
   for(const l of DATA.lancamentos){
@@ -1669,6 +1707,59 @@ function gastosDiariosPartner(d,ownerId){
 function brlShort(v){
   const n=Math.round(Number(v)||0);
   return n.toLocaleString('pt-BR');
+}
+// total de despesas por mês do ano (competência pra cartão, data pra conta)
+function gastosMensaisAno(ownerId,ano){
+  const arr=Array(12).fill(0);
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(l.user_id!==ownerId) continue;
+    let ym;
+    if(l.cartao_id){ if(!l.competencia) continue; ym=faturaYm(l.competencia,cartaoById(l.cartao_id)); }
+    else ym=(l.data||'').slice(0,7);
+    if(ym && ym.slice(0,4)===String(ano)) arr[+ym.slice(5,7)-1]+=Number(l.valor)||0;
+  }
+  return arr;
+}
+const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function anualChartHTML(vals,titulo,nota){
+  const maxV=Math.max(1,...vals);
+  let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
+  if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
+  html+=`<div class="daybars">`;
+  vals.forEach((v,i)=>{
+    const h=v?Math.max(4,Math.round(v/maxV*110)):4;
+    const lab=v?brlShort(v):'';
+    const inside=h>=30;
+    html+=`<div class="daycol">
+      ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
+      <div class="daybar" style="height:${h}px">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
+      <div class="daylab">${MESES_ABREV[i]}</div>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  return html;
+}
+function pctChartHTML(vals,titulo){
+  let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>
+  <div class="note" style="margin-bottom:8px">Quanto o mês gastou a mais (vermelho) ou a menos (verde) que o mês anterior.</div>
+  <div class="daybars" style="height:150px">`;
+  vals.forEach((v,i)=>{
+    if(i===0 || vals[i-1]<=0){
+      html+=`<div class="daycol"><div class="daybar" style="height:4px;background:var(--line-2)"></div><div class="daylab">${MESES_ABREV[i]}</div></div>`;
+      return;
+    }
+    const pct=Math.round((v-vals[i-1])/vals[i-1]*100);
+    const h=Math.max(6,Math.min(Math.abs(pct),150)/150*95);
+    const cor=pct>0?'var(--coral)':'var(--mint)';
+    html+=`<div class="daycol">
+      <span class="dayval out" style="color:${cor}">${pct>0?'+':''}${pct}%</span>
+      <div class="daybar" style="height:${h}px;background:${cor}"></div>
+      <div class="daylab">${MESES_ABREV[i]}</div>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  return html;
 }
 function daybarChartHTML(dias,titulo,nota,ownerFiltro){
   const maxD=Math.max(1,...dias.map(x=>x.valor));
@@ -2282,6 +2373,7 @@ function renderTrans(){
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
   </div>`;
   if(f==='pendente'){
+    list=[...list].sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
     if(!list.length){
       html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nada a confirmar em ${mesNome(viewMonth)} 🎉</p></div></div>`;
       $('content').innerHTML=html; return;
@@ -2317,12 +2409,19 @@ function renderTrans(){
     html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma ${f==='receita'?'receita':f==='despesa'?'despesa':'transação'} em ${mesNome(viewMonth)}.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div></div>`;
     $('content').innerHTML=html; return;
   }
-  const pend=list.filter(l=>l.status==='pendente' && !l.cartao_id);
-  const efet=list.filter(l=>!(l.status==='pendente' && !l.cartao_id));
+  const pend=list.filter(l=>l.status==='pendente' && !l.cartao_id).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
+  const cart=list.filter(l=>!!l.cartao_id);
+  const efet=list.filter(l=>!l.cartao_id && l.status!=='pendente');
   if(pend.length){
     const ef=pend.reduce((a,l)=>a+(l.tipo==='receita'?Number(l.valor):l.tipo==='despesa'?-Number(l.valor):0),0);
     html+=`<div class="grp-lab"><span>A confirmar · virtual</span><span class="gv" style="color:${ef<0?'var(--coral)':'var(--mint)'}">${ef>=0?'+':''}${brl(ef)}</span></div><div class="card">`;
     pend.forEach(l=>html+=rowLanc(l));
+    html+=`</div>`;
+  }
+  if(cart.length){
+    const tc=cart.reduce((a,l)=>a+valFatura(l),0);
+    html+=`<div class="grp-lab"><span>No cartão · entra na fatura</span><span class="gv" style="color:var(--coral)">${brl(tc)}</span></div><div class="card">`;
+    cart.forEach(l=>html+=rowLanc(l));
     html+=`</div>`;
   }
   if(efet.length){
@@ -2388,19 +2487,33 @@ function rowLanc(l){
       ? `<div class="lchk on" title="Confirmado — toque para voltar a pendente" onclick="event.stopPropagation();toggleLancPago('${l.id}')">✓</div>`
       : `<button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Confirmar</button>`;
   }
+  let dias='';
+  if(l.status==='pendente' && !l.cartao_id && l.tipo!=='transferencia'){
+    const dd=Math.round((new Date(l.data+'T00:00:00')-new Date(ymd(new Date())+'T00:00:00'))/86400000);
+    const cor=dd<0?'var(--coral)':(dd<=2?'#e0a020':'var(--muted)');
+    dias=`<div style="font-size:9px;font-weight:800;color:${cor};line-height:1;margin-top:3px;text-align:center">${dd<0?Math.abs(dd)+'d!':dd===0?'hoje':dd+'d'}</div>`;
+  }
   return `<div class="lrow" onclick="openLanc('${l.id}')">
-    <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0"><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>${dias}</div>
     <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt}${hora} · ${sub}</div></div>
     <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>${chk}</div>`;
 }
 
 // ============ CARTÕES ============
+function diasParaVencCartao(c){
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  let due=new Date(hoje.getFullYear(),hoje.getMonth(),Math.min(Number(c.dia_vencimento)||1,28));
+  const dv=Number(c.dia_vencimento)||1;
+  due=new Date(hoje.getFullYear(),hoje.getMonth(),dv);
+  if(due<hoje) due=new Date(hoje.getFullYear(),hoje.getMonth()+1,dv);
+  return Math.round((due-hoje)/86400000);
+}
 function cardCartaoHTML(c){
   const fat=faturaTotal(c.id,faturaMonth);
   return `<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
-        <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</div></div>
+        <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento} · <b style="color:${diasParaVencCartao(c)<=3?'var(--coral)':'var(--mint)'}">${(()=>{const d=diasParaVencCartao(c);return d===0?'vence hoje':d===1?'vence amanhã':'vence em '+d+'d';})()}</b></div></div>
         <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
       <div style="margin-top:14px">
@@ -2431,7 +2544,7 @@ function renderCartoes(){
     const grupos={}; cs.forEach(c=>{const t=(c.titular&&c.titular.trim())||'Familiar';(grupos[t]=grupos[t]||[]).push(c);});
     Object.keys(grupos).forEach(t=>{ html+=`<div class="note" style="margin:2px 2px 6px;font-weight:700;color:var(--ink)">${esc(t)}</div>`; grupos[t].forEach(c=>html+=cardCartaoHTML(c)); });
   }else{
-    cs.forEach(c=>html+=cardCartaoHTML(c));
+    [...cs].sort((a,b)=>diasParaVencCartao(a)-diasParaVencCartao(b)).forEach(c=>html+=cardCartaoHTML(c));
   }
   html+=`<button class="btn outline" onclick="openCartao()">+ Adicionar cartão</button>`;
   const arqN=DATA.cartoes.filter(c=>c.arquivado && c.user_id===USER.id).length;
@@ -2830,10 +2943,10 @@ function renderRelatorios(){
     bcat+=`<div style="margin-top:6px">`;
     gastos.forEach((g,i)=>{
       const pct=(g.valor/totalGasto*100);
-      bcat+=`<div class="lrow" style="cursor:default">
+      bcat+=`<div class="lrow" style="cursor:pointer" onclick="abrirCatDetalhe('${g.id}')">
         <div class="dot" style="background:${PALETA[i%PALETA.length]}22;color:${PALETA[i%PALETA.length]}">${g.icone||'•'}</div>
         <div class="mid"><div class="t">${esc(g.nome)}</div><div class="s">${pct.toFixed(1)}% do mês</div></div>
-        <div class="amt r">${brl(g.valor)}</div></div>`;
+        <div class="amt r">${brl(g.valor)}</div><span style="color:var(--muted);font-size:17px;margin-left:4px">›</span></div>`;
     });
     bcat+=`</div>`;
   }
@@ -2866,6 +2979,12 @@ function renderRelatorios(){
     const key='diario_'+p.owner_id;
     blocos[key]=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
     defaultOrder.push(key);
+    // gastos anuais + variação % mês a mês
+    const ano=viewMonth.getFullYear();
+    const vals=gastosMensaisAno(p.owner_id,ano);
+    blocos['anual_'+p.owner_id]=anualChartHTML(vals, `Gastos por mês — ${esc(p.apelido)} · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
+    blocos['anualpct_'+p.owner_id]=pctChartHTML(vals, `Variação mês a mês — ${esc(p.apelido)} · ${ano}`);
+    defaultOrder.push('anual_'+p.owner_id,'anualpct_'+p.owner_id);
   });
 
   const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos));

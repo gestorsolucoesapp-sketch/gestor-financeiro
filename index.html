@@ -259,13 +259,14 @@ button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:acti
 .bars{display:flex;align-items:flex-end;justify-content:space-between;height:110px;gap:6px}
 .barcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
 .barpair{display:flex;gap:3px;align-items:flex-end;height:90px}
-.bar{width:11px;border-radius:4px 4px 0 0;min-height:2px}
+.bar{width:11px;border-radius:4px 4px 0 0;min-height:2px;transform-origin:bottom;animation:barGrow .55s cubic-bezier(.22,1,.36,1) both}
 .bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
 .daybars{display:flex;align-items:flex-end;height:170px;gap:6px;overflow-x:auto;padding:22px 4px 2px;overflow-y:visible}
 .daycol{flex:0 0 auto;width:30px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative}
-.daybar{width:24px;border-radius:5px 5px 0 0;min-height:4px;background:var(--bar-desp);display:flex;align-items:center;justify-content:center}
+.daybar{width:24px;border-radius:5px 5px 0 0;min-height:4px;background:var(--bar-desp);display:flex;align-items:center;justify-content:center;transform-origin:bottom;animation:barGrow .6s cubic-bezier(.22,1,.36,1) both}
 .daybar.hoje{background:var(--mint,#2fbf83)}
+@keyframes barGrow{from{transform:scaleY(0);opacity:.3}to{transform:scaleY(1);opacity:1}}
 .daylab{font-size:9.5px;color:var(--muted);margin-top:5px}
 .dayval{white-space:nowrap;font-size:8.8px;font-weight:800;pointer-events:none;line-height:1}
 .dayval.in{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);font-size:8px}
@@ -496,7 +497,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.10"; /* z4 */
+const APP_VER = "7.11"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1987,14 +1988,15 @@ function daybarChartHTML(dias,titulo,nota,ownerFiltro){
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
   html+=`<div class="daybars">`;
-  dias.forEach(x=>{
+  dias.forEach((x,idx)=>{
     const h=x.valor?Math.max(4,Math.round(x.valor/maxD*maxBarPx)):4;
     const isHoje=hoje.getFullYear()===viewMonth.getFullYear()&&hoje.getMonth()===viewMonth.getMonth()&&hoje.getDate()===x.dia;
     const lab=x.valor?brlShort(x.valor):'';
     const inside=h>=26; // se a barra for alta o suficiente, valor entra dentro dela; senão fica em cima
+    const delay=Math.min(idx*0.035,1.1);
     html+=`<div class="daycol" onclick="abrirDiaDetalhe(${x.dia},${fk})">
       ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
-      <div class="daybar${isHoje?' hoje':''}" style="height:${h}px">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
+      <div class="daybar${isHoje?' hoje':''}" style="height:${h}px;animation-delay:${delay}s">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
       <div class="daylab">${x.dia}</div>
     </div>`;
   });
@@ -3053,6 +3055,15 @@ function desenharClientes(filtro){
       ${(r.fone||r.cidade)?`<div class="note">${r.fone?`📱 <a href="https://wa.me/55${(r.fone||'').replace(/\\D/g,'')}" style="color:var(--nav-on)">${esc(r.fone)}</a>`:''}${(r.fone&&r.cidade)?' · ':''}${r.cidade?'📍 '+esc(r.cidade)+(r.uf?'/'+esc(r.uf):''):''}</div>`:''}
       <div class="note">🔑 ${r.logins||0} logins · ⏱️ ${Math.round(r.minutos_uso||0)} min de uso · 1º acesso ${fmtBrData(r.primeiro_acesso)}</div>
       <div class="note">🧾 ${r.n_lanc||0} lançamentos · 🏦 ${r.n_contas||0} contas · 💳 ${r.n_cartoes||0} cartões</div>
+      ${(()=>{
+        // estima progresso do tutorial pelos dados: conta, receita/despesa, etc.
+        const temConta=(r.n_contas||0)>=1, temCartao=(r.n_cartoes||0)>=1, temLanc=(r.n_lanc||0)>=2, temCasal=(r.conjuges||0)>=1;
+        const feitos=[temConta,temCartao,temLanc,temCasal].filter(Boolean).length;
+        const configurou=temConta && temLanc;
+        const cor = configurou?'var(--mint)':(temConta?'#e0a020':'var(--coral)');
+        const txt = configurou?'✅ Configurou o app':(temConta?'⏳ Começou a configurar':'⚠️ Ainda não configurou');
+        return `<div class="note">🎯 <b style="color:${cor}">${txt}</b> · ${feitos}/4 etapas</div>`;
+      })()}
       ${r.conjuges!=null?`<div class="note">👫 ${r.conjuges>0?`<b style="color:var(--mint)">Cônjuge conectado</b> (${r.conjuges} ativo${r.conjuges>1?'s':''})`:'sem cônjuge conectado'}</div>`:''}
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
         <button class="btn sm" style="margin:0" onclick="adminAcao('${r.user_id}','mais7')">+7 dias</button>

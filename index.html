@@ -496,15 +496,15 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.09"; /* z2 */
+const APP_VER = "7.10"; /* z3 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
-  if(localStorage.getItem('gf_layout_v')!=='2'){
+  if(localStorage.getItem('gf_layout_v')!=='3'){
     localStorage.removeItem('gf_order_home');
     localStorage.removeItem('gf_order_relatorios');
     if(!localStorage.getItem('gf_theme_mode')) localStorage.setItem('gf_theme_mode','auto');
     if(!localStorage.getItem('gf_ia_cor')) localStorage.setItem('gf_ia_cor','#2f8f66');
-    localStorage.setItem('gf_layout_v','2');
+    localStorage.setItem('gf_layout_v','3');
   }
 }catch(e){}
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
@@ -2357,7 +2357,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['alerta','quicknav','melhorcartao','saldo','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

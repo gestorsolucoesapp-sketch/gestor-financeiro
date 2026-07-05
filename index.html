@@ -188,12 +188,12 @@ body.modal-open{overflow:hidden}
 .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0;color:var(--muted);font-size:10.5px;font-weight:600}
 .tabbar button .i{font-size:20px;line-height:1}
 .tabbar button.on{color:var(--nav-on)}
-.fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 78px);z-index:45;
-  width:52px;height:52px;border-radius:16px;background:var(--coral);color:#fff;font-size:26px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(232,101,78,.5);transition:transform .08s,filter .08s}
-.fab:active{transform:scale(.9);filter:brightness(.9)}
-.iafab{left:16px;right:auto;background:#7c5cff;box-shadow:0 6px 18px rgba(124,92,255,.5)}
-.obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 140px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite}
+.fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 80px);z-index:45;
+  width:50px;height:50px;border-radius:15px;background:var(--coral);color:#fff;font-size:25px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(232,101,78,.5);transition:opacity .3s,transform .08s,filter .08s;opacity:.82}
+.fab:active{transform:scale(.9);filter:brightness(.9);opacity:1}
+.iafab{left:16px;right:auto;background:#7c5cff;box-shadow:0 4px 14px rgba(124,92,255,.5)}
+.obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 142px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite;opacity:1}
 @keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
 .fab,.iafab,.obfab{transition:opacity .25s ease,transform .08s,filter .08s}
 body.scrolling .fab{opacity:.25}
@@ -494,7 +494,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.99"; /* x */
+const APP_VER = "7.00"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);

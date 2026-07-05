@@ -494,7 +494,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.01"; /* x2 */
+const APP_VER = "7.02"; /* x2 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='2'){
@@ -517,6 +517,24 @@ let viewMonth=new Date(); viewMonth.setDate(1);
 let faturaMonth=new Date(); faturaMonth.setDate(1);
 let faturaCartaoId=null;
 let DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[],investimentos:[]};
+let _demoNovo=false; // modo "ver como cliente novo"
+function toggleDemoNovo(){
+  _demoNovo=!_demoNovo;
+  if(_demoNovo){
+    // guarda os dados reais e esvazia tudo (como cliente novo veria)
+    window._demoBackup={DATA:JSON.parse(JSON.stringify(DATA)), MP:MYPARTNERS, MS:MYSHARES};
+    DATA={contas:[],categorias:[],cartoes:[],lancamentos:[],orcamentos:[],investimentos:[]};
+    MYPARTNERS=[]; MYSHARES=[];
+    toast('👁️ Modo cliente novo — assim que a pessoa vê ao entrar. Toque de novo pra sair.');
+    go('tutorial');
+  }else{
+    // restaura os dados reais
+    if(window._demoBackup){ DATA=window._demoBackup.DATA; MYPARTNERS=window._demoBackup.MP; MYSHARES=window._demoBackup.MS; window._demoBackup=null; }
+    toast('Voltou ao normal ✅');
+    go('home');
+  }
+  render();
+}
 const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00cec9','#a29bfe','#fab1a0','#55efc4','#74b9ff','#ff7675','#81ecec','#ffeaa7','#fd79a8','#636e72'];
 
 // ============ HELPERS ============
@@ -1146,7 +1164,7 @@ function traduzErro(m){
 
 // ============ TUTORIAL DE PRIMEIROS PASSOS (onboarding) ============
 function obKey(){ return 'gf_ob_done_'+(USER?USER.id:''); }
-function obDone(){ return localStorage.getItem(obKey())==='1'; }
+function obDone(){ if(_demoNovo) return false; return localStorage.getItem(obKey())==='1'; }
 function obSkip(k){ return localStorage.getItem('gf_ob_skip_'+k+'_'+USER.id)==='1'; }
 function obSetSkip(k){ localStorage.setItem('gf_ob_skip_'+k+'_'+USER.id,'1'); if(tab==='tutorial') renderTutorial(); }
 function obChecks(){
@@ -1444,6 +1462,7 @@ function abrirNotificacoes(){
 }
 
 async function loadAll(){
+  if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
   let c1,c2,c3,c4;
   try{
     [c1,c2,c3,c4]=await Promise.all([
@@ -2894,6 +2913,7 @@ function renderConfig(){
   if(USER.id===ADMIN_ID){
     html+=`<div class="page-title" style="margin-top:20px">Administração</div><div class="card">
       ${hubItem('users','👑 Clientes do Gestor','Assinaturas, teste grátis e uso',"go('clientes')",'#e0a020')}
+      ${hubItem('eye', _demoNovo?'👁️ Sair do modo cliente novo':'👁️ Ver como cliente novo', _demoNovo?'Voltar a ver seus dados reais':'Veja o app zerado, como um novo usuário enxerga',"toggleDemoNovo()",'#3b82f6')}
     </div>`;
   }
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">

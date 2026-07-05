@@ -491,7 +491,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "6.90"; /* x */
+const APP_VER = "6.91"; /* x */
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -810,21 +810,32 @@ function saldoConta(contaId){
   return s;
 }
 function saldoTotal(){return contasPrincipais().reduce((a,c)=>a+saldoConta(c.id),0);}
-// Saldo projetado: no mês atual/passado = saldo real; nos meses FUTUROS = sobra do mês anterior + receitas - despesas do mês
+// Balanço de fechamento de um mês: saldo + receitas a receber - (contas a pagar + cartão restante + cônjuge a pagar)
+function balancoFechamento(d){
+  const tot=saldoTotal();
+  const b=balancoMes(d);
+  const gc=gastoCartaoMes(d);
+  const sd=saidasMes(d);
+  const gcRest=Math.max(0,gc-(sd.pagFatura||0));
+  const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
+  return tot + b.recPend - (sd.aPagar + gcRest + faltaConj);
+}
+function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
+function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
+// Saldo projetado: no mês atual/passado = saldo real; nos meses FUTUROS = fechamento do mês anterior + receitas - gastos do mês
 function saldoProjetado(d){
   const hoje=new Date();
   const ymView=d.getFullYear()*12+d.getMonth();
   const ymHoje=hoje.getFullYear()*12+hoje.getMonth();
-  const real=saldoTotal();
-  if(ymView<=ymHoje) return real; // mês atual ou passado: saldo real de hoje
-  // meses futuros: parte do saldo de hoje e vai somando o resultado (receitas - saídas) de cada mês até o mês visto
-  let saldo=real;
+  if(ymView<=ymHoje) return saldoTotal(); // mês atual ou passado: saldo real de hoje
+  let saldo=balancoFechamento(hoje);
   for(let m=ymHoje+1; m<=ymView; m++){
     const dd=new Date(Math.floor(m/12), m%12, 1);
     const bb=balancoMes(dd);
     const ss=saidasMes(dd);
     const gcart=gastoCartaoMes(dd);
-    const saidasTot=ss.pagas+ss.aPagar+gcart+(ss.conjuge||0)+(ss.invest||0); // inclui investimento (sai da conta)
+    let saidasTot=ss.pagas+ss.aPagar+gcart+(ss.conjuge||0);
+    if(projInvest()) saidasTot+=(ss.invest||0); // só desconta investimento se o usuário quiser
     saldo = saldo + bb.rec - saidasTot;
   }
   return saldo;
@@ -855,7 +866,7 @@ function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').clas
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 // ===== SINCRONIZAÇÃO DE PREFERÊNCIAS (tema, cores, ordem) NO SERVIDOR =====
-const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents'];
+const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest'];
 function coletarPrefs(){ const o={}; PREF_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; }); return o; }
 function aplicarPrefs(o){ if(!o) return; PREF_KEYS.forEach(k=>{ if(o[k]!=null){ try{localStorage.setItem(k,o[k]);}catch(e){} } }); }
 let _prefSaveT=null;
@@ -2169,11 +2180,13 @@ function renderHome(){
   }
 
   // bloco: saldo (hero)
-  const _sobraAnterior = _futuro ? saldoProjetado(new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1)) : 0;
+  const _mesAntView=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1);
+  const _sobraAnterior = _futuro ? saldoProjetado(_mesAntView) : 0;
   blocos.saldo=`<div class="card hero" style="margin-bottom:0">
     <div class="lab">${_futuro?'Saldo previsto':'Saldo em contas'} ${scope!=='tudo'?'· '+scope:''}</div>
     <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
     ${_futuro?`<div class="note" style="color:rgba(255,255,255,.78);margin:-4px 0 8px">Sobra do mês anterior <b>${brl(_sobraAnterior)}</b> + receitas <b>${brl(b.rec)}</b> − gastos previstos</div>`:''}
+    ${(_futuro && tot<0)?`<div style="background:rgba(232,101,78,.22);border:1px solid var(--coral);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:13px;color:#ffd9d1"><b>⚠️ Atenção:</b> neste mês os gastos previstos passam do que entra. Ajuste os planos ou reforce a receita.</div>`:''}
     ${barRecDesp(b.rec,totalGastos)}
     <div class="balrow">
       <div class="b tap" onclick="verTrans('receita')"><div class="l">Receitas</div><div class="v g">${brl(b.rec)}</div></div>
@@ -2829,6 +2842,11 @@ function renderConfig(){
     </div>`;
   }
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2)">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">${ICON('chart',20)}</div>
+      <div class="mid"><div class="t">Investimento na previsão</div><div class="s">Descontar investimentos do saldo previsto dos próximos meses</div></div>
+      <button class="switch ${projInvest()?'on':''}" onclick="toggleProjInvest(${projInvest()?'false':'true'})"><span class="knob"></span></button>
+    </div>
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('receipt','Primeiros passos','Rever o tutorial de configuração inicial',"go('tutorial')",'#3b82f6')}
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}

@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.32"; /* z4 */
+const APP_VER = "7.33"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2503,11 +2503,11 @@ function renderHome(){
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
-  // bloco: atalhos de lançamento rápido (despesa, receita, transferência)
+  // bloco: atalhos para CONSULTAR receitas, despesas e transferências
   blocos.lancrapido=`<div style="display:flex;gap:8px;margin-bottom:0">
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'despesa')"><div class="qi" style="color:var(--coral);font-size:20px;font-weight:800">−</div><div style="font-size:12px">Despesa</div></div>
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'receita')"><div class="qi" style="color:var(--mint);font-size:20px;font-weight:800">+</div><div style="font-size:12px">Receita</div></div>
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'transferencia')"><div class="qi" style="color:#3b82f6">${ICON('swap',20)}</div><div style="font-size:12px">Transferir</div></div>
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('despesa')"><div class="qi" style="color:var(--coral);font-size:20px;font-weight:800">−</div><div style="font-size:12px">Despesas</div></div>
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('receita')"><div class="qi" style="color:var(--mint);font-size:20px;font-weight:800">+</div><div style="font-size:12px">Receitas</div></div>
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('transferencia')"><div class="qi" style="color:#3b82f6">${ICON('swap',20)}</div><div style="font-size:12px">Transfer.</div></div>
   </div>`;
 
   // bloco: atalhos rápidos
@@ -2817,12 +2817,14 @@ function renderTrans(){
   const f=window._transFilter||'all';
   if(f==='receita') list=list.filter(l=>l.tipo==='receita');
   else if(f==='despesa') list=list.filter(l=>l.tipo==='despesa');
+  else if(f==='transferencia') list=list.filter(l=>l.tipo==='transferencia');
   else if(f==='pendente') list=list.filter(l=>l.status==='pendente' && !l.cartao_id);
   let html=monthNav('trans');
   html+=`<div class="tfilter">
     <button class="${f==='all'?'on':''}" onclick="verTrans('all')">Tudo</button>
     <button class="${f==='receita'?'on':''}" onclick="verTrans('receita')">Receitas</button>
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
+    <button class="${f==='transferencia'?'on':''}" onclick="verTrans('transferencia')">Transf.</button>
   </div>`;
   if(f==='pendente'){
     list=[...list].sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);

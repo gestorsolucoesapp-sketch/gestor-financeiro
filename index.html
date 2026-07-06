@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.29"; /* z4 */
+const APP_VER = "7.30"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2693,16 +2693,15 @@ async function confirmarLanc(id){
   const valor=calcVal($('cfValor').value);
   if(!(valor>0)){toast('Valor inválido');return;}
   const conta_id=$('cfConta').value||l.conta_id;
+  // atualização otimista: muda na hora localmente (tela responde instantâneo)
+  l.status='pago'; l.valor=valor; l.conta_id=conta_id;
+  closeSheet(); render(); vibra();
+  const ehTransfInvest = l.tipo==='transferencia' && (()=>{ const dest=contaById(l.conta_destino_id); return dest&&dest.eh_investimento; })();
+  // salva no servidor em segundo plano
   const r=await dbUpdate('lancamentos',{status:'pago',valor,conta_id},'id',id);
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  closeSheet();
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  render();
-  if(l.tipo==='transferencia'){
-    const dest=contaById(l.conta_destino_id);
-    if(dest && dest.eh_investimento){ alocarAporte(valor); return; }
-  }
-  vibra(); toast(r&&r.queued?'Confirmado (offline) — sincroniza depois':'Confirmado — entrou na conta ✅');
+  if(r&&r.error){ toast('Erro ao salvar: '+r.error.message); try{await loadAll();}catch(e){} render(); return; }
+  if(ehTransfInvest){ alocarAporte(valor); return; }
+  toast(r&&r.queued?'Confirmado (offline) — sincroniza depois':'Confirmado ✅');
 }
 function alocarAporte(valor){
   const invs=DATA.investimentos.filter(i=>!i.arquivado && i.user_id===USER.id);
@@ -2780,14 +2779,15 @@ async function efetivarConfirma(){
   const sel=pendentesList().filter(l=>window._pendSel.has(l.id));
   const novaConta=$('efetivConta')?$('efetivConta').value:'';
   const patch = novaConta ? {status:'pago', conta_id:novaConta} : {status:'pago'};
-  const r=await dbUpdate('lancamentos',patch,'id',ids);
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  window._pendSel.clear(); closeSheet();
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  render();
+  // otimista: marca na hora localmente
+  ids.forEach(id=>{ const l=DATA.lancamentos.find(x=>x.id===id); if(l){ l.status='pago'; if(novaConta) l.conta_id=novaConta; } });
+  window._pendSel.clear(); closeSheet(); render(); vibra();
   const aportes=sel.filter(l=>l.tipo==='transferencia' && (contaById(l.conta_destino_id)||{}).eh_investimento);
+  // salva no servidor em segundo plano
+  const r=await dbUpdate('lancamentos',patch,'id',ids);
+  if(r&&r.error){ toast('Erro ao salvar: '+r.error.message); try{await loadAll();}catch(e){} render(); return; }
   if(aportes.length===1){ alocarAporte(Number(aportes[0].valor)||0); return; }
-  vibra(); toast(ids.length+(r&&r.queued?' baixa(s) efetivada(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
+  toast(ids.length+(r&&r.queued?' baixa(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
 }
 function renderTrans(){
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);

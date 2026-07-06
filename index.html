@@ -519,7 +519,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.26"; /* z4 */
+const APP_VER = "7.27"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1572,16 +1572,25 @@ async function updateCliBadge(){
   if(!btn||!badge) return;
   if(!USER || USER.id!==ADMIN_ID){ btn.classList.add('hidden'); return; }
   btn.classList.remove('hidden');
+  // só busca do servidor no máximo 1x a cada 60s (evita chamadas repetidas que causam piscar)
+  const agora=Date.now();
+  if(window._cliBadgeCache && (agora-window._cliBadgeCache.t)<60000){
+    aplicarCliBadge(window._cliBadgeCache.total, badge); return;
+  }
   try{
     const {data}=await sb.rpc('admin_clientes');
     if(!data) return;
     const outros=data.filter(c=>c.user_id!==ADMIN_ID);
     window._totalClientes=outros.length;
-    const visto=parseInt(localStorage.getItem('gf_cli_seen')||'0');
-    const novos=Math.max(0, outros.length - visto);
-    if(novos>0){ badge.textContent=novos>9?'9+':novos; badge.classList.remove('hidden'); }
-    else badge.classList.add('hidden');
+    window._cliBadgeCache={t:agora, total:outros.length};
+    aplicarCliBadge(outros.length, badge);
   }catch(e){}
+}
+function aplicarCliBadge(total, badge){
+  const visto=parseInt(localStorage.getItem('gf_cli_seen')||'0');
+  const novos=Math.max(0, total - visto);
+  if(novos>0){ badge.textContent=novos>9?'9+':novos; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
 }
 function abrirNotificacoes(){
   const lista=partnerLancs().slice(0,10);
@@ -1684,7 +1693,20 @@ async function maybeSeedCategorias(){
 // ============ NAV ============
 function setScope(s){scope=s;document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.scope===s));applyTema(s);render();}
 function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();updateIaFab();}
+let _lastRender=0, _renderPending=null;
 function render(){
+  const agora=Date.now();
+  // trava anti-loop: se render for chamado muito rápido em sequência, agenda uma única vez
+  if(agora-_lastRender < 150){
+    if(_renderPending) return;
+    _renderPending=setTimeout(()=>{ _renderPending=null; _doRender(); }, 160);
+    return;
+  }
+  _lastRender=agora;
+  _doRender();
+}
+function _doRender(){
+  _lastRender=Date.now();
   if(tab==='home')renderHome();
   else if(tab==='trans')renderTrans();
   else if(tab==='cartoes')renderCartoes();

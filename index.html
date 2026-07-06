@@ -497,7 +497,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.11"; /* z4 */
+const APP_VER = "7.12"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -933,20 +933,26 @@ async function esqueciSenha(){
   if(error){ toast('Erro: '+error.message); return; }
   toast('Pronto! Enviamos um link pra '+email+' — confira também o spam.');
 }
+let _emRecovery=false;
 function mostrarNovaSenha(){
-  openSheet(`<h2>🔑 Criar nova senha</h2>
-    <div class="note" style="margin-bottom:12px">Você chegou pelo link de recuperação. Defina sua nova senha abaixo.</div>
+  _emRecovery=true;
+  openSheet(`<h2>🔑 Definir nova senha</h2>
+    <div class="note" style="margin-bottom:12px">Você chegou pelo link de recuperação de senha. <b>Defina sua nova senha abaixo</b> para continuar usando o app.</div>
     <div class="field"><label>Nova senha</label><input id="npSenha" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
-    <button class="btn" onclick="salvarNovaSenha()">Salvar nova senha</button>`);
+    <div class="field"><label>Repita a nova senha</label><input id="npSenha2" type="password" autocomplete="new-password" placeholder="digite de novo"></div>
+    <button class="btn" onclick="salvarNovaSenha()">Salvar e entrar</button>`);
 }
 async function salvarNovaSenha(){
-  const p=$('npSenha').value;
+  const p=$('npSenha').value, p2=$('npSenha2')?$('npSenha2').value:p;
   if(!p||p.length<6){toast('A senha precisa ter pelo menos 6 caracteres');return;}
+  if(p!==p2){toast('As senhas não conferem — digite igual nos dois campos');return;}
   const {error}=await sb.auth.updateUser({password:p});
   if(error){toast('Erro: '+error.message);return;}
-  closeSheet(); vibra(); toast('Senha alterada ✅');
+  _emRecovery=false;
+  closeSheet(); vibra(); toast('Senha alterada ✅ Bem-vindo de volta!');
+  try{ render(); }catch(e){}
 }
-sb.auth.onAuthStateChange((ev)=>{ if(ev==='PASSWORD_RECOVERY'){ setTimeout(mostrarNovaSenha,600); } });
+sb.auth.onAuthStateChange((ev)=>{ if(ev==='PASSWORD_RECOVERY'){ setTimeout(mostrarNovaSenha,500); } });
 function renderSavedAccounts(){
   const wrap=$('savedAccounts'); if(!wrap) return;
   const arr=getSavedEmails(), last=lsGet('lastEmail','');

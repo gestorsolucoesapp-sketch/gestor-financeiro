@@ -215,14 +215,10 @@ body.modal-open .fab{display:none !important}
 #wtOverlay .wt-arrow{position:absolute;width:0;height:0}
 .fab,.iafab,.obfab{transition:opacity .25s ease,transform .08s,filter .08s}
 body.scrolling .fab{opacity:.25}
-/* feedback de toque global — mais perceptível */
-button,.btn,.lnk,.quick,a[onclick],[onclick],.lrow,.card[onclick],.seg button{transition:transform .1s ease,filter .1s ease,opacity .1s ease}
-button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,[onclick]:active,.lrow:active,.card[onclick]:active,.seg button:active{
-  transform:scale(.96);filter:brightness(1.15);opacity:.85
-}
-.btn:active{transform:scale(.97);filter:brightness(.9)}
-/* classe adicionada via JS no toque, garante reação mesmo no iOS */
-.tapped{transform:scale(.94) !important;filter:brightness(1.2) !important;opacity:.8 !important;transition:none !important}
+/* feedback de toque — só em botões pequenos, sem transform que causa piscar */
+.btn,.lnk,.quick,.seg button{transition:opacity .12s ease}
+.btn:active,.lnk:active,.quick:active,.seg button:active{opacity:.6}
+.tapped{opacity:.55 !important}
 
 /* sheet / modal */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(12,28,26,.45);display:flex;align-items:flex-end;justify-content:center;touch-action:none}
@@ -519,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.28"; /* z4 */
+const APP_VER = "7.29"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1495,7 +1491,7 @@ async function afterLogin(userArg){
   try{ await maybeSeedCategorias(); }catch(e){}
   try{ updateBell(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
-  // DESATIVADO temporariamente para diagnosticar piscar: try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
+  try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
   go(obDone()?'home':'tutorial');
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
@@ -1504,13 +1500,13 @@ async function afterLogin(userArg){
   flushOutbox();
   if(!window._offlineHooked){
     window._offlineHooked=true;
-    // feedback de toque garantido (iOS às vezes ignora :active)
+    // feedback de toque leve — só em botões pequenos (evita repaint pesado que pisca)
     document.addEventListener('touchstart',(e)=>{
-      const t=e.target.closest('button,.btn,.lnk,.quick,[onclick],.lrow,.seg button');
+      const t=e.target.closest('.btn,.lnk,.quick,.seg button,.fab');
       if(t){ t.classList.add('tapped'); }
     }, {passive:true});
-    document.addEventListener('touchend',(e)=>{
-      document.querySelectorAll('.tapped').forEach(el=>setTimeout(()=>el.classList.remove('tapped'),120));
+    document.addEventListener('touchend',()=>{
+      document.querySelectorAll('.tapped').forEach(el=>setTimeout(()=>el.classList.remove('tapped'),140));
     }, {passive:true});
     document.addEventListener('touchcancel',()=>{
       document.querySelectorAll('.tapped').forEach(el=>el.classList.remove('tapped'));

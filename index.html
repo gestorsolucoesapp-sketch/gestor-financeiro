@@ -194,6 +194,8 @@ body.modal-open .fab{display:none !important}
   display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(232,101,78,.5);transition:opacity .3s,transform .08s,filter .08s;opacity:.82}
 .fab:active{transform:scale(.9);filter:brightness(.9);opacity:1}
 .iafab{left:16px;right:auto;background:#2f8f66;box-shadow:0 4px 14px rgba(47,143,102,.5)}
+.iaring{position:absolute;top:-4px;left:-4px;pointer-events:none}
+.iaring-fill{transition:stroke-dashoffset .6s ease,stroke .3s ease}
 .obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 142px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite;opacity:1}
 @keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
 .fab,.iafab,.obfab{transition:opacity .25s ease,transform .08s,filter .08s}
@@ -438,6 +440,7 @@ button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:acti
 
 <button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
 <button class="fab iafab hidden" id="iaFab" onclick="go('assistente')" title="Assistente IA">
+  <svg class="iaring" width="58" height="58" viewBox="0 0 58 58"><circle class="iaring-bg" cx="29" cy="29" r="26" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="3"/><circle id="iaRingFill" class="iaring-fill" cx="29" cy="29" r="26" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="0" transform="rotate(-90 29 29)"/></svg>
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:1px"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg>
   <span style="font-size:9px;font-weight:800;letter-spacing:.5px;line-height:1">IA</span>
 </button>
@@ -497,7 +500,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.13"; /* z4 */
+const APP_VER = "7.14"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1583,7 +1586,7 @@ function setIaCor(c){ localStorage.setItem('gf_ia_cor',c); aplicaIaCor(); if(tab
 function aplicaIaCor(){ const b=$('iaFab'); if(b){ const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; } }
 function updateIaFab(){
   const b=$('iaFab');
-  if(b){ const show = iaBubbleAtiva() && tab!=='assistente'; b.classList.toggle('hidden', !show); const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; }
+  if(b){ const show = iaBubbleAtiva() && tab!=='assistente'; b.classList.toggle('hidden', !show); const c=iaCor(); b.style.background=c; b.style.boxShadow='0 8px 22px '+c+'73'; try{atualizarAnelIA();}catch(e){} }
   const ob=$('obFab');
   if(ob){
     const mostrar = USER && !obDone() && localStorage.getItem('gf_ob_hide_'+USER.id)!=='1' && tab!=='tutorial';
@@ -1612,6 +1615,21 @@ function resumoParaIA(){
     return `${c.nome}: fatura de ${mesNome(hj)} ${brl(f1)} e de ${mesNome(prox)} ${brl(f2)} (vence dia ${c.vencimento||'?'})`;
   }).join('; ');
   return `Hoje: ${hoje}. Saldos: ${contas}. Faturas dos cartões: ${fats||'nenhum cartão'}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
+}
+function atualizarAnelIA(){
+  const ring=$('iaRingFill'); if(!ring) return;
+  const l=window._aiLimite;
+  const total=163.36; // circunferência (2*PI*26)
+  if(!l || l.limite_dia==null || l.limite_dia>=9999){
+    // sem limite (admin) ou sem dado: anel cheio
+    ring.style.strokeDashoffset='0'; ring.style.stroke='#fff';
+    return;
+  }
+  const usados=parseInt(l.usos_hoje)||0, lim=parseInt(l.limite_dia)||40;
+  const rest=Math.max(0,lim-usados);
+  const frac=rest/lim; // 1 = cheio, 0 = vazio
+  ring.style.strokeDashoffset=String(total*(1-frac));
+  ring.style.stroke = rest<=8 ? '#ffd9d1' : '#fff';
 }
 function renderLimiteIA(){
   const l=window._aiLimite; if(!l) return '';
@@ -1715,7 +1733,7 @@ async function aiEnviar(){
     });
     const d=await r.json();
     if(!d.ok) throw new Error(d.erro||'Falha na função');
-    if(d.limite) window._aiLimite=d.limite;
+    if(d.limite){ window._aiLimite=d.limite; try{atualizarAnelIA();}catch(e){} }
     let obj=null;
     try{ obj=JSON.parse(String(d.texto||'').replace(/```json|```/g,'').trim()); }catch(e){}
     if(obj && obj.acao==='criar_lancamento'){

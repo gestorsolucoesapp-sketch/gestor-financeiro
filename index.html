@@ -517,7 +517,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.18"; /* z4 */
+const APP_VER = "7.19"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2957,20 +2957,36 @@ function diasParaVencCartao(c){
   if(due<hoje) due=new Date(hoje.getFullYear(),hoje.getMonth()+1,dv);
   return Math.round((due-hoje)/86400000);
 }
+function faturaPaga(cartaoId, mes){
+  const c=cartaoById(cartaoId); if(!c) return false;
+  const tot=faturaTotal(cartaoId,mes);
+  if(tot<=0) return false;
+  // procura uma despesa "Pagamento fatura <nome>" no mês de vencimento
+  const alvo=('pagamento fatura '+c.nome).toLowerCase();
+  const m=firstOfMonth(mes).getMonth(), y=firstOfMonth(mes).getFullYear();
+  const pago=DATA.lancamentos.filter(l=>{
+    if(l.tipo!=='despesa'||l.cartao_id) return false;
+    if(!(l.descricao||'').toLowerCase().startsWith('pagamento fatura '+c.nome.toLowerCase())) return false;
+    const d=new Date((l.data||'')+'T00:00:00');
+    return d.getMonth()===m && d.getFullYear()===y;
+  }).reduce((a,l)=>a+(Number(l.valor)||0),0);
+  return pago >= tot-0.5; // pago cobre a fatura (margem de centavos)
+}
 function cardCartaoHTML(c){
   const fat=faturaTotal(c.id,faturaMonth);
-  return `<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer">
+  const paga=faturaPaga(c.id,faturaMonth);
+  return `<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer;${paga?'border:1px solid var(--mint)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
-        <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento} · <b style="color:${diasParaVencCartao(c)<=3?'var(--coral)':'var(--mint)'}">${(()=>{const d=diasParaVencCartao(c);return d===0?'vence hoje':d===1?'vence amanhã':'vence em '+d+'d';})()}</b></div></div>
+        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${paga?` <span class="pill" style="background:rgba(47,191,131,.2);color:var(--mint)">✓ PAGA</span>`:''}${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
+        <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}${paga?'':` · <b style="color:${diasParaVencCartao(c)<=3?'var(--coral)':'var(--mint)'}">${(()=>{const d=diasParaVencCartao(c);return d===0?'vence hoje':d===1?'vence amanhã':'vence em '+d+'d';})()}</b>`}</div></div>
         <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
       <div style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end">
-          <div><div class="note">Fatura de ${mesNome(faturaMonth)}</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${brl(fat)}</div></div>
+          <div><div class="note">Fatura de ${mesNome(faturaMonth)}${paga?' <span style="color:var(--mint)">· paga ✓</span>':''}</div><div style="font-size:22px;font-weight:800;color:var(--ink)">${brl(fat)}</div></div>
           <div style="text-align:right"><div class="note">Disponível</div><div style="font-weight:700">${brl(Math.max(0,Number(c.limite)-fat))}</div></div>
         </div>
-        ${Number(c.limite)>0?`<div class="limbar"><div class="limbar-fill" style="width:${Math.min(100,Math.round(fat/Number(c.limite)*100))}%;background:${fat/Number(c.limite)>0.85?'var(--coral)':'var(--mint)'}"></div></div>
+        ${Number(c.limite)>0?`<div class="limbar"><div class="limbar-fill" style="width:${Math.min(100,Math.round(fat/Number(c.limite)*100))}%;background:${paga?'var(--mint)':(fat/Number(c.limite)>0.85?'var(--coral)':'var(--mint)')}"></div></div>
         <div class="note" style="margin-top:3px">${Math.min(100,Math.round(fat/Number(c.limite)*100))}% do limite de ${brl(Number(c.limite))}</div>`:''}
       </div></div>`;
 }
@@ -3015,7 +3031,8 @@ function renderFatura(){
   const tot=itens.reduce((a,l)=>a+valFatura(l),0);
   let html=`<div class="lrow" style="border:none;padding:4px 0 12px;cursor:pointer" onclick="go('cartoes')"><span style="font-size:20px;margin-right:4px">‹</span><b>${esc(c.nome)}</b></div>`;
   html+=monthNav('fatura');
-  html+=`<div class="card facard"><div class="lab" style="font-size:12px;opacity:.8;text-transform:uppercase">Fatura de ${mesNome(faturaMonth)}</div>
+  const _fpaga=faturaPaga(c.id,faturaMonth);
+  html+=`<div class="card facard"><div class="lab" style="font-size:12px;opacity:.8;text-transform:uppercase">Fatura de ${mesNome(faturaMonth)}${_fpaga?' · <span style="color:#8ff0c0">PAGA ✓</span>':''}</div>
     <div class="big" style="font-size:30px;font-weight:800;margin:6px 0">${brl(tot)}</div>
     <div class="note" style="color:rgba(255,255,255,.7)">Vence dia ${c.dia_vencimento}</div></div>`;
   html+=`<div class="card">`;
@@ -3023,7 +3040,10 @@ function renderFatura(){
   else itens.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
   if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="ajustarFatura('${c.id}')">➕ Ajustar fatura (lançar algo que faltou)</button>`;
-  if(tot>0 && souDono(c.user_id)) html+=`<button class="btn" onclick="pagarFatura('${c.id}')">Registrar pagamento da fatura</button>`;
+  if(tot>0 && souDono(c.user_id)){
+    if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div></div>`;
+    else html+=`<button class="btn" onclick="pagarFatura('${c.id}')">Registrar pagamento da fatura</button>`;
+  }
   if(souDono(c.user_id)) html+=`<button class="btn ghost" onclick="openCartao('${c.id}')">⚙️ Editar / excluir cartão</button>`;
   $('content').innerHTML=html;
 }

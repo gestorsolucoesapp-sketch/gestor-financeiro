@@ -194,7 +194,7 @@ body.modal-open .fab{display:none !important}
   display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(232,101,78,.5);transition:opacity .3s,transform .08s,filter .08s;opacity:.82}
 .fab:active{transform:scale(.9);filter:brightness(.9);opacity:1}
 .iafab{left:16px;right:auto;background:#2f8f66;box-shadow:0 3px 10px rgba(0,0,0,.35);overflow:visible}
-.iaring{position:absolute;top:-4px;left:-4px;pointer-events:none;overflow:visible}
+.iaring{position:absolute;top:-5px;left:-5px;pointer-events:none;overflow:visible}
 .iaring-fill{transition:stroke-dashoffset .6s ease,stroke .3s ease}
 .obfab{left:16px;right:auto;bottom:calc(env(safe-area-inset-bottom) + 142px);background:#ff7a1a;box-shadow:0 8px 22px rgba(255,122,26,.5);animation:obPulse 1.8s ease-in-out infinite;opacity:1}
 @keyframes obPulse{0%,100%{box-shadow:0 8px 22px rgba(255,122,26,.5)}50%{box-shadow:0 8px 30px rgba(255,122,26,.85)}}
@@ -440,7 +440,7 @@ button:active,.btn:active,.lnk:active,.quick:active,a[onclick]:active,.lrow:acti
 
 <button class="fab hidden" id="fab" onclick="openAddMenu()">+</button>
 <button class="fab iafab hidden" id="iaFab" onclick="go('assistente')" title="Assistente IA">
-  <svg class="iaring" width="58" height="58" viewBox="0 0 58 58"><circle class="iaring-bg" cx="29" cy="29" r="26" fill="none" stroke="rgba(255,255,255,.20)" stroke-width="3"/><circle id="iaRingFill" class="iaring-fill" cx="29" cy="29" r="26" fill="none" stroke="#ff8a1a" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="0" transform="rotate(-90 29 29)"/></svg>
+  <svg class="iaring" width="60" height="60" viewBox="0 0 60 60"><circle id="iaRingFill" class="iaring-fill" cx="30" cy="30" r="26" fill="none" stroke="#ff8a1a" stroke-width="6" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="0" transform="rotate(-90 30 30)"/></svg>
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:1px"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8"/></svg>
   <span style="font-size:9px;font-weight:800;letter-spacing:.5px;line-height:1">IA</span>
 </button>
@@ -500,7 +500,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.15"; /* z4 */
+const APP_VER = "7.16"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){

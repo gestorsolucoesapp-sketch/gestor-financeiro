@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.35"; /* z4 */
+const APP_VER = "7.36"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2339,11 +2339,14 @@ function saidasMes(d){
     if(l.cartao_id) continue;
     const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
     const val=Number(l.valor)||0;
+    // "Pagamento de fatura" e "Pagamento a <cônjuge>" NÃO são despesa nova — só quitam algo já contado (cartão/gasto). Ignora no total.
+    const _desc=(l.descricao||'').toLowerCase();
+    const ehQuitacao = _desc.startsWith('pagamento fatura') || _desc.startsWith('pagamento a ');
     const isPartner = l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id);
     // CÔNJUGE: gastos do parceiro (quem paga sou eu) → some no meu total, exceto quando estou vendo o parceiro direto
     if(isPartner){
       if(!viewingPartner){
-        if(l.tipo==='despesa') conj+=val;
+        if(l.tipo==='despesa' && !ehQuitacao) conj+=val;
         else if(l.tipo==='transferencia'){ const dest=contaById(l.conta_destino_id); if(!dest || dest.eh_investimento) conj+=val; }
         continue; // não deixa cair nos buckets principais (evita contar 2x no Casal)
       }
@@ -2361,11 +2364,12 @@ function saidasMes(d){
       else continue;
     } else if(l.tipo==='despesa'){
       const conta=contaById(l.conta_id);
+      if(ehQuitacao){ if(_desc.startsWith('pagamento fatura') && l.status==='pago') pagFat+=val; continue; } // rastreia pagamento de fatura mas não conta como despesa nova
       if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
       else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta||conta.tipo!==scope)) continue; }
       bucket = (l.status==='pago'?'pagas':'aPagar');
     } else continue;
-    if(bucket==='pagas'){ pagas+=val; if((l.descricao||'').startsWith('Pagamento fatura')) pagFat+=val; } else if(bucket==='aPagar') aPagar+=val; else if(bucket==='invest') invest+=val;
+    if(bucket==='pagas'){ pagas+=val; } else if(bucket==='aPagar') aPagar+=val; else if(bucket==='invest') invest+=val;
   }
   // Cartões do cônjuge também entram no total "Gasto · Cônjuge" (não duplicam em "Gastos no cartão")
   let pagoConj=0;

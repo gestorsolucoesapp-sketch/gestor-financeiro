@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.30"; /* z4 */
+const APP_VER = "7.31"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4235,7 +4235,46 @@ async function saveLanc(id){
   }
   const row={user_id:USER.id,tipo:lancType,descricao:desc,valor,data,status:window._lancStatus||'pago',
     conta_id:contaId,categoria_id:window._catSel||null};
+  // se é edição de um lançamento recorrente (tem grupo), pergunta se aplica nos futuros
+  const orig = id ? DATA.lancamentos.find(l=>l.id===id) : null;
+  if(id && orig && orig.grupo_id && !window._escopoEdicao){
+    perguntarEscopoEdicao(id, row, orig);
+    return;
+  }
   await upsertLanc(id,row);
+  window._escopoEdicao=null;
+}
+function perguntarEscopoEdicao(id, row, orig){
+  openSheet(`<h2>Aplicar alteração</h2>
+    <div class="note" style="margin-bottom:14px">Esta é uma transação que se repete. Onde você quer aplicar as mudanças?</div>
+    <button class="btn" style="margin-bottom:10px" onclick="aplicarEdicao('so','${id}')">Só nesta (${fmtBrData(orig.data)})</button>
+    <button class="btn" style="margin-bottom:10px" onclick="aplicarEdicao('futuras','${id}')">Nesta e nas próximas</button>
+    <button class="btn ghost" onclick="closeSheet()">Cancelar</button>`);
+  window._edicaoPend={id,row,orig};
+}
+async function aplicarEdicao(escopo, id){
+  const pend=window._edicaoPend; if(!pend){closeSheet();return;}
+  const {row,orig}=pend;
+  window._escopoEdicao=escopo;
+  if(escopo==='so'){
+    // só este: remove do grupo pra não ser afetado por futuras edições em massa
+    await upsertLanc(id,{...row});
+    window._edicaoPend=null; window._escopoEdicao=null;
+    return;
+  }
+  // futuras: aplica em todos os lançamentos do mesmo grupo com data >= a deste
+  closeSheet();
+  const futuros=DATA.lancamentos.filter(l=>l.grupo_id===orig.grupo_id && (l.data||'')>=(orig.data||''));
+  // atualização otimista local
+  const patch={descricao:row.descricao, valor:row.valor, categoria_id:row.categoria_id, conta_id:row.conta_id};
+  futuros.forEach(l=>{ Object.assign(l, patch); });
+  render(); vibra();
+  // salva cada um no servidor
+  for(const l of futuros){
+    try{ await dbUpdate('lancamentos', patch, 'id', l.id); }catch(e){}
+  }
+  window._edicaoPend=null; window._escopoEdicao=null;
+  toast(`Alterado em ${futuros.length} mês(es) ✅`);
 }
 function addMonths(dateStr,n){
   const b=new Date(dateStr+'T00:00:00'); const day=b.getDate();

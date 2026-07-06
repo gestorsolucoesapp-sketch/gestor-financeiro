@@ -519,7 +519,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.25"; /* z4 */
+const APP_VER = "7.26"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1250,9 +1250,11 @@ function iniciarWalkthrough(){
   // vigia a conclusão de cada passo
   if(_wtWatch) clearInterval(_wtWatch);
   _wtWatch=setInterval(()=>{
+    // se o overlay sumiu, para o vigia (evita loop/piscar)
+    if(!document.getElementById('wtOverlay')){ clearInterval(_wtWatch); _wtWatch=null; return; }
     if(!_wtSteps[_wtIdx]) return;
     if(_wtSteps[_wtIdx].feito()){ avancarWt(); }
-  }, 700);
+  }, 900);
 }
 function criarWtOverlay(){
   if(document.getElementById('wtOverlay')) return;
@@ -1697,7 +1699,6 @@ function render(){
   else if(tab==='clientes')renderClientes();
   else if(tab==='tutorial')renderTutorial();
   injetarDemoBanner();
-  if(_wtWatch && document.getElementById('wtOverlay') && _wtSteps[_wtIdx]){ setTimeout(()=>{ if(document.getElementById('wtOverlay')) mostrarWtPasso(); }, 60); }
 }
 function injetarDemoBanner(){
   const old=$('demoBanner'); if(old) old.remove();
@@ -4324,12 +4325,10 @@ async function preencherLogosFaltantes(){
     if(dom){ const url=`https://www.google.com/s2/favicons?domain=${dom}&sz=128`; c.logo_url=url; ups.push({tabela:'cartoes',id:c.id,url}); }
   });
   if(!ups.length) return;
-  // salva no banco (silencioso) — sem re-renderizar em loop
+  // salva no banco (silencioso) — NÃO re-renderiza aqui pra não piscar; aparece na próxima navegação
   for(const u of ups){
     try{ await sb.from(u.tabela).update({logo_url:u.url}).eq('id',u.id); }catch(e){}
   }
-  // renderiza UMA vez só, se estiver numa tela que mostra logos
-  if(['home','contas','cartoes'].includes(tab)){ try{ render(); }catch(e){} }
 }
 let _logoTimer=null;
 function logoAutoDebounced(pfx){

@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.31"; /* z4 */
+const APP_VER = "7.32"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2503,6 +2503,13 @@ function renderHome(){
     ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
   </div>`;
 
+  // bloco: atalhos de lançamento rápido (despesa, receita, transferência)
+  blocos.lancrapido=`<div style="display:flex;gap:8px;margin-bottom:0">
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'despesa')"><div class="qi" style="color:var(--coral);font-size:20px;font-weight:800">−</div><div style="font-size:12px">Despesa</div></div>
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'receita')"><div class="qi" style="color:var(--mint);font-size:20px;font-weight:800">+</div><div style="font-size:12px">Receita</div></div>
+    <div class="quick" style="flex:1;padding:12px 4px" onclick="openLanc(null,'transferencia')"><div class="qi" style="color:#3b82f6">${ICON('swap',20)}</div><div style="font-size:12px">Transferir</div></div>
+  </div>`;
+
   // bloco: atalhos rápidos
   blocos.quicknav=`<div class="quickrow" style="margin-bottom:0">
     <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
@@ -2553,7 +2560,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

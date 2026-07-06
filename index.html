@@ -519,7 +519,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.27"; /* z4 */
+const APP_VER = "7.28"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1495,7 +1495,7 @@ async function afterLogin(userArg){
   try{ await maybeSeedCategorias(); }catch(e){}
   try{ updateBell(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
-  try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
+  // DESATIVADO temporariamente para diagnosticar piscar: try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
   go(obDone()?'home':'tutorial');
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);

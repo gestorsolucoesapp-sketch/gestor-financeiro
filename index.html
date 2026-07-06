@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.34"; /* z4 */
+const APP_VER = "7.35"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4288,21 +4288,29 @@ async function aplicarEdicao(escopo, id){
     window._edicaoPend=null; window._escopoEdicao=null;
     toast(`Alterado em ${futuros.length} mês(es) ✅`);
   }else{
-    // não era recorrente: atualiza este e CRIA os próximos 12 meses como recorrência
+    // não era recorrente: atualiza este e CRIA os próximos 12 meses (SÓ os que ainda não existem)
     const grupo=uuid();
     orig.grupo_id=grupo; Object.assign(orig, patch);
     await dbUpdate('lancamentos', {...patch, grupo_id:grupo}, 'id', id);
     const novos=[];
     for(let i=1;i<=12;i++){
+      const dataFutura=addMonths(orig.data,i);
+      const ym=dataFutura.slice(0,7); // ano-mês
+      // pula se já existe uma despesa/receita igual (mesma descrição + mesmo mês) pra não duplicar
+      const jaExiste=DATA.lancamentos.some(l=>
+        l.user_id===USER.id && l.tipo===orig.tipo && !l.cartao_id &&
+        (l.descricao||'').toLowerCase().trim()===(patch.descricao||'').toLowerCase().trim() &&
+        (l.data||'').slice(0,7)===ym
+      );
+      if(jaExiste) continue;
       novos.push({user_id:USER.id,tipo:orig.tipo,descricao:patch.descricao,valor:patch.valor,
-        data:addMonths(orig.data,i),status:'pendente',conta_id:patch.conta_id,
+        data:dataFutura,status:'pendente',conta_id:patch.conta_id,
         categoria_id:patch.categoria_id,grupo_id:grupo});
     }
-    const r=await insertRows(novos);
-    if(r.ok){ try{ await loadAll(); }catch(e){} }
+    if(novos.length){ const r=await insertRows(novos); if(r.ok){ try{ await loadAll(); }catch(e){} } }
     render(); vibra();
     window._edicaoPend=null; window._escopoEdicao=null;
-    toast('Aplicado e criado nos próximos 12 meses ✅');
+    toast(novos.length?`Aplicado e criado em ${novos.length} mês(es) ✅`:'Alteração aplicada ✅');
   }
 }
 function addMonths(dateStr,n){

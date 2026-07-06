@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.36"; /* z4 */
+const APP_VER = "7.37"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4264,13 +4264,17 @@ async function saveLanc(id){
   window._escopoEdicao=null;
 }
 function perguntarEscopoEdicao(id, row, orig){
-  const temGrupo = !!orig.grupo_id;
+  // detecta se já é recorrente: tem grupo OU existem outras despesas iguais em outros meses
+  const mesmoNome=(l)=> l.user_id===USER.id && l.tipo===orig.tipo && !l.cartao_id && l.id!==orig.id &&
+    (l.descricao||'').toLowerCase().trim()===(orig.descricao||'').toLowerCase().trim();
+  const futurosExistentes=DATA.lancamentos.filter(l=> mesmoNome(l) && (l.data||'')>(orig.data||''));
+  const temRecorrencia = !!orig.grupo_id || futurosExistentes.length>0;
+  window._edicaoPend={id,row,orig,futurosExistentes,temRecorrencia};
   openSheet(`<h2>Aplicar alteração</h2>
-    <div class="note" style="margin-bottom:14px">${temGrupo?'Esta transação se repete todo mês. Onde aplicar as mudanças?':'Você quer aplicar essa mudança também nos próximos meses?'}</div>
+    <div class="note" style="margin-bottom:14px">${temRecorrencia?'Esta despesa se repete em outros meses. Onde aplicar as mudanças?':'Você quer repetir essa despesa nos próximos meses?'}</div>
     <button class="btn" style="margin-bottom:10px" onclick="aplicarEdicao('so','${id}')">Só nesta (${fmtBrData(orig.data)})</button>
-    <button class="btn" style="margin-bottom:10px" onclick="aplicarEdicao('futuras','${id}')">${temGrupo?'Nesta e nas próximas':'Nesta e criar nos próximos 12 meses'}</button>
+    <button class="btn" style="margin-bottom:10px" onclick="aplicarEdicao('futuras','${id}')">${temRecorrencia?'Nesta e todas as seguintes':'Nesta e criar nos próximos 12 meses'}</button>
     <button class="btn ghost" onclick="closeSheet();window._edicaoPend=null">Cancelar</button>`);
-  window._edicaoPend={id,row,orig};
 }
 async function aplicarEdicao(escopo, id){
   const pend=window._edicaoPend; if(!pend){closeSheet();return;}
@@ -4283,9 +4287,19 @@ async function aplicarEdicao(escopo, id){
   }
   closeSheet();
   const patch={descricao:row.descricao, valor:row.valor, categoria_id:row.categoria_id, conta_id:row.conta_id};
-  if(orig.grupo_id){
-    // já é recorrente: atualiza todos do grupo com data >= a deste
-    const futuros=DATA.lancamentos.filter(l=>l.grupo_id===orig.grupo_id && (l.data||'')>=(orig.data||''));
+  const temRecorrencia = pend.temRecorrencia;
+  if(temRecorrencia){
+    // já é recorrente (por grupo OU por nome em outros meses): atualiza este e TODOS os seguintes existentes
+    let futuros;
+    if(orig.grupo_id){
+      futuros=DATA.lancamentos.filter(l=>l.grupo_id===orig.grupo_id && (l.data||'')>=(orig.data||''));
+    }else{
+      futuros=DATA.lancamentos.filter(l=>
+        l.user_id===USER.id && l.tipo===orig.tipo && !l.cartao_id &&
+        (l.descricao||'').toLowerCase().trim()===(orig.descricao||'').toLowerCase().trim() &&
+        (l.data||'')>=(orig.data||'')
+      );
+    }
     futuros.forEach(l=>{ Object.assign(l, patch); });
     render(); vibra();
     for(const l of futuros){ try{ await dbUpdate('lancamentos', patch, 'id', l.id); }catch(e){} }

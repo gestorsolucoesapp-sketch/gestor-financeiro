@@ -519,7 +519,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.22"; /* z4 */
+const APP_VER = "7.23"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4262,7 +4262,7 @@ function openConta(id){
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
-    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…"></div>
+    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…" oninput="logoAutoDebounced('c')"></div>
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
@@ -4270,7 +4270,7 @@ function openConta(id){
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
         <button class="btn outline sm" onclick="clearLogo('c')">Usar cor</button>
       </div>
-      <div class="note">"Buscar logo" acha o ícone pelo nome do banco. Ou suba sua imagem. Ou deixe a cor.</div></div>
+      <div class="note">O logo do banco aparece sozinho ao digitar o nome. Você também pode subir sua imagem ou deixar a cor.</div></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="cTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._contaTipo='pessoal';$('cTipoP').classList.add('on');$('cTipoN').classList.remove('on')">Pessoal</button>
       <button id="cTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._contaTipo='negocio';$('cTipoN').classList.add('on');$('cTipoP').classList.remove('on')">Negócio</button>
@@ -4309,6 +4309,24 @@ function bancoDominio(nome){
   ];
   for(const [re,dom] of map){ if(re.test(n)) return dom; }
   return null;
+}
+let _logoTimer=null;
+function logoAutoDebounced(pfx){
+  clearTimeout(_logoTimer);
+  _logoTimer=setTimeout(()=>{
+    // não busca se o usuário já subiu uma imagem própria (base64) — só sugere quando ainda não há logo manual
+    const atual=window['_'+pfx+'Logo'];
+    if(atual && atual.startsWith('data:')) return; // logo enviado manualmente, respeita
+    const el=$(pfx==='c'?'cNome':'kNome');
+    const nome=el?el.value.trim():'';
+    if(nome.length<3){ return; }
+    const dom=bancoDominio(nome);
+    if(!dom){ return; } // nome não reconhecido: não faz nada (sem toast pra não incomodar)
+    const url=`https://www.google.com/s2/favicons?domain=${dom}&sz=128`;
+    window['_'+pfx+'Logo']=url;
+    const prev=$(pfx+'LogoPrev');
+    if(prev){ prev.style.backgroundColor='#fff'; prev.style.color=''; prev.style.backgroundImage=`url("${url}")`; prev.style.backgroundSize='76%'; prev.style.backgroundRepeat='no-repeat'; prev.style.backgroundPosition='center'; prev.innerHTML=''; }
+  }, 600);
 }
 function logoAuto(pfx){
   const el=$(pfx==='c'?'cNome':'kNome');
@@ -4425,7 +4443,7 @@ function openCartao(id){
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>
       </div>
       <div class="note">"Buscar logo" acha pelo nome. Ou suba sua imagem. Ou deixe a cor.</div></div>
-    <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…"></div>
+    <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…" oninput="logoAutoDebounced('k')"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="kTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._cartaoTipo='pessoal';$('kTipoP').classList.add('on');$('kTipoN').classList.remove('on')">Pessoal</button>
       <button id="kTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._cartaoTipo='negocio';$('kTipoN').classList.add('on');$('kTipoP').classList.remove('on')">Negócio</button>

@@ -497,7 +497,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.12"; /* z4 */
+const APP_VER = "7.13"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1614,7 +1614,22 @@ function resumoParaIA(){
   return `Hoje: ${hoje}. Saldos: ${contas}. Faturas dos cartões: ${fats||'nenhum cartão'}. Gastos por categoria no mês: ${gastos||'nenhum'}. Últimos lançamentos: ${ult}. Contas disponíveis: ${nomesContas}. Categorias disponíveis: ${nomesCats}.`;
 }
 function renderLimiteIA(){
-  const l=window._aiLimite; if(!l||l.requests_restantes==null) return '';
+  const l=window._aiLimite; if(!l) return '';
+  // novo formato: mensagens diárias (usos_hoje / limite_dia)
+  if(l.limite_dia!=null){
+    const usados=parseInt(l.usos_hoje)||0, lim=parseInt(l.limite_dia)||40;
+    const rest=Math.max(0,lim-usados);
+    const pct=lim?Math.max(0,Math.min(100,rest/lim*100)):100;
+    const critico=rest<=8;
+    return `<div style="padding:10px 0 2px;border-top:1px solid var(--line-2);margin-top:6px">
+      <div class="s" style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span>Mensagens de hoje</span><span style="color:${critico?'var(--coral)':'var(--muted)'}">${rest} de ${lim} restantes</span>
+      </div>
+      <div class="prog"><div class="progfill" style="width:${pct}%;background:${critico?'var(--coral)':'var(--mint)'}"></div></div>
+    </div>`;
+  }
+  // formato antigo (headers da API) — mantido por compatibilidade
+  if(l.requests_restantes==null) return '';
   const rest=parseInt(l.requests_restantes), lim=parseInt(l.requests_limite)||rest;
   const pct=lim?Math.max(0,Math.min(100,rest/lim*100)):100;
   const critico=pct<20;

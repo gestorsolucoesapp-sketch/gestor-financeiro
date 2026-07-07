@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.40"; /* z4 */
+const APP_VER = "7.41"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -818,6 +818,8 @@ function srcOk(uid){
 }
 function apelidoDe(uid){const p=MYPARTNERS.find(p=>p.owner_id===uid);return p?p.apelido:'Parceiro';}
 function souDono(uid){return uid===USER.id;}
+// Quitação (pagamento de fatura / repasse ao cônjuge) NÃO é gasto novo — só quita algo já contado. Usar em TODA agregação de despesas.
+function ehLancQuitacao(l){ const d=(l.descricao||'').toLowerCase(); return d.startsWith('pagamento fatura') || d.startsWith('pagamento a '); }
 function ehFamiliarConta(c){return !!(c && c.incluir_principal===false);}
 function lancFamiliar(l){
   const c = l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
@@ -2049,6 +2051,7 @@ function gastosPorCategoria(d,allSources){
   const map={};
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
     if(!inMonthRep(l,d)) continue;
     if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
     const cat=catById(l.categoria_id);
@@ -2062,6 +2065,7 @@ function gastosPorCategoria(d,allSources){
 function abrirCatDetalhe(catId){
   const itens=DATA.lancamentos.filter(l=>{
     if(l.tipo!=='despesa') return false;
+    if(ehLancQuitacao(l)) return false;
     if(!inMonthRep(l,viewMonth)) return false;
     if(!noScope(l)) return false;
     return (catId==='_sem') ? !l.categoria_id : l.categoria_id===catId;
@@ -2107,7 +2111,7 @@ function evolucaoMeses(n,allSources){
       if(l.tipo==='transferencia') continue;
       if(!inMonthRep(l,d)) continue;
       if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
-      if(l.tipo==='receita') rec+=Number(l.valor)||0; else desp+=Number(l.valor)||0;
+      if(l.tipo==='receita') rec+=Number(l.valor)||0; else { if(!ehLancQuitacao(l)) desp+=Number(l.valor)||0; }
     }
     out.push({mes:d,rec,desp});
   }
@@ -2119,6 +2123,7 @@ function gastosDiariosPartner(d,ownerId){
   const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
     if(l.user_id!==ownerId) continue;
     if(!l.data) continue;
     if(!inMonth(l,d)) continue;
@@ -2136,6 +2141,7 @@ function gastosMensaisAno(ownerId,ano){
   const arr=Array(12).fill(0);
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
     if(l.user_id!==ownerId) continue;
     let ym;
     if(l.cartao_id){ if(!l.competencia) continue; ym=faturaYm(l.competencia,cartaoById(l.cartao_id)); }
@@ -2244,6 +2250,7 @@ function gastosDiarios(d,allSources){
   const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
     if(!l.data) continue;
     if(!inMonth(l,d)) continue;
     if(allSources){ const uidOk=l.user_id===USER.id||MYPARTNERS.some(p=>p.owner_id===l.user_id); if(!uidOk) continue; } else { if(!noScope(l)) continue; }
@@ -2331,7 +2338,7 @@ function balancoMes(d){
     if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
     else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
     if(l.tipo==='receita'){ rec+=Number(l.valor)||0; if(l.status!=='pago') recPend+=Number(l.valor)||0; }
-    else desp+=Number(l.valor)||0;
+    else { if(!ehLancQuitacao(l)) desp+=Number(l.valor)||0; }
   }
   return {rec,desp,recPend,saldo:rec-desp};
 }

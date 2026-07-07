@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.37"; /* z4 */
+const APP_VER = "7.38"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2418,18 +2418,11 @@ function renderHome(){
   const b=balancoMes(viewMonth);
   const gc=gastoCartaoMes(viewMonth);
   const sd=saidasMes(viewMonth);
-  const totalGastos=sd.pagas+sd.aPagar+gc+sd.invest+sd.conjuge;
+  const totalGastos=sd.pagas+sd.aPagar+gc+sd.conjuge; // investimento NÃO é gasto (é patrimônio)
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  // Balanço: no mês atual = saldo + a receber - a pagar; nos futuros = resultado do mês (receitas - gastos), sem misturar com o saldo já projetado
-  let balCard;
-  if(_futuro){
-    let saidasMesTot=sd.aPagar+gcRest+(sd.conjuge||0);
-    if(projInvest()) saidasMesTot+=(sd.invest||0);
-    balCard=b.rec-saidasMesTot;
-  }else{
-    balCard=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
-  }
+  // Balanço = recursos totais que tenho: contas + investimento (patrimônio). [def. João v7.38]
+  const balCard=patrimonioTotal();
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
   const recents=DATA.lancamentos.filter(l=>{

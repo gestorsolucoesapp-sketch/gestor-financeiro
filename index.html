@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.41"; /* z4 */
+const APP_VER = "7.42"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -879,7 +879,7 @@ function balancoFechamento(d){
   const sd=saidasMes(d);
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  return tot + b.recPend - (sd.aPagar + gcRest + (sd.invPend||0) + faltaConj);
+  return tot + b.recPend - (sd.aPagar + gcRest + (projInvest()?(sd.invPend||0):0) + faltaConj);
 }
 function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
@@ -2441,7 +2441,7 @@ function renderHome(){
     if(projInvest()) saidasMesTot+=(sd.invest||0);
     balCard=b.rec-saidasMesTot;
   }else{
-    balCard=tot+b.recPend-(sd.aPagar+gcRest+(sd.invPend||0)+faltaConj);
+    balCard=tot+b.recPend-(sd.aPagar+gcRest+(projInvest()?(sd.invPend||0):0)+faltaConj);
   }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
@@ -3233,7 +3233,7 @@ function renderConfig(){
   html+=`<div class="page-title" style="margin-top:20px">Configurações</div><div class="card">
     <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2)">
       <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">${ICON('chart',20)}</div>
-      <div class="mid"><div class="t">Investimento na previsão</div><div class="s">Descontar investimentos do saldo previsto dos próximos meses</div></div>
+      <div class="mid"><div class="t">Contar investimento como saída</div><div class="s">Ligado: desconta o aporte do balanço e do saldo previsto. Desligado: trata como patrimônio (não desconta).</div></div>
       <button class="switch ${projInvest()?'on':''}" onclick="toggleProjInvest(${projInvest()?'false':'true'})"><span class="knob"></span></button>
     </div>
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}

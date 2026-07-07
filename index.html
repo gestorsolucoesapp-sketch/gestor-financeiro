@@ -516,7 +516,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.50"; /* z4 */
+const APP_VER = "7.51"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2652,14 +2652,17 @@ function rowConta(c){
   const dot = c.logo_url
     ? `<div class="dot" style="background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)"></div>`
     : `<div class="dot" style="background:${tintBg(cv.color)};color:${cv.color}">${ICON(cv.icon,20)}</div>`;
-  return `<div class="lrow" onclick="openConta('${c.id}')" style="${lim>0?'align-items:flex-start':''}">
-    ${dot}
-    <div class="mid"><div class="t wrap">${esc(c.nome)}</div><div class="s">Saldo atual · <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div>
-    ${lim>0?`<div style="margin-top:5px">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>Limite ${brl(lim)}</span><span>usado <b style="color:${cor}">${brl(usado)}</b> · livre ${brl(livre)}</span></div>
-      <div style="height:4px;border-radius:3px;background:var(--line-2);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>
-    </div>`:''}</div>
-    <div class="amt ${s<0?'r':''}">${brl(s)}</div></div>`;
+  return `<div onclick="openConta('${c.id}')" style="cursor:pointer;border-bottom:1px solid var(--line)">
+    <div class="lrow" style="border-bottom:none">
+      ${dot}
+      <div class="mid"><div class="t wrap">${esc(c.nome)}</div><div class="s">Saldo atual · <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div></div>
+      <div class="amt ${s<0?'r':''}">${brl(s)}</div>
+    </div>
+    ${lim>0?`<div style="padding:0 2px 12px 52px;margin-top:-4px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;white-space:nowrap">Limite ${brl(lim)} · usado <b style="color:${cor}">${brl(usado)}</b> · livre ${brl(livre)}</div>
+      <div style="height:5px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>
+    </div>`:''}
+  </div>`;
 }
 
 // ============ TRANSAÇÕES ============

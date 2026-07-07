@@ -517,7 +517,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.57"; /* z4 */
+const APP_VER = "7.58"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -882,10 +882,21 @@ function balancoFechamento(d){
   const sd=saidasMes(d);
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  return tot + b.recPend - (sd.aPagar + gcRest + (projInvest()?(sd.invPend||0):0) + faltaConj);
+  const base = tot + b.recPend - (sd.aPagar + gcRest + faltaConj);
+  return base - descontarInvest(sd.invPend, base);
 }
 function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
+// "Investir só o que sobra": investimento entra na previsão só até o que sobra, nunca deixa negativo. Padrão: ligado.
+function investSobra(){ const v=localStorage.getItem('gf_invest_sobra'); return v===null?true:v==='1'; }
+function toggleInvestSobra(v){ localStorage.setItem('gf_invest_sobra', v?'1':'0'); salvarPrefs(); render(); }
+// quanto do aporte descontar da previsão, dado o "base" (o que sobraria antes do investimento)
+function descontarInvest(investBruto, base){
+  if(!projInvest()) return 0;                  // não conta investimento na previsão
+  const inv=Number(investBruto)||0;
+  if(!investSobra()) return inv;               // desconta o aporte cheio (pode ficar negativo)
+  return Math.max(0, Math.min(inv, base));     // só o que sobra, nunca negativo
+}
 // Saldo projetado: no mês atual/passado = saldo real; nos meses FUTUROS = fechamento do mês anterior + receitas - gastos do mês
 function saldoProjetado(d){
   const hoje=new Date();
@@ -899,8 +910,8 @@ function saldoProjetado(d){
     const ss=saidasMes(dd);
     const gcart=gastoCartaoMes(dd);
     let saidasTot=ss.pagas+ss.aPagar+gcart+(ss.conjuge||0);
-    if(projInvest()) saidasTot+=(ss.invest||0); // só desconta investimento se o usuário quiser
-    saldo = saldo + bb.rec - saidasTot;
+    const baseMes = saldo + bb.rec - saidasTot;         // saldo previsto do mês antes do investimento
+    saldo = baseMes - descontarInvest(ss.invest, baseMes); // investe só até o que sobra (nunca negativo)
   }
   return saldo;
 }
@@ -930,7 +941,7 @@ function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').clas
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 // ===== SINCRONIZAÇÃO DE PREFERÊNCIAS (tema, cores, ordem) NO SERVIDOR =====
-const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest'];
+const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest','gf_invest_sobra'];
 function coletarPrefs(){ const o={}; PREF_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; }); return o; }
 function aplicarPrefs(o){ if(!o) return; PREF_KEYS.forEach(k=>{ if(o[k]!=null){ try{localStorage.setItem(k,o[k]);}catch(e){} } }); }
 let _prefSaveT=null;
@@ -2510,13 +2521,17 @@ function renderHome(){
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
   // Balanço [def. João]: recursos (saldo + a receber) − o que ainda vai sair (a pagar + cartão restante + aporte de investimento AINDA VIRTUAL + falta do cônjuge).
   // Aporte já efetivado não desconta de novo (o saldo já caiu). Mês futuro = resultado do mês.
-  let balCard;
+  let balCard, _invNota='';
   if(_futuro){
-    let saidasMesTot=sd.aPagar+gcRest+(sd.conjuge||0);
-    if(projInvest()) saidasMesTot+=(sd.invest||0);
-    balCard=b.rec-saidasMesTot;
+    const baseF=b.rec-(sd.aPagar+gcRest+(sd.conjuge||0));
+    const invC=descontarInvest(sd.invest,baseF);
+    balCard=baseF-invC;
+    if(projInvest()&&investSobra()&&invC<(sd.invest||0)) _invNota=`Na previsão entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
   }else{
-    balCard=tot+b.recPend-(sd.aPagar+gcRest+(projInvest()?(sd.invPend||0):0)+faltaConj);
+    const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+    const invC=descontarInvest(sd.invPend,base);
+    balCard=base-invC;
+    if(projInvest()&&investSobra()&&invC<(sd.invPend||0)) _invNota=`No balanço entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
   }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
@@ -2614,7 +2629,7 @@ function renderHome(){
       <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
     <div class="saidas">
-      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${!projInvest()?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">Não contado no balanço (é patrimônio). Ligue em Mais pra descontar.</div>`:''}`:''}
+      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${!projInvest()?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">Não contado no balanço (é patrimônio). Ligue em Mais pra descontar.</div>`:''}${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
       ${b.recPend>0?`<div class="srow tap" onclick="verTrans('receita')"><span>Receitas a receber</span><b style="color:var(--hero-green)">${brl(b.recPend)}</b></div>`:''}
       <div class="srow tap" onclick="verTrans('despesa')"><span>Contas pagas</span><b>${brl(sd.pagas)}</b></div>
       <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar</span><b>${brl(sd.aPagar)}</b></div>
@@ -3358,6 +3373,11 @@ function renderConfig(){
       <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">${ICON('chart',20)}</div>
       <div class="mid"><div class="t">Contar investimento como saída</div><div class="s">Ligado: desconta o aporte do balanço e do saldo previsto. Desligado: trata como patrimônio (não desconta).</div></div>
       <button class="switch ${projInvest()?'on':''}" onclick="toggleProjInvest(${projInvest()?'false':'true'})"><span class="knob"></span></button>
+    </div>
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2)">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">${ICON('chart',20)}</div>
+      <div class="mid"><div class="t">Investir só o que sobra</div><div class="s">Ligado: o investimento entra na previsão só até o que sobra — nunca deixa o balanço negativo. Desligado: desconta o aporte cheio.</div></div>
+      <button class="switch ${investSobra()?'on':''}" onclick="toggleInvestSobra(${investSobra()?'false':'true'})"><span class="knob"></span></button>
     </div>
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('receipt','Primeiros passos','Rever o tutorial de configuração inicial',"go('tutorial')",'#3b82f6')}

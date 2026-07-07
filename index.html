@@ -516,7 +516,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.53"; /* z4 */
+const APP_VER = "7.54"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4369,9 +4369,13 @@ async function aplicarEdicao(escopo, id){
         (l.data||'')>=(orig.data||'')
       );
     }
-    futuros.forEach(l=>{ Object.assign(l, patch); });
+    const _deltaDias = orig.data ? Math.round((new Date(row.data+'T00:00:00') - new Date(orig.data+'T00:00:00'))/86400000) : 0;
+    futuros.forEach(l=>{
+      const nd = (_deltaDias && l.data) ? ymd(new Date(new Date(l.data+'T00:00:00').getTime()+_deltaDias*86400000)) : l.data;
+      Object.assign(l, patch, {data:nd});
+    });
     render(); vibra();
-    for(const l of futuros){ try{ await dbUpdate('lancamentos', patch, 'id', l.id); }catch(e){} }
+    for(const l of futuros){ try{ await dbUpdate('lancamentos', {...patch, data:l.data}, 'id', l.id); }catch(e){} }
     window._edicaoPend=null; window._escopoEdicao=null;
     toast(`Alterado em ${futuros.length} mês(es) ✅`);
   }else{

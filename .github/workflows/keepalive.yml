@@ -1,6 +1,6 @@
 name: Supabase Keep-Alive
 
-# Mantém os projetos Supabase (Financeiro + Gestor 3D) acordados,
+# Mantém o projeto Supabase do Gestor Financeiro acordado,
 # evitando a pausa automática por inatividade do plano free.
 
 on:
@@ -19,11 +19,3 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.SUPABASE_FIN_ANON }}" \
             -H "Content-Type: application/json" -d '{}' \
             -w "\nFINANCEIRO -> HTTP %{http_code}\n"
-
-      - name: Ping Gestor 3D
-        run: |
-          curl -sS -X POST "https://bzeuyahlxtnxfniftqdy.supabase.co/rest/v1/rpc/keepalive" \
-            -H "apikey: ${{ secrets.SUPABASE_3D_ANON }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_3D_ANON }}" \
-            -H "Content-Type: application/json" -d '{}' \
-            -w "\n3D -> HTTP %{http_code}\n"

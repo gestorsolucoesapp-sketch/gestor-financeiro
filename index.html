@@ -516,7 +516,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.51"; /* z4 */
+const APP_VER = "7.52"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2487,7 +2487,7 @@ function renderHome(){
         <span class="note"><b style="color:var(--coral)">${brl(totT)}</b></span></div>`;
     tarefas.slice(0,5).forEach(l=>{
       bh+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:8px 0">
-        <div class="mid"><div class="t" style="font-size:13.5px">${esc(l.descricao)}${duePill(l)}</div>
+        <div class="mid"><div class="t" style="font-size:13.5px">${HIDEVAL?".....":esc(l.descricao)}${duePill(l)}</div>
         <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${brl(Number(l.valor))}</div></div>
         <button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Pagar</button></div>`;
     });
@@ -2522,7 +2522,7 @@ function renderHome(){
         <div class="dot" style="background:${tintBg(_cor)};color:${_cor};flex-shrink:0;width:34px;height:34px">${ICON(_nx.tipo==='cartao'?'card':'receipt',17)}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:800">Próxima conta a pagar</div>
-          <div style="font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_nx.nome)}</div>
+          <div style="font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${HIDEVAL?".....":esc(_nx.nome)}</div>
           <div class="note" style="font-size:11.5px">${quando} · ${new Date(_nx.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</div>
         </div>
         <b style="color:var(--red);white-space:nowrap">${brl(_nx.valor)}</b>
@@ -3028,7 +3028,7 @@ function rowLanc(l){
   const _pago = l.status==='pago' && !l.cartao_id && l.tipo!=='transferencia';
   return `<div class="lrow${_pago?' pago':''}" onclick="openLanc('${l.id}')">
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0"><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>${dias}</div>
-    <div class="mid"><div class="t">${esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt}${hora} · ${sub}</div></div>
+    <div class="mid"><div class="t">${HIDEVAL?'••••••':esc(l.descricao)}${parc}${fixo}${pend}</div><div class="s">${dt}${hora} · ${sub}</div></div>
     <div class="amt ${cls}">${sign}${brl(Number(l.valor)).replace('R$ ','R$ ')}</div>${chk}</div>`;
 }
 

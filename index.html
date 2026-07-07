@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.38"; /* z4 */
+const APP_VER = "7.39"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -833,7 +833,12 @@ function contaPassaScope(c){
 function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && contaPassaScope(c));}
 function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && contaPassaScope(c));}
 function contasPrincipais(){return contasScope().filter(c=>!c.eh_investimento);}
-function contasInvestimento(){return contasScope().filter(c=>c.eh_investimento);}
+function contasInvestimento(){return DATA.contas.filter(c=>{
+  if(c.arquivada||!srcOk(c.user_id)||!c.eh_investimento) return false;
+  if(scope==='familia') return c.incluir_principal===false;
+  if(scope==='tudo') return true;
+  return c.tipo===scope; // investimento entra no patrimônio mesmo com "não incluir no principal"
+});}
 function totalInvestidoContas(){return contasInvestimento().reduce((a,c)=>a+saldoConta(c.id),0);}
 function contasFamiliares(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && c.incluir_principal===false);}
 function cartoesPrincipais(){return cartoesScope();}

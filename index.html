@@ -100,11 +100,11 @@ body.modal-open .fab{display:none !important}
 .topbar .hi b{display:block;font-size:16px;font-weight:700;opacity:1}
 .iconbtn{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:18px}
-.seg{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:3px;gap:3px;margin-top:8px}
+.seg{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:3px;gap:3px;margin-top:6px}
 .segcap{display:none}
 .seg-sec{background:rgba(255,255,255,.07)}
-.seg-sec button{font-size:13px;padding:7px}
-.seg button{flex:1;padding:8px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
+.seg-sec button{font-size:13px;padding:5px}
+.seg button{flex:1;padding:6px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
 .content{flex:1;padding:16px;padding-bottom:210px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.45"; /* z4 */
+const APP_VER = "7.46"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2470,22 +2470,57 @@ function renderHome(){
     l.tipo==='despesa' && l.status==='pendente' && !l.cartao_id &&
     srcOk(l.user_id) && l.data<=_am
   ).sort((a,b)=>a.data<b.data?-1:1);
+  let _alertaHtml='';
   if(tarefas.length){
     const totT=tarefas.reduce((a,l)=>a+Number(l.valor),0);
-    let bh=`<div class="card" style="border:1.5px solid var(--coral);margin-bottom:0">
+    let bh=`<div class="card" style="border:1.5px solid var(--coral);margin-bottom:0;padding:13px 15px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <b style="font-size:14.5px">⚠️ Contas pra pagar</b>
         <span class="note"><b style="color:var(--coral)">${brl(totT)}</b></span></div>`;
     tarefas.slice(0,5).forEach(l=>{
-      bh+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:9px 0">
+      bh+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:8px 0">
         <div class="mid"><div class="t" style="font-size:13.5px">${esc(l.descricao)}${duePill(l)}</div>
         <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${brl(Number(l.valor))}</div></div>
         <button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Pagar</button></div>`;
     });
     if(tarefas.length>5) bh+=`<button class="lnk" style="margin-top:6px" onclick="verTrans('pendente')">Ver todas (${tarefas.length}) ›</button>`;
     bh+=`</div>`;
-    blocos.alerta=bh;
+    _alertaHtml+=bh;
   }
+  // próxima conta a pagar (despesa futura OU fatura de cartão) — a mais próxima, fora das atrasadas
+  (()=>{
+    const _fatMes=new Date(); _fatMes.setDate(1);
+    const _cands=[];
+    DATA.lancamentos.forEach(l=>{
+      if(l.tipo==='despesa' && l.status==='pendente' && !l.cartao_id && srcOk(l.user_id) && l.data>_am)
+        _cands.push({data:l.data, nome:l.descricao||'Conta', valor:Number(l.valor)||0, tap:`openLanc('${l.id}')`, tipo:'desp'});
+    });
+    cartoesScope().forEach(c=>{
+      const fat=faturaTotal(c.id,_fatMes);
+      if(fat>0 && !faturaPaga(c.id,_fatMes)){
+        const dias=diasParaVencCartao(c);
+        const due=new Date(); due.setHours(0,0,0,0); due.setDate(due.getDate()+dias);
+        _cands.push({data:ymd(due), nome:'Fatura '+c.nome, valor:fat, tap:`abrirFatura('${c.id}')`, tipo:'cartao'});
+      }
+    });
+    if(!_cands.length) return;
+    _cands.sort((a,b)=> a.data<b.data?-1:(a.data>b.data?1:0));
+    const _nx=_cands[0];
+    const dd=Math.round((new Date(_nx.data+'T00:00:00')-new Date(_hj+'T00:00:00'))/86400000);
+    const quando = dd<=0?'vence hoje':(dd===1?'vence amanhã':'vence em '+dd+' dias');
+    const _cor = _nx.tipo==='cartao'?'#7c5cff':'#e0a020';
+    _alertaHtml += `<div class="card" onclick="${_nx.tap}" style="cursor:pointer;padding:11px 13px;margin-bottom:0${_alertaHtml?';margin-top:10px':''}">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div class="dot" style="background:${tintBg(_cor)};color:${_cor};flex-shrink:0;width:34px;height:34px">${ICON(_nx.tipo==='cartao'?'card':'receipt',17)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:800">Próxima conta a pagar</div>
+          <div style="font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_nx.nome)}</div>
+          <div class="note" style="font-size:11.5px">${quando} · ${new Date(_nx.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</div>
+        </div>
+        <b style="color:var(--red);white-space:nowrap">${brl(_nx.valor)}</b>
+      </div></div>`;
+  })();
+  if(_alertaHtml) blocos.alerta=_alertaHtml;
 
   // bloco: saldo (hero)
   const _mesAntView=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1);

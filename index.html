@@ -434,6 +434,7 @@ body.scrolling .fab{opacity:.25}
       <div class="hi">Olá,<b id="userName">—</b></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="iconbtn hidden" id="cliBtn" onclick="go('clientes')" style="position:relative" title="Clientes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.3 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg><span id="cliBadge" class="badge hidden">0</span></button>
+        <button class="iconbtn" id="eyeBtn" onclick="toggleHideVal()" title="Ocultar valores"></button>
         <button class="iconbtn" id="bellBtn" onclick="abrirNotificacoes()" style="position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="bellBadge" class="badge hidden">0</span></button>
         <button class="iconbtn" onclick="doLogout()" title="Sair"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
@@ -515,7 +516,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.48"; /* z4 */
+const APP_VER = "7.49"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -562,7 +563,8 @@ const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00ce
 
 // ============ HELPERS ============
 const $=id=>document.getElementById(id);
-const brl=n=>(n<0?'-':'')+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+let HIDEVAL = localStorage.getItem('gf_hide_val')==='1';
+const brl=n=> HIDEVAL ? 'R$ ••••' : (n<0?'-':'')+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const mesNome=d=>{const s=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);};
 const ICON=(n,s=20)=>{const p={
   home:'<path d="M3.5 10.8L12 3.5l8.5 7.3"/><path d="M5.8 9.3V19a1.8 1.8 0 0 0 1.8 1.8h8.8A1.8 1.8 0 0 0 18.2 19V9.3"/><path d="M9.8 20.8v-5.6a1 1 0 0 1 1-1h2.4a1 1 0 0 1 1 1v5.6"/><path d="M16.2 6.6V4.4h1.9v3.8"/>',
@@ -1490,6 +1492,7 @@ async function afterLogin(userArg){
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
   updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
+  atualizarOlho();
   await loadAll();
   await carregarPrefs();
   applyTema(scope); updateIaFab();
@@ -1700,6 +1703,10 @@ async function maybeSeedCategorias(){
 
 // ============ NAV ============
 function setScope(s){scope=s;document.querySelectorAll('#scopeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.scope===s));applyTema(s);render();}
+const _EYE_ON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const _EYE_OFF='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function atualizarOlho(){ const b=$('eyeBtn'); if(b){ b.innerHTML = HIDEVAL?_EYE_OFF:_EYE_ON; b.style.opacity = HIDEVAL?'1':'.75'; } }
+function toggleHideVal(){ HIDEVAL=!HIDEVAL; localStorage.setItem('gf_hide_val',HIDEVAL?'1':'0'); atualizarOlho(); render(); toast(HIDEVAL?'Valores ocultos 👁️':'Valores visíveis'); }
 function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();updateIaFab();}
 let _lastRender=0, _renderPending=null;
 function render(){
@@ -2133,6 +2140,7 @@ function gastosDiariosPartner(d,ownerId){
   return arr;
 }
 function brlShort(v){
+  if(HIDEVAL) return '••••';
   const n=Math.round(Number(v)||0);
   return n.toLocaleString('pt-BR');
 }

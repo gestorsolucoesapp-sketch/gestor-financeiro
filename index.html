@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.44"; /* z4 */
+const APP_VER = "7.45"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -3101,11 +3101,11 @@ function renderFatura(){
     if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div></div>`;
     else html+=`<button class="btn" onclick="pagarFatura('${c.id}')" style="margin-bottom:12px">💳 Registrar pagamento da fatura</button>`;
   }
+  if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="ajustarFatura('${c.id}')" style="margin-bottom:12px">➕ Ajustar fatura (lançar algo que faltou)</button>`;
   html+=`<div class="card">`;
   if(!itens.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Sem lançamentos nesta fatura.</p></div>`;
   else itens.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
-  if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="ajustarFatura('${c.id}')">➕ Ajustar fatura (lançar algo que faltou)</button>`;
   if(souDono(c.user_id)) html+=`<button class="btn ghost" onclick="openCartao('${c.id}')">⚙️ Editar / excluir cartão</button>`;
   $('content').innerHTML=html;
 }

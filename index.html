@@ -264,8 +264,8 @@ body.scrolling .fab{opacity:.25}
 .sortable-placeholder{border:2px dashed var(--line-2);border-radius:var(--radius);margin-bottom:14px;box-sizing:border-box}
 .drag-handle{position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;z-index:6;font-size:18px;letter-spacing:1px;line-height:1;cursor:grab;border-radius:8px}
 .drag-handle:active{background:var(--input-bg)}
-.quick{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--ink)}
-.quick .qi{font-size:22px;margin-bottom:4px}
+.quick{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:9px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--ink)}
+.quick .qi{font-size:22px;margin-bottom:2px}
 /* barra receita x despesa no hero */
 .rdbar{display:flex;height:8px;border-radius:6px;overflow:hidden;margin:16px 0 4px;background:rgba(255,255,255,.18)}
 .rdrec{background:var(--hero-green)}.rddesp{background:var(--hero-red)}
@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.46"; /* z4 */
+const APP_VER = "7.47"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2563,9 +2563,9 @@ function renderHome(){
 
   // bloco: atalhos para CONSULTAR receitas, despesas e transferências
   blocos.lancrapido=`<div style="display:flex;gap:8px;margin-bottom:0">
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('despesa')"><div class="qi" style="color:var(--coral);font-size:20px;font-weight:800">−</div><div style="font-size:12px">Despesas</div></div>
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('receita')"><div class="qi" style="color:var(--mint);font-size:20px;font-weight:800">+</div><div style="font-size:12px">Receitas</div></div>
-    <div class="quick" style="flex:1;padding:12px 4px" onclick="verTrans('transferencia')"><div class="qi" style="color:#3b82f6">${ICON('swap',20)}</div><div style="font-size:12px">Transfer.</div></div>
+    <div class="quick" style="flex:1;padding:8px 4px" onclick="verTrans('despesa')"><div class="qi" style="color:var(--red);font-size:20px;font-weight:800">−</div><div style="font-size:12px">Despesas</div></div>
+    <div class="quick" style="flex:1;padding:8px 4px" onclick="verTrans('receita')"><div class="qi" style="color:var(--green);font-size:20px;font-weight:800">+</div><div style="font-size:12px">Receitas</div></div>
+    <div class="quick" style="flex:1;padding:8px 4px" onclick="verTrans('transferencia')"><div class="qi" style="color:var(--blue)">${ICON('swap',20)}</div><div style="font-size:12px">Transfer.</div></div>
   </div>`;
 
   // bloco: atalhos rápidos

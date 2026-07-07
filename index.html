@@ -516,7 +516,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.55"; /* z4 */
+const APP_VER = "7.56"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -2212,11 +2212,12 @@ function pctChartHTML(vals,titulo){
   html+=`</div></div>`;
   return html;
 }
-function daybarChartHTML(dias,titulo,nota,ownerFiltro){
+function daybarChartHTML(dias,titulo,nota,ownerFiltro,detalheFn){
   const maxD=Math.max(1,...dias.map(x=>x.valor));
   const hoje=new Date();
   const maxBarPx=110;
   const fk=ownerFiltro?`'${ownerFiltro}'`:'null';
+  const fn=detalheFn||'abrirDiaDetalhe';
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
   html+=`<div class="daybars">`;
@@ -2226,7 +2227,7 @@ function daybarChartHTML(dias,titulo,nota,ownerFiltro){
     const lab=x.valor?brlShort(x.valor):'';
     const inside=h>=26; // se a barra for alta o suficiente, valor entra dentro dela; senão fica em cima
     const delay=Math.min(idx*0.035,1.1);
-    html+=`<div class="daycol" onclick="abrirDiaDetalhe(${x.dia},${fk})">
+    html+=`<div class="daycol" onclick="${fn}(${x.dia},${fk})">
       ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
       <div class="daybar${isHoje?' hoje':''}" style="height:${h}px;animation-delay:${delay}s">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
       <div class="daylab">${x.dia}</div>
@@ -2259,6 +2260,55 @@ function abrirDiaDetalhe(dia,ownerFiltro){
       let hora='';
       if(l.criado_em){ hora=' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
       const parc=l.parcela?` <span class="pill neg">${l.parcela}/${l.parcelas}</span>`:'';
+      const fatLab=(l.cartao_id&&l.competencia)?` · fatura ${new Date(faturaYm(l.competencia,cartaoById(l.cartao_id))+'-01T00:00:00').toLocaleDateString('pt-BR',{month:'short'})}`:'';
+      h+=`<div class="lrow" style="cursor:default">
+        <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
+        <div class="mid"><div class="t">${esc(l.descricao)}${parc}${dono}</div><div class="s">${conta?esc(conta.nome):'Sem conta'}${hora}${cat?' · '+esc(cat.nome):''}${fatLab}</div></div>
+        <div class="amt r">${brl(Number(l.valor))}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  openSheet(h);
+}
+// Compras pelo DIA REAL da compra (soma tudo, inclusive todas as parcelas no dia em que comprou)
+function comprasPorDiaCompra(d,ownerId){
+  const diasNoMes=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
+    if(l.user_id!==ownerId) continue;
+    if(!l.data || !inMonth(l,d)) continue;
+    const dia=new Date(l.data+'T00:00:00').getDate();
+    if(arr[dia-1]) arr[dia-1].valor+=Number(l.valor)||0;
+  }
+  return arr;
+}
+// Detalhe do dia PELA DATA DA COMPRA — mostra hora e se foi parcelado
+function abrirDiaCompraDetalhe(dia,ownerFiltro){
+  const dataStr=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),dia));
+  const itens=DATA.lancamentos.filter(l=>{
+    if(l.tipo!=='despesa') return false;
+    if(ehLancQuitacao(l)) return false;
+    if(l.data!==dataStr) return false;
+    if(ownerFiltro) return l.user_id===ownerFiltro;
+    return l.user_id===USER.id || MYPARTNERS.some(p=>p.owner_id===l.user_id);
+  }).sort((a,b)=> (b.criado_em||'')<(a.criado_em||'')?-1:1);
+  const total=itens.reduce((a,l)=>a+Number(l.valor||0),0);
+  const dtLab=new Date(dataStr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});
+  let h=`<h2>${dtLab}</h2><div class="note" style="margin-top:-8px;margin-bottom:12px">Comprado neste dia: <b style="color:var(--coral)">${brl(total)}</b></div>`;
+  if(!itens.length){
+    h+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma compra nesse dia.</p></div>`;
+  }else{
+    h+=`<div class="card" style="margin:0">`;
+    itens.forEach(l=>{
+      const cat=catById(l.categoria_id);
+      const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
+      const vis=catVisual(cat,l.tipo);
+      const dono=(!ownerFiltro && l.user_id!==USER.id)?` <span class="pill neg">${esc(apelidoDe(l.user_id))}</span>`:'';
+      let hora='';
+      if(l.criado_em){ hora=' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+      const parc=l.parcela?` <span class="pill" style="background:rgba(124,92,255,.18);color:#7c5cff">parcelado ${l.parcela}/${l.parcelas}</span>`:'';
       const fatLab=(l.cartao_id&&l.competencia)?` · fatura ${new Date(faturaYm(l.competencia,cartaoById(l.cartao_id))+'-01T00:00:00').toLocaleDateString('pt-BR',{month:'short'})}`:'';
       h+=`<div class="lrow" style="cursor:default">
         <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
@@ -3630,14 +3680,20 @@ function renderRelatorios(){
   blocos.evolucao=bev;
   // BARRAS gastos diários — só os MEUS (o da Carol fica separado logo abaixo)
   const dias=gastosDiariosPartner(viewMonth,USER.id);
-  blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Só os seus gastos (conta e cartão), pelo dia da compra. Toque numa barra pra ver os detalhes.', USER.id);
+  blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Cartão conta no mês da fatura. Toque numa barra pra ver os detalhes.', USER.id);
+  const comprasMe=comprasPorDiaCompra(viewMonth,USER.id);
+  blocos.comprasdia=daybarChartHTML(comprasMe, `Compras por dia — Meus · ${mesNome(viewMonth)}`, 'Pelo dia REAL da compra (parcela entra no dia que comprou). Toque — mostra se foi parcelado.', USER.id, 'abrirDiaCompraDetalhe');
   // BARRAS gastos diários por parceiro (ex: só da Carol)
-  const defaultOrder=['diario'];
+  const defaultOrder=['diario','comprasdia'];
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
     const key='diario_'+p.owner_id;
-    blocos[key]=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)}, dia a dia. Toque numa barra pra ver os detalhes.`, p.owner_id);
+    blocos[key]=daybarChartHTML(diasP, `Gastos diários — ${esc(p.apelido)}`, `Só os gastos de ${esc(p.apelido)} — cartão conta no mês da fatura. Toque pra ver.`, p.owner_id);
     defaultOrder.push(key);
+    const comprasP=comprasPorDiaCompra(viewMonth,p.owner_id);
+    const keyC='comprasdia_'+p.owner_id;
+    blocos[keyC]=daybarChartHTML(comprasP, `Compras por dia — ${esc(p.apelido)}`, `Pelo dia real da compra (parcela no dia que comprou). Toque — mostra se foi parcelado.`, p.owner_id, 'abrirDiaCompraDetalhe');
+    defaultOrder.push(keyC);
   });
   defaultOrder.push('categoria','evolucao');
   MYPARTNERS.forEach(p=>{

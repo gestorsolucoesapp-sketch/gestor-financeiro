@@ -515,7 +515,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.39"; /* z4 */
+const APP_VER = "7.40"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -877,7 +877,7 @@ function balancoFechamento(d){
   const sd=saidasMes(d);
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  return tot + b.recPend - (sd.aPagar + gcRest + faltaConj);
+  return tot + b.recPend - (sd.aPagar + gcRest + (sd.invPend||0) + faltaConj);
 }
 function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
@@ -2339,7 +2339,7 @@ function balancoMes(d){
 function saidasMes(d){
   const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
   const viewingPartner = (source!=='eu' && source!=='casal'); // source = owner_id de um parceiro
-  let pagas=0,aPagar=0,invest=0, conj=0, pagFat=0;
+  let pagas=0,aPagar=0,invest=0, conj=0, pagFat=0, invPend=0;
   for(const l of DATA.lancamentos){
     if(l.cartao_id) continue;
     const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
@@ -2374,7 +2374,7 @@ function saidasMes(d){
       else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta||conta.tipo!==scope)) continue; }
       bucket = (l.status==='pago'?'pagas':'aPagar');
     } else continue;
-    if(bucket==='pagas'){ pagas+=val; } else if(bucket==='aPagar') aPagar+=val; else if(bucket==='invest') invest+=val;
+    if(bucket==='pagas'){ pagas+=val; } else if(bucket==='aPagar') aPagar+=val; else if(bucket==='invest'){ invest+=val; if(l.status!=='pago') invPend+=val; }
   }
   // Cartões do cônjuge também entram no total "Gasto · Cônjuge" (não duplicam em "Gastos no cartão")
   let pagoConj=0;
@@ -2397,7 +2397,7 @@ function saidasMes(d){
       if(dest && partnerIds.includes(dest.user_id)) pagoConj += Number(l.valor)||0;
     }
   }
-  return {pagas,aPagar,invest, conjuge:conj, pagoConjuge:pagoConj, pagFatura:pagFat};
+  return {pagas,aPagar,invest, invPend, conjuge:conj, pagoConjuge:pagoConj, pagFatura:pagFat};
 }
 function gastoCartaoMes(d){
   const ym=ymd(firstOfMonth(d)).slice(0,7);
@@ -2426,8 +2426,16 @@ function renderHome(){
   const totalGastos=sd.pagas+sd.aPagar+gc+sd.conjuge; // investimento NÃO é gasto (é patrimônio)
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  // Balanço = recursos totais que tenho: contas + investimento (patrimônio). [def. João v7.38]
-  const balCard=patrimonioTotal();
+  // Balanço [def. João]: recursos (saldo + a receber) − o que ainda vai sair (a pagar + cartão restante + aporte de investimento AINDA VIRTUAL + falta do cônjuge).
+  // Aporte já efetivado não desconta de novo (o saldo já caiu). Mês futuro = resultado do mês.
+  let balCard;
+  if(_futuro){
+    let saidasMesTot=sd.aPagar+gcRest+(sd.conjuge||0);
+    if(projInvest()) saidasMesTot+=(sd.invest||0);
+    balCard=b.rec-saidasMesTot;
+  }else{
+    balCard=tot+b.recPend-(sd.aPagar+gcRest+(sd.invPend||0)+faltaConj);
+  }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
   const recents=DATA.lancamentos.filter(l=>{

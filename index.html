@@ -280,6 +280,11 @@ body.scrolling .fab{opacity:.25}
 .bar{width:11px;border-radius:4px 4px 0 0;min-height:2px;transform-origin:bottom;animation:barGrow .55s cubic-bezier(.22,1,.36,1) both}
 .bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
+/* barras 24 meses — rolagem horizontal */
+.hbarwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 4px;scrollbar-width:thin}
+.hbars{display:flex;align-items:flex-end;height:110px;gap:9px;min-width:max-content;padding-top:2px}
+.barcolH{flex:0 0 auto;width:30px}
+.barcolH .barlab{line-height:1.15;text-align:center}
 .daybars{display:flex;align-items:flex-end;height:170px;gap:6px;overflow-x:auto;padding:22px 4px 2px;overflow-y:visible}
 .daycol{flex:0 0 auto;width:30px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative}
 .daybar{width:24px;border-radius:5px 5px 0 0;min-height:4px;background:var(--bar-desp);display:flex;align-items:center;justify-content:center;transform-origin:bottom;animation:barGrow .6s cubic-bezier(.22,1,.36,1) both}
@@ -517,7 +522,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.58"; /* z4 */
+const APP_VER = "7.59"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1555,20 +1560,42 @@ async function afterLogin(userArg){
   }
 }
 // ---- NOTIFICAÇÕES (tempo real do parceiro) ----
-let _rtChannel=null;
+let _rtChannel=null, _rtTimer=null, _rtPendingWhileModal=false, _rtSyncing=false;
+// Sync total em tempo real (multi-aparelho): recarrega+re-renderiza com debounce,
+// pulando enquanto tiver modal/sheet aberto (não interrompe edição). Retoma ao fechar.
+function _rtAgendarSync(){
+  if(document.body.classList.contains('modal-open')){ _rtPendingWhileModal=true; return; }
+  clearTimeout(_rtTimer);
+  _rtTimer=setTimeout(async()=>{
+    if(document.body.classList.contains('modal-open')){ _rtPendingWhileModal=true; return; }
+    if(_rtSyncing || !navigator.onLine || _demoNovo) return;
+    _rtSyncing=true;
+    try{ await loadAll(); if(['home','trans','relatorios','contas','cartoes'].includes(tab)) render(); }
+    catch(e){}
+    finally{ _rtSyncing=false; }
+  }, 700);
+}
+function _rtResumeIfPending(){ if(_rtPendingWhileModal){ _rtPendingWhileModal=false; _rtAgendarSync(); } }
 function iniciarRealtime(){
   try{ if(_rtChannel) sb.removeChannel(_rtChannel); }catch(e){}
-  _rtChannel = sb.channel('lanc-rt')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'lancamentos'},payload=>{
-      const r=payload.new;
-      if(!r || r.user_id===USER.id) return;
-      if(!MYPARTNERS.some(p=>p.owner_id===r.user_id)) return;
-      if(!DATA.lancamentos.find(x=>x.id===r.id)) DATA.lancamentos.unshift(r);
-      const sinal = r.tipo==='receita'?'+':(r.tipo==='despesa'?'-':'');
-      toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor)));
-      updateBell();
-      if(['home','trans','relatorios','contas'].includes(tab)) render();
-    }).subscribe();
+  const tabelas=['lancamentos','contas','cartoes','categorias','orcamentos','investimentos','compartilhamentos'];
+  let ch=sb.channel('gf-sync-rt');
+  tabelas.forEach(t=>{
+    ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
+      // aviso de parceiro: só quando o parceiro INSERE um lançamento
+      if(t==='lancamentos' && payload.eventType==='INSERT'){
+        const r=payload.new;
+        if(r && r.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===r.user_id)){
+          if(!DATA.lancamentos.find(x=>x.id===r.id)) DATA.lancamentos.unshift(r);
+          const sinal=r.tipo==='receita'?'+':(r.tipo==='despesa'?'-':'');
+          toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor)));
+          updateBell();
+        }
+      }
+      _rtAgendarSync();
+    });
+  });
+  _rtChannel=ch.subscribe();
 }
 function notifSeenAt(){ try{ return localStorage.getItem('notifSeen_'+USER.id)||'1970-01-01'; }catch(e){ return '1970-01-01'; } }
 function setNotifSeen(){ try{ localStorage.setItem('notifSeen_'+USER.id, new Date().toISOString()); }catch(e){} }
@@ -2135,6 +2162,30 @@ function evolucaoMeses(n,allSources){
     out.push({mes:d,rec,desp});
   }
   return out;
+}
+// Receitas x Despesas — 24 meses, rolagem horizontal (2 anos até o mês selecionado)
+function evolucao24HTML(){
+  const ev=evolucaoMeses(24);
+  const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
+  const totRec=ev.reduce((a,m)=>a+m.rec,0);
+  const totDesp=ev.reduce((a,m)=>a+m.desp,0);
+  const saldo=totRec-totDesp;
+  let h=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 2px;font-size:15px">Receitas x Despesas — 24 meses</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Arraste para o lado ↔ · saldo do período <b style="color:${saldo>=0?'var(--bar-rec)':'var(--bar-desp)'}">${brl(saldo)}</b></div>
+    <div class="hbarwrap"><div class="hbars">`;
+  let lastYear=null;
+  ev.forEach(m=>{
+    const hr=Math.round(m.rec/maxV*90), hd=Math.round(m.desp/maxV*90);
+    const yr=m.mes.getFullYear();
+    const mesLab=m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+    const showYr=(yr!==lastYear); lastYear=yr;
+    h+=`<div class="barcol barcolH" title="${mesNome(m.mes)}&#10;Receitas ${brl(m.rec)}&#10;Despesas ${brl(m.desp)}">
+      <div class="barpair"><div class="bar rec" style="height:${hr}px"></div><div class="bar desp" style="height:${hd}px"></div></div>
+      <div class="barlab">${mesLab}${showYr?`<br><span style="font-size:9px;opacity:.7">${String(yr).slice(2)}</span>`:''}</div>
+    </div>`;
+  });
+  h+=`</div></div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
+  return h;
 }
 // Gastos diários de um parceiro específico (ex: só da Carol), sempre pela data da compra
 // No relatório diário, despesa de cartão pertence ao mês da FATURA (competência), não ao dia da compra.
@@ -3699,6 +3750,7 @@ function renderRelatorios(){
   });
   bev+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
   blocos.evolucao=bev;
+  blocos.evolucao24=evolucao24HTML();
   // BARRAS gastos diários — só os MEUS (o da Carol fica separado logo abaixo)
   const dias=gastosDiariosPartner(viewMonth,USER.id);
   blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Cartão conta no mês da fatura. Toque numa barra pra ver os detalhes.', USER.id);
@@ -3716,7 +3768,7 @@ function renderRelatorios(){
     blocos[keyC]=daybarChartHTML(comprasP, `Compras por dia — ${esc(p.apelido)}`, `Pelo dia real da compra (parcela no dia que comprou). Toque — mostra se foi parcelado.`, p.owner_id, 'abrirDiaCompraDetalhe');
     defaultOrder.push(keyC);
   });
-  defaultOrder.push('categoria','evolucao');
+  defaultOrder.push('categoria','evolucao','evolucao24');
   MYPARTNERS.forEach(p=>{
     // gastos anuais + variação % mês a mês (mais pra baixo)
     const ano=viewMonth.getFullYear();
@@ -3736,6 +3788,7 @@ function renderRelatorios(){
   html+=`<button class="btn outline" onclick="compartilharResumo()">📲 Compartilhar resumo do mês no WhatsApp</button>`;
   $('content').innerHTML=html;
   makeSortable('relSortable','gf_order_relatorios');
+  requestAnimationFrame(()=>{ const w=document.querySelector('.hbarwrap'); if(w) w.scrollLeft=w.scrollWidth; });
 }
 function compartilharResumo(){
   const b=balancoMes(viewMonth);
@@ -3951,7 +4004,7 @@ function openSheet(inner){
   $('modalRoot').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grip"></div><button class="sheet-x" onclick="closeSheet()" aria-label="Fechar">✕</button><div class="sheet-scroll">${inner}</div></div></div>`;
   document.body.classList.add('modal-open');
 }
-function closeSheet(){window._addLoop=null;$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');}
+function closeSheet(){window._addLoop=null;$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');try{_rtResumeIfPending();}catch(e){}}
 
 // ---- LANÇAMENTO ----
 let lancType='despesa';
@@ -3965,6 +4018,7 @@ function closeAddMenu(){
   const m=$('addMenu'); if(m)m.classList.add('hidden');
   document.body.classList.remove('modal-open');
   const f=$('fab'); if(f)f.classList.remove('hidden');
+  try{_rtResumeIfPending();}catch(e){}
 }
 function pickAdd(tipo){
   closeAddMenu();

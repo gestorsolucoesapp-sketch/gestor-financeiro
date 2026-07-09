@@ -522,7 +522,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.59"; /* z4 */
+const APP_VER = "7.60"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1527,6 +1527,7 @@ async function afterLogin(userArg){
   go(obDone()?'home':'tutorial');
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
+  setTimeout(()=>{ try{ checarVersaoNova(true); }catch(e){} }, 4000);
   checkBancoURL();
   updateOfflinePill();
   flushOutbox();
@@ -2165,13 +2166,32 @@ function evolucaoMeses(n,allSources){
 }
 // Receitas x Despesas — 24 meses, rolagem horizontal (2 anos até o mês selecionado)
 function evolucao24HTML(){
-  const ev=evolucaoMeses(24);
+  // PROJEÇÃO pra frente: do mês atual até o último mês que tem receita lançada (máx 24 meses).
+  const base=new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  const N=24, all=[];
+  for(let i=0;i<N;i++){
+    const d=new Date(base.getFullYear(), base.getMonth()+i, 1);
+    let rec=0,desp=0;
+    for(const l of DATA.lancamentos){
+      if(l.tipo==='transferencia') continue;
+      if(!inMonthRep(l,d)) continue;
+      if(!noScope(l)) continue;
+      if(l.tipo==='receita') rec+=Number(l.valor)||0; else { if(!ehLancQuitacao(l)) desp+=Number(l.valor)||0; }
+    }
+    all.push({mes:d,rec,desp});
+  }
+  // corta no último mês com RECEITA; garante um horizonte mínimo de 6 meses
+  let lastRec=-1, lastAny=-1;
+  all.forEach((m,i)=>{ if(m.rec>0) lastRec=i; if(m.rec>0||m.desp>0) lastAny=i; });
+  let endIdx = lastRec>=0 ? lastRec : (lastAny>=0 ? lastAny : 0);
+  endIdx = Math.max(endIdx, 5);
+  const ev=all.slice(0, Math.min(endIdx+1, N));
   const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
   const totRec=ev.reduce((a,m)=>a+m.rec,0);
   const totDesp=ev.reduce((a,m)=>a+m.desp,0);
   const saldo=totRec-totDesp;
-  let h=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 2px;font-size:15px">Receitas x Despesas — 24 meses</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Arraste para o lado ↔ · saldo do período <b style="color:${saldo>=0?'var(--bar-rec)':'var(--bar-desp)'}">${brl(saldo)}</b></div>
+  let h=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 2px;font-size:15px">Receitas x Despesas — próximos ${ev.length} meses</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Projeção do mês atual pra frente ↔ · saldo do período <b style="color:${saldo>=0?'var(--bar-rec)':'var(--bar-desp)'}">${brl(saldo)}</b></div>
     <div class="hbarwrap"><div class="hbars">`;
   let lastYear=null;
   ev.forEach(m=>{
@@ -3788,7 +3808,7 @@ function renderRelatorios(){
   html+=`<button class="btn outline" onclick="compartilharResumo()">📲 Compartilhar resumo do mês no WhatsApp</button>`;
   $('content').innerHTML=html;
   makeSortable('relSortable','gf_order_relatorios');
-  requestAnimationFrame(()=>{ const w=document.querySelector('.hbarwrap'); if(w) w.scrollLeft=w.scrollWidth; });
+  requestAnimationFrame(()=>{ const w=document.querySelector('.hbarwrap'); if(w) w.scrollLeft=0; });
 }
 function compartilharResumo(){
   const b=balancoMes(viewMonth);
@@ -5026,6 +5046,47 @@ async function commitImport(){
 
 // ============ INSTALAÇÃO (PWA) ============
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+// ============ AUTO-ATUALIZAÇÃO (força versão nova sem fechar/abrir) ============
+let _updChecking=false, _reloadingForUpdate=false, _updLastCheck=0, _hadController=false;
+try{ _hadController = !!(navigator.serviceWorker && navigator.serviceWorker.controller); }catch(e){}
+function _updReloadedRecently(){ try{ return (Date.now()-(+sessionStorage.getItem('gf_upd_reload')||0))<25000; }catch(e){ return false; } }
+function _forcarReload(nv){
+  if(_reloadingForUpdate || _updReloadedRecently()) return;
+  _reloadingForUpdate=true;
+  try{ sessionStorage.setItem('gf_upd_reload', String(Date.now())); }catch(e){}
+  if(nv) toast('🔄 Nova versão '+nv+' — atualizando…');
+  (async()=>{
+    try{ if('caches' in window){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+    try{ const reg=await navigator.serviceWorker.getRegistration(); if(reg) await reg.update(); }catch(e){}
+    setTimeout(()=>location.reload(), nv?800:200);
+  })();
+}
+async function checarVersaoNova(force){
+  const agora=Date.now();
+  if(_updChecking || _reloadingForUpdate || !navigator.onLine) return;
+  if(!force && agora-_updLastCheck<20000) return; // no máx 1x a cada 20s
+  _updLastCheck=agora; _updChecking=true;
+  try{
+    const r=await fetch('version.json?_v='+agora, {cache:'no-store'});
+    if(r && r.ok){
+      const j=await r.json().catch(()=>null);
+      const nv=j && (j.ver||j.version);
+      if(nv && nv!==APP_VER && !_updReloadedRecently()) _forcarReload(nv);
+    }
+  }catch(e){}
+  finally{ _updChecking=false; }
+}
+// recheca ao voltar pro primeiro plano, ao reconectar e de tempos em tempos
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checarVersaoNova(); });
+window.addEventListener('online', ()=>checarVersaoNova(true));
+setInterval(()=>{ if(document.visibilityState==='visible') checarVersaoNova(); }, 5*60*1000);
+// se um novo service worker assumir o controle, recarrega uma vez (ignora o 1º claim da instalação)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(!_hadController){ _hadController=true; return; }
+    _forcarReload();
+  });
+}
 window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); _deferredPrompt=e; });
 function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
 function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }

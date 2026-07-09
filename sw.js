@@ -1,5 +1,5 @@
 // Gestor Soluções · Service Worker (offline shell + push)
-const CACHE = 'gf-shell-v58';
+const CACHE = 'gf-shell-v59';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
@@ -27,6 +27,11 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return; // gravações do Supabase (POST/PATCH) passam direto
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
+  // marcador de versão → sempre da rede, nunca cacheia (auto-update)
+  if (sameOrigin && url.pathname.endsWith('version.json')) {
+    e.respondWith(fetch(req, { cache: 'no-store' }).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
+    return;
+  }
   // Imagens (logos de bancos etc) → cache-first, qualquer origem
   if (req.destination === 'image') {
     e.respondWith(

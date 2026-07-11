@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.61"; /* z4 */
+const APP_VER = "7.62"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4133,7 +4133,8 @@ function openImportBanco(){
     </p>
     <textarea id="impTxt" rows="9" placeholder="Cole aqui as mensagens do banco…&#10;&#10;Ex.: Sua compra no cartão final 3969 no valor de R$ 138,50, dia 10/07/2026 às 22:23, em SandraMara, foi aprovada."
       style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.4"></textarea>
-    <button class="btn" style="margin-top:12px" onclick="analisarImport()">Analisar mensagens</button>`);
+    <button class="btn-sec" style="margin-top:10px" onclick="colarClipboard()">📋 Colar da área de transferência</button>
+    <button class="btn" style="margin-top:8px" onclick="analisarImport()">Analisar mensagens</button>`);
   setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
 }
 function analisarImport(){
@@ -4329,18 +4330,16 @@ function marcaDataChip(){
   [['dcHoje',v===hoje],['dcOntem',v===ontem],['dcOutros',v!==hoje&&v!==ontem]].forEach(([id,on])=>{const b=$(id);if(b)b.classList.toggle('on',!!on);});
   const ds=$('dataShow'); if(ds){ ds.textContent = v ? '📅 '+new Date(v+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}) : ''; }
 }
-function openColarBanco(){
-  openSheet(`
-    <h2>Colar do banco</h2>
-    <div class="note">Copie a mensagem do banco (notificação, SMS, Pix) e cole aqui. O app lê o valor, a data e o estabelecimento e preenche pra você confirmar.</div>
-    <div class="field" style="margin-top:10px"><textarea id="bancoTxt" rows="4" placeholder="Ex: Compra aprovada R$ 45,90 em PADARIA DOCE no cartão final 1234 em 27/06"></textarea></div>
-    <button class="btn outline" onclick="colarClipboard()">📋 Colar da área de transferência</button>
-    <button class="btn" onclick="lerBanco()">Ler e preencher</button>
-  `);
-}
+function openColarBanco(){ openImportBanco(); }
 async function colarClipboard(){
-  try{ const t=await navigator.clipboard.readText(); if(t&&t.trim()){$('bancoTxt').value=t; toast('Colado ✅');} else toast('Nada copiado ainda'); }
-  catch(e){ toast('Segure no campo e toque em "Colar"'); }
+  try{
+    const t=await navigator.clipboard.readText();
+    if(t && t.trim()){
+      const el=$('impTxt'); if(el) el.value=t;
+      toast('Colado ✅');
+      analisarImport();
+    } else toast('Nada copiado ainda');
+  }catch(e){ toast('Segure no campo e toque em "Colar"'); }
 }
 function parseBanco(txt){
   const t=txt.replace(/\s+/g,' ').trim();
@@ -4361,6 +4360,9 @@ function lerBanco(){
   closeSheet(); lerBancoTexto(txt);
 }
 function lerBancoTexto(txt){
+  const itens=parseNotifBanco(txt);
+  if(itens.length){ window._impItens=itens; renderPreviaImport(); toast('Confira e confirme 👇'); return; }
+  // fallback: parser simples de mensagem única
   const p=parseBanco(txt);
   if(!(p.valor>0)){toast('Não achei o valor (R$). Confira a mensagem.');return;}
   window._prefill={desc:p.desc,valor:p.valor,data:p.data};

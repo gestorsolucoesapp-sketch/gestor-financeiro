@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.70"; /* z4 */
+const APP_VER = "7.71"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1620,8 +1620,23 @@ function iniciarRealtime(){
         if(r && r.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===r.user_id)){
           if(!DATA.lancamentos.find(x=>x.id===r.id)) DATA.lancamentos.unshift(r);
           const sinal=r.tipo==='receita'?'+':(r.tipo==='despesa'?'-':'');
-          toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor)));
-          updateBell();
+          if(r.grupo_id){
+            // parcelas chegam em rajada: agrupa e mostra UM aviso só
+            window._rtGrupoBuf=window._rtGrupoBuf||{};
+            const buf=window._rtGrupoBuf;
+            if(buf[r.grupo_id]){ buf[r.grupo_id].n++; }
+            else{
+              buf[r.grupo_id]={n:1};
+              setTimeout(()=>{
+                const q=(buf[r.grupo_id]&&buf[r.grupo_id].n)||1; delete buf[r.grupo_id];
+                toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor))+(q>1?' ('+q+'x parcelado)':''));
+                updateBell();
+              }, 1000);
+            }
+          }else{
+            toast('🔔 '+apelidoDe(r.user_id)+': '+sinal+brl(Number(r.valor)));
+            updateBell();
+          }
         }
       }
       _rtAgendarSync();
@@ -1636,13 +1651,30 @@ function partnerLancs(){
     .filter(l=> l.user_id!==USER.id && MYPARTNERS.some(p=>p.owner_id===l.user_id))
     .sort((a,b)=> (b.criado_em||b.data) < (a.criado_em||a.data) ? -1 : 1);
 }
+// agrupa parcelas/recorrências do parceiro numa entrada só (grupo_id)
+function partnerLancsAgrupados(){
+  const out=[], porGrupo={};
+  partnerLancs().forEach(l=>{
+    if(l.grupo_id){
+      const g=porGrupo[l.grupo_id];
+      if(g){
+        g._qtd++; g._total+=Number(l.valor)||0;
+        if((l.parcela||999)<(g._rep.parcela||999)) g._rep=l;
+        return;
+      }
+      const novo={_rep:l,_qtd:1,_total:Number(l.valor)||0};
+      porGrupo[l.grupo_id]=novo; out.push(novo);
+    } else out.push({_rep:l,_qtd:1,_total:Number(l.valor)||0});
+  });
+  return out;
+}
 function updateBell(){
   const badge=$('bellBadge');
   if(badge){
     if(!MYPARTNERS.length){ badge.classList.add('hidden'); }
     else {
       const seen=notifSeenAt();
-      const n=partnerLancs().filter(l=> (l.criado_em||l.data) > seen).length;
+      const n=partnerLancsAgrupados().filter(g=> ((g._rep.criado_em||g._rep.data) > seen)).length;
       if(n>0){ badge.textContent=n>9?'9+':n; badge.classList.remove('hidden'); }
       else badge.classList.add('hidden');
     }
@@ -1675,7 +1707,7 @@ function aplicarCliBadge(total, badge){
   else badge.classList.add('hidden');
 }
 function abrirNotificacoes(){
-  const lista=partnerLancs().slice(0,10);
+  const lista=partnerLancsAgrupados().slice(0,10);
   let h=`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Notificações</h2><button class="btn ghost sm" style="margin:0;width:auto" onclick="closeSheet()">Fechar</button></div>`;
   if(MYPARTNERS.length && pushSuportado()){
     h+=`<button class="btn outline" style="margin:10px 0 12px" onclick="ativarPush()">🔔 Ativar aviso na tela bloqueada</button>`;
@@ -1687,7 +1719,8 @@ function abrirNotificacoes(){
   }else{
     const seen=notifSeenAt();
     h+=`<div class="card" style="margin-top:6px">`;
-    lista.forEach(l=>{
+    lista.forEach(g=>{
+      const l=g._rep;
       const cat=catById(l.categoria_id);
       const vis=catVisual(cat,l.tipo);
       const isNew=(l.criado_em||l.data)>seen;
@@ -1695,9 +1728,16 @@ function abrirNotificacoes(){
       const cls=l.tipo==='receita'?'g':(l.tipo==='despesa'?'r':'b');
       const dt=new Date((l.criado_em||l.data)).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
       const hr=l.criado_em?(' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})):'';
+      // parcelado: 1 linha com total + "Nx de R$..."; recorrente: valor mensal + selo
+      const ehParc = g._qtd>1 && (l.parcelas>1);
+      const ehRec  = g._qtd>1 && !(l.parcelas>1);
+      const selo = ehParc?`<span class="pill" style="background:#e8eefc;color:#3b5bdb;margin-left:6px">${l.parcelas}x</span>`
+                 : ehRec?`<span class="pill" style="margin-left:6px">recorrente</span>`:'';
+      const sub = ehParc?`${l.parcelas}x de ${brl(Number(l.valor))} · `:(ehRec?`${brl(Number(l.valor))}/mês · `:'');
+      const amt = ehParc?brl(g._total):(brl(Number(l.valor)));
       h+=`<div class="lrow"><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color};position:relative">${ICON(vis.icon,18)}${isNew?'<span style="position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--card)"></span>':''}</div>
-        <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}</div><div class="s">${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
-        <div class="amt ${cls}">${sinal}${brl(Number(l.valor))}</div></div>`;
+        <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}${selo}</div><div class="s">${sub}${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
+        <div class="amt ${cls}">${sinal}${amt}</div></div>`;
     });
     h+=`</div>`;
   }

@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.74"; /* z4 */
+const APP_VER = "7.75"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1852,6 +1852,7 @@ function _doRender(){
   else if(tab==='clientes')renderClientes();
   else if(tab==='tutorial')renderTutorial();
   injetarDemoBanner();
+  try{ centralizarHoje(); }catch(e){}
 }
 function injetarDemoBanner(){
   const old=$('demoBanner'); if(old) old.remove();
@@ -2371,22 +2372,34 @@ function pctChartHTML(vals,titulo){
   html+=`</div></div>`;
   return html;
 }
+// centraliza o dia de HOJE nos gráficos diários (roda depois do render)
+function centralizarHoje(){
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('.daybars.hasHoje').forEach(wrap=>{
+      const col=wrap.querySelector('.colHoje');
+      if(!col) return;
+      const alvo = col.offsetLeft - (wrap.clientWidth/2) + (col.offsetWidth/2);
+      wrap.scrollLeft = Math.max(0, alvo);
+    });
+  });
+}
 function daybarChartHTML(dias,titulo,nota,ownerFiltro,detalheFn){
   const maxD=Math.max(1,...dias.map(x=>x.valor));
   const hoje=new Date();
+  const mesAtual = hoje.getFullYear()===viewMonth.getFullYear() && hoje.getMonth()===viewMonth.getMonth();
   const maxBarPx=110;
   const fk=ownerFiltro?`'${ownerFiltro}'`:'null';
   const fn=detalheFn||'abrirDiaDetalhe';
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
-  html+=`<div class="daybars">`;
+  html+=`<div class="daybars${mesAtual?' hasHoje':''}">`;
   dias.forEach((x,idx)=>{
     const h=x.valor?Math.max(4,Math.round(x.valor/maxD*maxBarPx)):4;
     const isHoje=hoje.getFullYear()===viewMonth.getFullYear()&&hoje.getMonth()===viewMonth.getMonth()&&hoje.getDate()===x.dia;
     const lab=x.valor?brlShort(x.valor):'';
     const inside=h>=26; // se a barra for alta o suficiente, valor entra dentro dela; senão fica em cima
     const delay=Math.min(idx*0.035,1.1);
-    html+=`<div class="daycol" onclick="${fn}(${x.dia},${fk})">
+    html+=`<div class="daycol${isHoje?' colHoje':''}" onclick="${fn}(${x.dia},${fk})">
       ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
       <div class="daybar${isHoje?' hoje':''}" style="height:${h}px;animation-delay:${delay}s">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
       <div class="daylab">${x.dia}</div>
@@ -3901,6 +3914,7 @@ function renderRelatorios(){
   $('content').innerHTML=html;
   makeSortable('relSortable','gf_order_relatorios');
   requestAnimationFrame(()=>{ const w=document.querySelector('.hbarwrap'); if(w) w.scrollLeft=0; });
+  try{ centralizarHoje(); }catch(e){}
 }
 function compartilharResumo(){
   const b=balancoMes(viewMonth);

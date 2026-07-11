@@ -537,7 +537,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.81"; /* z4 */
+const APP_VER = "7.82"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4730,36 +4730,37 @@ function _normTxt(t){
 function sugerirCategoria(){
   const inp=$('lDesc'), sel=$('lCatSel'), note=$('catSugNote');
   if(!inp||!sel||!note) return;
-  // não atrapalha se o usuário já escolheu manualmente
-  if(sel.value && sel.value!=='' && window._catManual) { note.style.display='none'; return; }
+  if(sel.value && sel.value!=='' && window._catManual){ note.style.display='none'; return; }
   const q=_normTxt(inp.value);
   if(q.length<3){ note.style.display='none'; return; }
   const tipo=(lancType==='receita')?'receita':'despesa';
   const catsValidas=new Set(DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo===tipo).map(c=>c.id));
-  // pontua categorias por semelhança da descrição no histórico
-  const score={};
+  const STOP=new Set(['de','da','do','para','com','das','dos','por','uma','um','the','no','na']);
+  const qw=q.split(' ').filter(w=>w.length>2 && !STOP.has(w));
+  // melhor correspondência por categoria (não soma: evita categoria muito usada vencer no volume)
+  const best={};  // catId -> {pts, n}
   DATA.lancamentos.forEach(l=>{
     if(l.user_id!==USER.id || l.tipo!==tipo || !l.categoria_id) return;
     if(!catsValidas.has(l.categoria_id)) return;
-    const d=_normTxt(l.descricao);
-    if(!d) return;
+    const d=_normTxt(l.descricao); if(!d) return;
     let pts=0;
     if(d===q) pts=100;
-    else if(d.startsWith(q)||q.startsWith(d)) pts=60;
-    else if(d.includes(q)||q.includes(d)) pts=35;
-    else {
-      // palavras em comum (ex: "mercado extra" ~ "mercado")
-      const pd=new Set(d.split(' ').filter(w=>w.length>2));
-      const pq=q.split(' ').filter(w=>w.length>2);
-      const comum=pq.filter(w=>pd.has(w)).length;
-      if(comum) pts=18*comum;
+    else if(d.startsWith(q)||q.startsWith(d)) pts=70;
+    else if(d.includes(q)||q.includes(d)) pts=50;
+    else if(qw.length){
+      // só conta se TODAS as palavras significativas da busca aparecem
+      const dw=new Set(d.split(' ').filter(w=>w.length>2 && !STOP.has(w)));
+      if(qw.every(w=>dw.has(w))) pts=40;
     }
-    if(pts) score[l.categoria_id]=(score[l.categoria_id]||0)+pts;
+    if(pts<40) return;
+    const b=best[l.categoria_id];
+    if(!b) best[l.categoria_id]={pts,n:1};
+    else { b.n++; if(pts>b.pts) b.pts=pts; }
   });
-  const melhor=Object.entries(score).sort((a,b)=>b[1]-a[1])[0];
-  if(!melhor || melhor[1]<18){ note.style.display='none'; return; }
-  const cat=catById(melhor[0]); if(!cat){ note.style.display='none'; return; }
-  if(sel.value===cat.id){ note.style.display='none'; return; }
+  const rank=Object.entries(best).sort((a,b)=> (b[1].pts-a[1].pts) || (b[1].n-a[1].n));
+  if(!rank.length){ note.style.display='none'; return; }
+  const cat=catById(rank[0][0]);
+  if(!cat || sel.value===cat.id){ note.style.display='none'; return; }
   note.style.display='block';
   note.innerHTML=`💡 Sugestão: <b style="color:var(--emerald,#1f9d8a);cursor:pointer" onclick="aplicarCatSug('${cat.id}')">${cat.icone?cat.icone+' ':''}${esc(cat.nome)}</b> — toque pra usar`;
   window._catSug=cat.id;

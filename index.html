@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.62"; /* z4 */
+const APP_VER = "7.63"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4376,8 +4376,17 @@ function checkBancoURL(){
     let txt=u.searchParams.get('banco');
     if(!txt && location.hash.indexOf('banco=')>=0) txt=decodeURIComponent(location.hash.split('banco=')[1]||'');
     if(txt && txt.trim()){
+      // guarda antes de limpar a URL — sobrevive a reload do auto-update
+      try{ sessionStorage.setItem('gf_banco_pending', txt.trim()); }catch(e){}
       history.replaceState(null,'',location.pathname);
-      setTimeout(()=>lerBancoTexto(txt.trim()), 400);
+    }
+    let pend=null;
+    try{ pend=sessionStorage.getItem('gf_banco_pending'); }catch(e){}
+    if(pend && pend.trim()){
+      setTimeout(()=>{
+        try{ sessionStorage.removeItem('gf_banco_pending'); }catch(e){}
+        try{ lerBancoTexto(pend.trim()); }catch(e){}
+      }, 800);
     }
   }catch(e){}
 }

@@ -534,7 +534,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.78"; /* z4 */
+const APP_VER = "7.79"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4372,6 +4372,7 @@ function openLanc(id, preset){
       <button id="ttTransf" class="${lancType==='transferencia'?'on transf':''}" onclick="setLancType('transferencia')">Transfer.</button>
     </div>
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="sugerirCategoria()" onblur="sugerirCategoria()"><div class="note" id="catSugNote" style="display:none"></div></div>
+    <div id="lancCatWrap"></div>
     <div class="bigval" onclick="abrirCalc()">
       <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
       <div class="bv-num" id="lValDisplay">R$ 0,00</div>
@@ -4571,15 +4572,18 @@ function renderLancDynamic(e){
         <button id="meioAreceber" class="${window._meio==='areceber'?'on':''}" onclick="setMeio('areceber')">A receber</button></div></div>`;
     }
     h+=`<div id="meioWrap"></div>`;
-    // categoria
-    h+=`<div class="field"><label>Categoria</label>
+  }
+  $('lancDynamic').innerHTML=h;
+  // categoria fica logo abaixo da descrição
+  const catWrap=$('lancCatWrap');
+  if(catWrap){
+    catWrap.innerHTML = (lancType==='transferencia') ? '' : `<div class="field"><label>Categoria</label>
       <select id="lCatSel" onchange="onCatSelect(this.value)">
         <option value="" ${!e.categoria_id?'selected':''}>Selecione…</option>
         ${cats.map(c=>`<option value="${c.id}" ${e.categoria_id===c.id?'selected':''}>${c.icone?c.icone+' ':''}${esc(c.nome)}</option>`).join('')}
         <option value="__nova__">➕ Escrever nova categoria</option>
       </select></div>`;
   }
-  $('lancDynamic').innerHTML=h;
   if(lancType==='transferencia'){ updateDestContas(e); }
   if(lancType!=='transferencia'){
     window._catSel = e.categoria_id||null;

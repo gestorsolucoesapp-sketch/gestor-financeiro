@@ -72,6 +72,9 @@ input,select{font-family:inherit;font-size:16px}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
 .field input,.field select,.field textarea{width:100%;max-width:100%;min-width:0;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--input-bg);color:var(--ink);outline:none;font-family:inherit;font-size:15px}
+.field input[type=date]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;max-width:100%;min-height:48px;text-align:left}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+.field input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 body.modal-open{overflow:hidden}
 body.modal-open .fab{display:none !important}
 .field select{text-overflow:ellipsis}
@@ -534,7 +537,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.80"; /* z4 */
+const APP_VER = "7.81"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4378,10 +4381,10 @@ function openLanc(id, preset){
     </div>
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="sugerirCategoria()" onblur="sugerirCategoria()"><div class="note" id="catSugNote" style="display:none"></div></div>
     <div id="lancCatWrap"></div>
+    <div id="lancDynamic"></div>
     <div class="field"><label>Data</label>
       <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
     </div>
-    <div id="lancDynamic"></div>
     <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>
       <div class="seg2"><button id="stPago" class="${e.status==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
       <button id="stPend" class="${e.status==='pendente'?'on':''}" onclick="setStatus('pendente')">Pendente</button></div>

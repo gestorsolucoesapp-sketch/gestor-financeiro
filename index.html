@@ -280,6 +280,17 @@ body.scrolling .fab{opacity:.25}
 .bar{width:11px;border-radius:4px 4px 0 0;min-height:2px;transform-origin:bottom;animation:barGrow .55s cubic-bezier(.22,1,.36,1) both}
 .bar.rec{background:var(--bar-rec)}.bar.desp{background:var(--bar-desp)}
 .barlab{font-size:10px;color:var(--muted);margin-top:6px;text-transform:capitalize}
+/* importar do banco */
+.impCard{border:1px solid var(--line-2);border-radius:14px;padding:10px 12px;margin-bottom:10px;background:var(--card-2,rgba(255,255,255,.02))}
+.impCard.off{opacity:.45}
+.impCard.dup{border-color:#e0a020}
+.impTop{display:flex;align-items:center;gap:10px}
+.impTop .impV{margin-left:auto;font-weight:700;font-size:15px}
+.impTag{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+.impGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.impGrid .full{grid-column:1/-1}
+.impCard input,.impCard select{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:13px}
+.impWarn{font-size:11px;color:#e0a020;margin-top:6px}
 /* barras 24 meses — rolagem horizontal */
 .hbarwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 4px;scrollbar-width:thin}
 .hbars{display:flex;align-items:flex-end;height:110px;gap:9px;min-width:max-content;padding-top:2px}
@@ -522,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.60"; /* z4 */
+const APP_VER = "7.61"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -3427,6 +3438,7 @@ function renderConfig(){
     ${hubItem('trend','Investimentos','Poupança, renda fixa e patrimônio',"go('investimentos')",'#2f8f66')}
     ${hubItem('bank','Contas','Suas contas e saldos',"go('contas')",'#1f9d8a')}
     ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
+    ${hubItem('download','Importar do banco','Cole as notificações do banco e lance automático',"openImportBanco()",'#e0a020')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
     ${temaRow('claro','Modo claro','Tema claro sempre',ICON('sun',20),'#e0a020')}
@@ -4025,6 +4037,194 @@ function openSheet(inner){
   document.body.classList.add('modal-open');
 }
 function closeSheet(){window._addLoop=null;$('modalRoot').innerHTML='';document.body.classList.remove('modal-open');try{_rtResumeIfPending();}catch(e){}}
+
+// ================= IMPORTAR NOTIFICAÇÕES DO BANCO =================
+const MAPFINAL_KEY='gf_map_cartao_final';
+function mapFinal(){ try{ return JSON.parse(localStorage.getItem(MAPFINAL_KEY)||'{}'); }catch(e){ return {}; } }
+function setMapFinal(f,cid){ try{ const m=mapFinal(); m[f]=cid; localStorage.setItem(MAPFINAL_KEY,JSON.stringify(m)); }catch(e){} }
+function _num(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.'))||0; }
+function _capWords(s){
+  return String(s).replace(/\s+/g,' ').trim().toLowerCase()
+    .replace(/\b([a-zà-ú])([a-zà-ú]*)/g,(m,a,b)=>a.toUpperCase()+b).slice(0,60);
+}
+// Parser genérico de notificação bancária (C6, Nubank, Itaú, Bradesco, etc.)
+function parseNotifBanco(txt){
+  const itens=[];
+  if(!txt || !txt.trim()) return itens;
+  const norm=String(txt).replace(/\u00A0/g,' ').replace(/\r/g,'\n');
+  // quebra em frases: por linha e por ponto final seguido de maiúscula
+  const brutos=[];
+  norm.split('\n').forEach(l=>{
+    l=l.trim(); if(!l) return;
+    l.split(/(?<=\.)\s+(?=[A-ZÀ-Ú])/).forEach(s=>{ s=s.trim(); if(s) brutos.push(s); });
+  });
+  const RE_VAL=/R\$\s*([\d.]{1,15},\d{2})/i;
+  const RE_PROMO=/toque para|aproveite|comece hoje|invista|investir|libere limite|limite garantido|conte com|simule|contrate|rende|cdi|cdb|poupança|a partir de|acumular pontos|e agora\?/i;
+  const RE_RECEITA=/pix recebido|recebeu um pix|voc[êe] recebeu|cr[ée]dito recebido|dep[óo]sito|ted recebida|transfer[êe]ncia recebida|entrada de|sal[áa]rio/i;
+  const RE_FORTE=/(compra|transa[çc][ãa]o).{0,60}(aprovad|realizad|autorizad)|compra no (cr[ée]dito|d[ée]bito)|foi aprovad|pix (recebido|enviado)|voc[êe] recebeu um pix|pagamento[\s\S]{0,120}?(realizad|efetuad|processad)|boleto[\s\S]{0,120}?(pago|realizad)|d[ée]bito de|saque de|transfer[êe]ncia (recebida|enviada)|fatura[\s\S]{0,60}?(paga|fechad)/i;
+  const vistos=new Set();
+  brutos.forEach(seg=>{
+    const mv=seg.match(RE_VAL); if(!mv) return;
+    const forte=RE_FORTE.test(seg);
+    if(!forte) return;                       // sem verbo de transação → ignora
+    if(RE_PROMO.test(seg) && !forte) return; // propaganda
+    const valor=_num(mv[1]); if(!(valor>0)) return;
+
+    const ehReceita=RE_RECEITA.test(seg);
+    // data
+    let data=null;
+    const md=seg.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    const md2=seg.match(/(\d{2})\/(\d{2})(?!\/)/);
+    if(md) data=`${md[3]}-${md[2]}-${md[1]}`;
+    else if(md2){ const y=new Date().getFullYear(); data=`${y}-${md2[2]}-${md2[1]}`; }
+    else data=ymd(new Date());
+    // final do cartão
+    const mf=seg.match(/final\s*(\d{4})/i);
+    const finalCart=mf?mf[1]:null;
+    // descrição / estabelecimento
+    let desc='';
+    let me=seg.match(/,?\s*em\s+(.+?)(?:,\s*(?:foi|no valor|em)\b|\.\s*$|$)/i);
+    if(ehReceita){
+      // pagador: pega o "de <NOME>" que NÃO seja "de R$ ..." nem "de valor"
+      let pag=null;
+      const todos=[...seg.matchAll(/\bde\s+([^,.;]{3,60})/gi)];
+      for(const m of todos){
+        const c=m[1].trim();
+        if(/^R\$|^\d|^valor\b|^liquidez|^hoje\b/i.test(c)) continue;
+        pag=c.replace(/\s+CNPJ.*$/i,'').replace(/\s+CPF.*$/i,'').trim();
+        break;
+      }
+      desc=pag?_capWords(pag):'Recebimento';
+    }else if(/boleto/i.test(seg)) desc='Boleto';
+    else if(/fatura/i.test(seg)) desc='Fatura';
+    else if(me && me[1] && !/^\d{2}\/\d{2}/.test(me[1])) desc=_capWords(me[1]);
+    else desc = ehReceita?'Recebimento':'Compra';
+    if(!desc) desc = ehReceita?'Recebimento':'Compra';
+
+    const chave=`${ehReceita?'r':'d'}|${valor.toFixed(2)}|${data}|${desc}`;
+    if(vistos.has(chave)) return; vistos.add(chave);
+
+    // duplicado do que já existe no app?
+    const dup=DATA.lancamentos.some(l=>
+      l.tipo===(ehReceita?'receita':'despesa') &&
+      Math.abs(Number(l.valor)-valor)<0.005 &&
+      String(l.data)===data
+    );
+    // cartão memorizado pelo final
+    const mapa=mapFinal();
+    const cartaoSug = finalCart && mapa[finalCart] && cartaoById(mapa[finalCart]) ? mapa[finalCart] : '';
+    itens.push({
+      tipo: ehReceita?'receita':'despesa',
+      viaCartao: !!finalCart,
+      finalCart, desc, valor, data, dup,
+      incluir: !dup,
+      cartao_id: cartaoSug,
+      conta_id: (DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado)[0]||{}).id||'',
+      categoria_id: ''
+    });
+  });
+  return itens;
+}
+function openImportBanco(){
+  openSheet(`<h2 style="margin:0 0 4px">📥 Importar do banco</h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.45">
+      Copie as notificações do banco (segure a notificação → copiar, ou copie do app/extrato) e <b>cole aqui</b>.
+      Pode colar várias de uma vez. Eu identifico valor, data e estabelecimento — e você confirma antes de importar.
+    </p>
+    <textarea id="impTxt" rows="9" placeholder="Cole aqui as mensagens do banco…&#10;&#10;Ex.: Sua compra no cartão final 3969 no valor de R$ 138,50, dia 10/07/2026 às 22:23, em SandraMara, foi aprovada."
+      style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.4"></textarea>
+    <button class="btn" style="margin-top:12px" onclick="analisarImport()">Analisar mensagens</button>`);
+  setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
+}
+function analisarImport(){
+  const txt=($('impTxt')&&$('impTxt').value)||'';
+  const itens=parseNotifBanco(txt);
+  if(!itens.length){
+    toast('Não achei nenhuma transação no texto 🤔');
+    return;
+  }
+  window._impItens=itens;
+  renderPreviaImport();
+}
+function _optsCartoes(sel){
+  const cs=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  return `<option value="">— escolher cartão —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${c.nome}</option>`).join('');
+}
+function _optsContas(sel){
+  const cs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  return cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${c.nome}</option>`).join('');
+}
+function _optsCats(tipo,sel){
+  const cs=DATA.categorias.filter(c=>c.user_id===USER.id&&(c.tipo===tipo||!c.tipo));
+  return `<option value="">— sem categoria —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${(c.icone||'')} ${c.nome}</option>`).join('');
+}
+function renderPreviaImport(){
+  const it=window._impItens||[];
+  const nSel=it.filter(x=>x.incluir).length;
+  const nDup=it.filter(x=>x.dup).length;
+  let h=`<h2 style="margin:0 0 4px">Confira antes de importar</h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 4px">${it.length} encontrada(s)${nDup?` · <b style="color:#e0a020">${nDup} possível(is) duplicada(s)</b> — já vêm desmarcadas`:''}</p>
+    <div style="display:flex;gap:8px;margin:10px 0">
+      <button class="btn-sec" style="flex:1" onclick="impMarcarTodos(true)">Marcar todas</button>
+      <button class="btn-sec" style="flex:1" onclick="impMarcarTodos(false)">Desmarcar</button>
+    </div>`;
+  it.forEach((x,i)=>{
+    const cor = x.tipo==='receita'?'var(--bar-rec)':'var(--bar-desp)';
+    h+=`<div class="impCard ${x.incluir?'':'off'} ${x.dup?'dup':''}" id="impC${i}">
+      <div class="impTop">
+        <input type="checkbox" ${x.incluir?'checked':''} onchange="impToggle(${i},this.checked)" style="width:20px;height:20px;flex:0 0 auto">
+        <span class="impTag" style="background:${tintBg(x.tipo==='receita'?'#2f8f66':'#e5484d')};color:${cor}">${x.tipo==='receita'?'RECEITA':'DESPESA'}</span>
+        ${x.viaCartao?`<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">CARTÃO ••${x.finalCart}</span>`:''}
+        <span class="impV" style="color:${cor}">${brl(x.valor)}</span>
+      </div>
+      ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
+      <div class="impGrid">
+        <div class="full"><input value="${String(x.desc).replace(/"/g,'&quot;')}" onchange="impSet(${i},'desc',this.value)" placeholder="Descrição"></div>
+        <div><input type="date" value="${x.data}" onchange="impSet(${i},'data',this.value)"></div>
+        <div><select onchange="impSet(${i},'categoria_id',this.value)">${_optsCats(x.tipo,x.categoria_id)}</select></div>
+        <div class="full">${
+          x.viaCartao
+          ? `<select onchange="impSet(${i},'cartao_id',this.value)">${_optsCartoes(x.cartao_id)}</select>`
+          : `<select onchange="impSet(${i},'conta_id',this.value)">${_optsContas(x.conta_id)}</select>`
+        }</div>
+      </div>
+    </div>`;
+  });
+  h+=`<button class="btn" style="margin-top:6px" onclick="confirmarImport()">Importar ${nSel} lançamento(s)</button>
+      <button class="btn-sec" style="margin-top:8px" onclick="openImportBanco()">← Voltar e colar outro texto</button>`;
+  openSheet(h);
+}
+function impToggle(i,v){ if(window._impItens&&window._impItens[i]){ window._impItens[i].incluir=v; renderPreviaImport(); } }
+function impMarcarTodos(v){ (window._impItens||[]).forEach(x=>x.incluir=v); renderPreviaImport(); }
+function impSet(i,k,v){ if(window._impItens&&window._impItens[i]) window._impItens[i][k]=v; }
+async function confirmarImport(){
+  const sel=(window._impItens||[]).filter(x=>x.incluir);
+  if(!sel.length){ toast('Marque pelo menos uma'); return; }
+  // valida destino
+  for(const x of sel){
+    if(x.viaCartao && !x.cartao_id){ toast('Escolha o cartão de: '+x.desc); return; }
+    if(!x.viaCartao && !x.conta_id){ toast('Escolha a conta de: '+x.desc); return; }
+  }
+  const rows=[];
+  sel.forEach(x=>{
+    if(x.viaCartao){
+      if(x.finalCart) setMapFinal(x.finalCart,x.cartao_id); // memoriza p/ próxima vez
+      const cartao=cartaoById(x.cartao_id);
+      const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
+      rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
+        cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
+    }else{
+      rows.push({user_id:USER.id,tipo:x.tipo,descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
+        conta_id:x.conta_id,categoria_id:x.categoria_id||null});
+    }
+  });
+  const r=await insertRows(rows);
+  if(!r.ok) return;
+  window._impItens=null;
+  closeSheet(); vibra();
+  if(r.queued){ render(); toast('Salvo offline — sincroniza depois'); }
+  else { await loadAll(); toast(rows.length+' lançamento(s) importado(s) ✅'); render(); }
+}
 
 // ---- LANÇAMENTO ----
 let lancType='despesa';

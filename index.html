@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.63"; /* z4 */
+const APP_VER = "7.64"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -547,6 +547,18 @@ try{
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// saída de emergência: abrir o app com ?sair=1 desloga na hora (limpa a sessão local)
+(function(){
+  try{
+    const u=new URL(location.href);
+    if(u.searchParams.get('sair')==='1'){
+      try{ Object.keys(localStorage).forEach(k=>{ if(k.startsWith('sb-')&&k.indexOf('auth')>=0) localStorage.removeItem(k); }); }catch(e){}
+      try{ sb.auth.signOut(); }catch(e){}
+      history.replaceState(null,'',location.pathname);
+      setTimeout(()=>location.reload(), 250);
+    }
+  }catch(e){}
+})();
 
 // ============ STATE ============
 let USER=null, scope='tudo', tab='home', source='eu';
@@ -1221,7 +1233,7 @@ async function doLogin(){
   else { try{localStorage.removeItem('savedPass:'+email);}catch(e){} }
   await afterLogin();
 }
-async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+async function doLogout(){ try{ await sb.auth.signOut(); }catch(e){} finally{ try{ Object.keys(localStorage).forEach(k=>{ if(k.startsWith('sb-')&&k.indexOf('auth')>=0) localStorage.removeItem(k); }); }catch(e){} location.reload(); } }
 function traduzErro(m){
   if(/Invalid login/i.test(m)) return 'E-mail ou senha incorretos.';
   if(/already registered/i.test(m)) return 'Esse e-mail já tem conta. Faça login.';

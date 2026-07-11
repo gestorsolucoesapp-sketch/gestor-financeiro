@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.69"; /* z4 */
+const APP_VER = "7.70"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -3230,8 +3230,8 @@ function melhorCartaoCompra(){
     // em quantos dias a compra de hoje vai ser cobrada (vencimento da fatura em que ela cai)
     // se hoje já passou do fechamento, cai na fatura que vence daqui a ~2 meses; senão, no próximo vencimento
     let mesesAteVenc;
-    if(diaHoje>fech){
-      // compra entra na fatura que fecha no próximo mês → vence no mês seguinte ao próximo
+    if(diaHoje>=fech){
+      // no dia do fechamento (ou depois) a compra entra na próxima fatura → vence mais longe
       mesesAteVenc = (venc>fech)?1:2;
     }else{
       mesesAteVenc = (venc>fech)?0:1;
@@ -4638,7 +4638,8 @@ async function criarCategoriaRapida(){
 function calcCompetencia(dataStr,diaFechamento){
   const d=new Date(dataStr+'T00:00:00');
   let y=d.getFullYear(),m=d.getMonth();
-  if(d.getDate()>diaFechamento) m+=1;
+  // no dia do fechamento a fatura já fechou: compra de hoje entra na PRÓXIMA (padrão Itaú/Nubank/C6)
+  if(d.getDate()>=diaFechamento) m+=1;
   return new Date(y,m,1);
 }
 // Mês em que a fatura é PAGA (vencimento). Se vence antes/no fechamento, vence no mês seguinte ao fechamento.

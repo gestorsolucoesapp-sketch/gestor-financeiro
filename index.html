@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.65"; /* z4 */
+const APP_VER = "7.66"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4409,7 +4409,8 @@ function processarBancoPend(tent){
   if(!pend || !pend.trim()) return;
   tent=tent||0;
   // espera o app estar pronto (logado, dados na memória, sem outro modal)
-  const pronto = window.USER && USER.id && $('modalRoot') && !document.body.classList.contains('modal-open');
+  const logado = (typeof USER!=='undefined') && USER && USER.id;
+  const pronto = logado && $('modalRoot') && !document.body.classList.contains('modal-open');
   if(!pronto){
     if(tent<15) setTimeout(()=>processarBancoPend(tent+1), 700);
     return;

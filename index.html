@@ -534,7 +534,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.77"; /* z4 */
+const APP_VER = "7.78"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4371,7 +4371,7 @@ function openLanc(id, preset){
       <button id="ttDesp" class="${lancType==='despesa'?'on desp':''}" onclick="setLancType('despesa')">Despesa</button>
       <button id="ttTransf" class="${lancType==='transferencia'?'on transf':''}" onclick="setLancType('transferencia')">Transfer.</button>
     </div>
-    <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…"></div>
+    <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="sugerirCategoria()" onblur="sugerirCategoria()"><div class="note" id="catSugNote" style="display:none"></div></div>
     <div class="bigval" onclick="abrirCalc()">
       <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
       <div class="bv-num" id="lValDisplay">R$ 0,00</div>
@@ -4583,6 +4583,7 @@ function renderLancDynamic(e){
   if(lancType==='transferencia'){ updateDestContas(e); }
   if(lancType!=='transferencia'){
     window._catSel = e.categoria_id||null;
+    window._catManual = !!e.categoria_id;
     renderMeio(e);
   }
 }
@@ -4607,8 +4608,18 @@ function renderMeio(e){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
       h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
-      h+=`<div class="field"><label>Parcelas</label><select id="lParcelas" onchange="onParcelasChange()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}<option value="custom" ${!e.recorrente&&e.parcelas>24?'selected':''}>✏️ Mais de 24x…</option></select>
-        <input id="lParcelasN" type="number" inputmode="numeric" min="2" placeholder="Quantas parcelas? (ex: 36)" value="${(e.parcelas>24)?e.parcelas:''}" style="margin-top:8px;display:${(e.parcelas>24)?'block':'none'}" onchange="updateFaturaNote()">
+      // à vista é o padrão; desmarque pra parcelar
+      const _avista = !(e.recorrente || (e.parcelas>1));
+      h+=`<div class="field"><label>Parcelas</label>
+        <label id="avistaBox" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line-2);border-radius:12px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="lAvista" ${_avista?'checked':''} onchange="toggleAvista()" style="width:20px;height:20px;flex:0 0 auto;accent-color:var(--emerald,#1f9d8a)">
+          <span style="font-weight:600">À vista (1x)</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted)">desmarque pra parcelar</span>
+        </label>
+        <div id="parcSelWrap" style="display:${_avista?'none':'block'};margin-top:8px">
+          <select id="lParcelas" onchange="onParcelasChange()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}<option value="custom" ${!e.recorrente&&e.parcelas>24?'selected':''}>✏️ Mais de 24x…</option></select>
+          <input id="lParcelasN" type="number" inputmode="numeric" min="2" placeholder="Quantas parcelas? (ex: 36)" value="${(e.parcelas>24)?e.parcelas:''}" style="margin-top:8px;display:${(e.parcelas>24)?'block':'none'}" onchange="updateFaturaNote()">
+        </div>
         <div class="note" id="parcNote"></div></div>`;
     }
     // cartão não usa status pago/pendente (vira fatura)
@@ -4648,7 +4659,22 @@ function onParcelasChange(){
   if(inp) inp.style.display = (sel&&sel.value==='custom') ? 'block' : 'none';
   updateFaturaNote(); updateParcNote();
 }
+function toggleAvista(){
+  const ck=$('lAvista'), wrap=$('parcSelWrap'), sel=$('lParcelas');
+  if(!ck||!wrap) return;
+  if(ck.checked){
+    wrap.style.display='none';
+    if(sel) sel.value='1';
+    const inp=$('lParcelasN'); if(inp) inp.style.display='none';
+  }else{
+    wrap.style.display='block';
+    if(sel && (sel.value==='1'||sel.value==='')) sel.value='';
+    if(sel) sel.focus();
+  }
+  updateFaturaNote(); updateParcNote();
+}
 function parcelasEfetivas(){
+  const ck=$('lAvista'); if(ck && ck.checked) return 1;
   const sel=$('lParcelas'); if(!sel) return 1;
   if(sel.value==='custom'){ return Math.max(2, parseInt($('lParcelasN')?$('lParcelasN').value:'')||2); }
   if(sel.value==='rec') return 'rec';
@@ -4659,7 +4685,7 @@ function updateFaturaNote(){
   const sel=$('lCartao'); if(!sel){ el.innerHTML=''; return; }
   const cartao=cartaoById(sel.value); if(!cartao){ el.innerHTML=''; return; }
   const data=$('lData')?$('lData').value:ymd(new Date());
-  let pv=$('lParcelas')?$('lParcelas').value:'1'; if(pv==='custom') pv=String(parcelasEfetivas());
+  let pv=($('lAvista')&&$('lAvista').checked)?'1':($('lParcelas')?$('lParcelas').value:'1'); if(pv==='custom') pv=String(parcelasEfetivas());
   const base=calcCompetencia(data, cartao.dia_fechamento);
   const venc=new Date(base.getFullYear(), base.getMonth()+cardDueOffset(cartao), 1);
   const fmt=x=>x.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
@@ -4680,7 +4706,7 @@ function updateFaturaNote(){
 }
 function updateParcNote(){
   if(!$('parcNote'))return;
-  let pv=$('lParcelas')?$('lParcelas').value:'1'; if(pv==='custom') pv=String(parcelasEfetivas());
+  let pv=($('lAvista')&&$('lAvista').checked)?'1':($('lParcelas')?$('lParcelas').value:'1'); if(pv==='custom') pv=String(parcelasEfetivas());
   const v=evalValor($('lValor').value)||0;
   if(pv==='rec'){ $('parcNote').innerHTML = v>0?`<b>${brl(v)}</b> todo mês`:''; return; }
   const n=parseInt(pv)||1;
@@ -4688,7 +4714,57 @@ function updateParcNote(){
   else $('parcNote').textContent='';
 }
 function pickCat(id){window._catSel=(window._catSel===id?null:id);document.querySelectorAll('#catChips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===window._catSel));}
+// sugere categoria a partir da descrição, aprendendo do histórico do usuário
+function _normTxt(t){
+  return String(t||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function sugerirCategoria(){
+  const inp=$('lDesc'), sel=$('lCatSel'), note=$('catSugNote');
+  if(!inp||!sel||!note) return;
+  // não atrapalha se o usuário já escolheu manualmente
+  if(sel.value && sel.value!=='' && window._catManual) { note.style.display='none'; return; }
+  const q=_normTxt(inp.value);
+  if(q.length<3){ note.style.display='none'; return; }
+  const tipo=(lancType==='receita')?'receita':'despesa';
+  const catsValidas=new Set(DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo===tipo).map(c=>c.id));
+  // pontua categorias por semelhança da descrição no histórico
+  const score={};
+  DATA.lancamentos.forEach(l=>{
+    if(l.user_id!==USER.id || l.tipo!==tipo || !l.categoria_id) return;
+    if(!catsValidas.has(l.categoria_id)) return;
+    const d=_normTxt(l.descricao);
+    if(!d) return;
+    let pts=0;
+    if(d===q) pts=100;
+    else if(d.startsWith(q)||q.startsWith(d)) pts=60;
+    else if(d.includes(q)||q.includes(d)) pts=35;
+    else {
+      // palavras em comum (ex: "mercado extra" ~ "mercado")
+      const pd=new Set(d.split(' ').filter(w=>w.length>2));
+      const pq=q.split(' ').filter(w=>w.length>2);
+      const comum=pq.filter(w=>pd.has(w)).length;
+      if(comum) pts=18*comum;
+    }
+    if(pts) score[l.categoria_id]=(score[l.categoria_id]||0)+pts;
+  });
+  const melhor=Object.entries(score).sort((a,b)=>b[1]-a[1])[0];
+  if(!melhor || melhor[1]<18){ note.style.display='none'; return; }
+  const cat=catById(melhor[0]); if(!cat){ note.style.display='none'; return; }
+  if(sel.value===cat.id){ note.style.display='none'; return; }
+  note.style.display='block';
+  note.innerHTML=`💡 Sugestão: <b style="color:var(--emerald,#1f9d8a);cursor:pointer" onclick="aplicarCatSug('${cat.id}')">${cat.icone?cat.icone+' ':''}${esc(cat.nome)}</b> — toque pra usar`;
+  window._catSug=cat.id;
+}
+function aplicarCatSug(id){
+  const sel=$('lCatSel'); if(!sel) return;
+  sel.value=id; window._catSel=id; window._catManual=true;
+  const note=$('catSugNote'); if(note) note.style.display='none';
+  try{ vibra(); }catch(e){}
+}
 function onCatSelect(v){
+  window._catManual=true;
   if(v==='__nova__'){ if($('lCatSel'))$('lCatSel').value=window._catSel||''; criarCategoriaRapida(); return; }
   window._catSel = v||null;
 }
@@ -4764,7 +4840,7 @@ async function saveLanc(id){
   if(window._meio==='cartao'){
     const cartaoId=$('lCartao')?$('lCartao').value:null;
     if(!cartaoId){toast('Selecione o cartão');return;}
-    const pvRaw=$('lParcelas')?$('lParcelas').value:'';
+    const pvRaw=($('lAvista')&&$('lAvista').checked)?'1':($('lParcelas')?$('lParcelas').value:'');
     if(!pvRaw){toast('Escolha as parcelas (à vista, parcelado ou recorrente)');return;}
     const rec = pvRaw==='rec';
     const n = rec?24:(pvRaw==='custom'?parcelasEfetivas():(parseInt(pvRaw)||1));

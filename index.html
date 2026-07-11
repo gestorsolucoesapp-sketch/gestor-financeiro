@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.68"; /* z4 */
+const APP_VER = "7.69"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -552,7 +552,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   try{
     const u=new URL(location.href);
     const b=u.searchParams.get('banco');
-    if(b && b.trim()){ sessionStorage.setItem('gf_banco_pending', b.trim()); alert('DEBUG 1/3 — capturei: '+b.slice(0,80)); }
+    if(b && b.trim()){ sessionStorage.setItem('gf_banco_pending', b.trim()); }
   }catch(e){}
 })();
 // saída de emergência: abrir o app com ?sair=1 desloga na hora (limpa a sessão local)
@@ -4381,7 +4381,6 @@ function lerBanco(){
 }
 function lerBancoTexto(txt){
   const itens=parseNotifBanco(txt);
-  try{ alert('DEBUG 3/3 — itens encontrados: '+itens.length); }catch(e){}
   if(itens.length){ window._impItens=itens; renderPreviaImport(); toast('Confira e confirme 👇'); return; }
   // fallback: parser simples de mensagem única
   const p=parseBanco(txt);
@@ -4409,7 +4408,6 @@ function processarBancoPend(tent){
   try{ pend=sessionStorage.getItem('gf_banco_pending'); }catch(e){}
   if(!pend || !pend.trim()) return;
   tent=tent||0;
-  if(tent===0){ try{ alert('DEBUG 2/3 — processando. logado='+(!!((typeof USER!=='undefined')&&USER&&USER.id))+' modal='+(!!$('modalRoot'))); }catch(e){} }
   // espera o app estar pronto (logado, dados na memória, sem outro modal)
   const logado = (typeof USER!=='undefined') && USER && USER.id;
   const pronto = logado && $('modalRoot') && !document.body.classList.contains('modal-open');

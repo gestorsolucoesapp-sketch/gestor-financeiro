@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.67"; /* z4 */
+const APP_VER = "7.68"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -4414,7 +4414,7 @@ function processarBancoPend(tent){
   const logado = (typeof USER!=='undefined') && USER && USER.id;
   const pronto = logado && $('modalRoot') && !document.body.classList.contains('modal-open');
   if(!pronto){
-    if(tent<15) setTimeout(()=>processarBancoPend(tent+1), 700);
+    if(tent<40) setTimeout(()=>processarBancoPend(tent+1), 700);
     return;
   }
   try{
@@ -4424,7 +4424,7 @@ function processarBancoPend(tent){
     setTimeout(()=>{
       const abriu = $('modalRoot') && $('modalRoot').innerHTML.length>50;
       if(abriu){ try{ sessionStorage.removeItem('gf_banco_pending'); }catch(e){} }
-      else if(tent<15) setTimeout(()=>processarBancoPend(tent+1), 900);
+      else if(tent<40) setTimeout(()=>processarBancoPend(tent+1), 900);
     }, 400);
   }catch(e){
     toast('⚠️ Erro ao ler a mensagem: '+(e&&e.message||e));
@@ -5448,6 +5448,8 @@ function localSession(){
   }catch(e){}
   return null;
 }
+// vigia independente do banco pendente: roda mesmo que o boot falhe no meio
+setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '+(e&&e.message||e)); }catch(_e){} } }, 1500);
 (async function init(){
   applyTema(scope);
   let session=null;

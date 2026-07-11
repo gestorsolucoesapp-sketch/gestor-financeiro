@@ -398,6 +398,7 @@ body.scrolling .fab{opacity:.25}
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
     <div class="splash-tag">Controle Financeiro</div>
+    <div id="splashVer" style="margin-top:10px;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.38);font-weight:600"></div>
   </div>
 </div>
 
@@ -533,7 +534,8 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.75"; /* z4 */
+const APP_VER = "7.76"; /* z4 */
+try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){

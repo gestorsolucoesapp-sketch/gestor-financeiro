@@ -534,7 +534,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.79"; /* z4 */
+const APP_VER = "7.80"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4366,6 +4366,11 @@ function openLanc(id, preset){
   openSheet(`
     <div class="sheet-back" onclick="closeSheet()">‹ Voltar</div>
     <h2>${editing?'Editar':'Nova'} transação</h2>
+    <div class="bigval" onclick="abrirCalc()">
+      <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
+      <div class="bv-num" id="lValDisplay">R$ 0,00</div>
+    </div>
+    <input type="hidden" id="lValor" value="${e.valor||''}">
     <div class="typetabs">
       <button id="ttRec" class="${lancType==='receita'?'on rec':''}" onclick="setLancType('receita')">Receita</button>
       <button id="ttDesp" class="${lancType==='despesa'?'on desp':''}" onclick="setLancType('despesa')">Despesa</button>
@@ -4373,11 +4378,6 @@ function openLanc(id, preset){
     </div>
     <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="sugerirCategoria()" onblur="sugerirCategoria()"><div class="note" id="catSugNote" style="display:none"></div></div>
     <div id="lancCatWrap"></div>
-    <div class="bigval" onclick="abrirCalc()">
-      <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
-      <div class="bv-num" id="lValDisplay">R$ 0,00</div>
-    </div>
-    <input type="hidden" id="lValor" value="${e.valor||''}">
     <div class="field"><label>Data</label>
       <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
     </div>

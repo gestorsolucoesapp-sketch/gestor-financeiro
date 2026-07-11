@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.71"; /* z4 */
+const APP_VER = "7.72"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1726,7 +1726,12 @@ function abrirNotificacoes(){
       const isNew=(l.criado_em||l.data)>seen;
       const sinal=l.tipo==='receita'?'+':(l.tipo==='despesa'?'-':'');
       const cls=l.tipo==='receita'?'g':(l.tipo==='despesa'?'r':'b');
-      const dt=new Date((l.criado_em||l.data)).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      const dObj=new Date((l.criado_em||l.data));
+      const _agora=new Date();
+      const ehHoje = dObj.toDateString()===_agora.toDateString();
+      const _ontem=new Date(_agora.getFullYear(),_agora.getMonth(),_agora.getDate()-1);
+      const ehOntem = dObj.toDateString()===_ontem.toDateString();
+      const dt=(ehHoje?'hoje, ':(ehOntem?'ontem, ':''))+dObj.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
       const hr=l.criado_em?(' · '+new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})):'';
       // parcelado: 1 linha com total + "Nx de R$..."; recorrente: valor mensal + selo
       const ehParc = g._qtd>1 && (l.parcelas>1);

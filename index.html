@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.64"; /* z4 */
+const APP_VER = "7.65"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -547,6 +547,14 @@ try{
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// captura o ?banco= IMEDIATAMENTE (antes de qualquer auto-update/reload poder engolir)
+(function(){
+  try{
+    const u=new URL(location.href);
+    const b=u.searchParams.get('banco');
+    if(b && b.trim()){ sessionStorage.setItem('gf_banco_pending', b.trim()); }
+  }catch(e){}
+})();
 // saída de emergência: abrir o app com ?sair=1 desloga na hora (limpa a sessão local)
 (function(){
   try{
@@ -4392,15 +4400,33 @@ function checkBancoURL(){
       try{ sessionStorage.setItem('gf_banco_pending', txt.trim()); }catch(e){}
       history.replaceState(null,'',location.pathname);
     }
-    let pend=null;
-    try{ pend=sessionStorage.getItem('gf_banco_pending'); }catch(e){}
-    if(pend && pend.trim()){
-      setTimeout(()=>{
-        try{ sessionStorage.removeItem('gf_banco_pending'); }catch(e){}
-        try{ lerBancoTexto(pend.trim()); }catch(e){}
-      }, 800);
-    }
   }catch(e){}
+  processarBancoPend(0);
+}
+function processarBancoPend(tent){
+  let pend=null;
+  try{ pend=sessionStorage.getItem('gf_banco_pending'); }catch(e){}
+  if(!pend || !pend.trim()) return;
+  tent=tent||0;
+  // espera o app estar pronto (logado, dados na memória, sem outro modal)
+  const pronto = window.USER && USER.id && $('modalRoot') && !document.body.classList.contains('modal-open');
+  if(!pronto){
+    if(tent<15) setTimeout(()=>processarBancoPend(tent+1), 700);
+    return;
+  }
+  try{
+    toast('📥 Lendo mensagem do banco…');
+    lerBancoTexto(pend.trim());
+    // só remove se a prévia/ficha realmente abriu
+    setTimeout(()=>{
+      const abriu = $('modalRoot') && $('modalRoot').innerHTML.length>50;
+      if(abriu){ try{ sessionStorage.removeItem('gf_banco_pending'); }catch(e){} }
+      else if(tent<15) setTimeout(()=>processarBancoPend(tent+1), 900);
+    }, 400);
+  }catch(e){
+    toast('⚠️ Erro ao ler a mensagem: '+(e&&e.message||e));
+    try{ sessionStorage.removeItem('gf_banco_pending'); }catch(e2){}
+  }
 }
 function setLancType(t){lancType=t;['Rec','Desp','Transf'].forEach(x=>{const b=$('tt'+x);b.className=(('tt'+x==='tt'+({receita:'Rec',despesa:'Desp',transferencia:'Transf'}[t]))?'on '+({receita:'rec',despesa:'desp',transferencia:'transf'}[t]):'');});renderLancDynamic(window._lancEdit);if(!window._lancEdit)ajustaStatusData();}
 function setRecTipo(t){

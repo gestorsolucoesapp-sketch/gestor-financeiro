@@ -533,7 +533,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.72"; /* z4 */
+const APP_VER = "7.73"; /* z4 */
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
   if(localStorage.getItem('gf_layout_v')!=='3'){
@@ -1740,7 +1740,7 @@ function abrirNotificacoes(){
                  : ehRec?`<span class="pill" style="margin-left:6px">recorrente</span>`:'';
       const sub = ehParc?`${l.parcelas}x de ${brl(Number(l.valor))} · `:(ehRec?`${brl(Number(l.valor))}/mês · `:'');
       const amt = ehParc?brl(g._total):(brl(Number(l.valor)));
-      h+=`<div class="lrow"><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color};position:relative">${ICON(vis.icon,18)}${isNew?'<span style="position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--card)"></span>':''}</div>
+      h+=`<div class="lrow" ${ehHoje?'style="border:1.5px solid #ff8a1a;border-radius:14px;padding:10px 12px;margin:4px 0"':''}><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color};position:relative">${ICON(vis.icon,18)}${isNew?'<span style="position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--card)"></span>':''}</div>
         <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}${selo}</div><div class="s">${sub}${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
         <div class="amt ${cls}">${sinal}${amt}</div></div>`;
     });

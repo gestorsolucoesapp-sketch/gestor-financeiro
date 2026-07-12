@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.87"; /* z4 */
+const APP_VER = "7.88"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2845,6 +2845,27 @@ function renderHome(){
     if(tarefas.length>5) bh+=`<button class="lnk" style="margin-top:6px" onclick="verTrans('pendente')">Ver todas (${tarefas.length}) ›</button>`;
     bh+=`</div>`;
     _alertaHtml+=bh;
+  }
+  // bloco: receitas atrasadas (deveriam ter entrado e ainda não caíram)
+  const recAtras=DATA.lancamentos.filter(l=>
+    l.tipo==='receita' && l.status==='pendente' && srcOk(l.user_id) && l.data<_hj
+  ).sort((a,b)=>a.data<b.data?-1:1);
+  if(recAtras.length){
+    const totR=recAtras.reduce((a,l)=>a+Number(l.valor),0);
+    let rh=`<div class="card" style="border:1.5px solid var(--green);margin-bottom:0;margin-top:12px;padding:13px 15px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <b style="font-size:14.5px">💰 Receitas atrasadas</b>
+        <span class="note"><b style="color:var(--green)">${brl(totR)}</b></span></div>`;
+    recAtras.slice(0,5).forEach(l=>{
+      const dias=Math.max(1,Math.round((new Date(_hj+'T00:00:00')-new Date(l.data+'T00:00:00'))/86400000));
+      rh+=`<div class="lrow" onclick="openLanc('${l.id}')" style="padding:8px 0">
+        <div class="mid"><div class="t" style="font-size:13.5px">${esc(l.descricao)} <span class="pill" style="background:rgba(224,160,32,.18);color:#e0a020">${dias} DIA${dias>1?'S':''} DE ATRASO</span></div>
+        <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${brl(Number(l.valor))}</div></div>
+        <button class="lconf" onclick="event.stopPropagation();toggleLancPago('${l.id}')">Recebi</button></div>`;
+    });
+    if(recAtras.length>5) rh+=`<button class="lnk" style="margin-top:6px" onclick="verTrans('pendente')">Ver todas (${recAtras.length}) ›</button>`;
+    rh+=`</div>`;
+    _alertaHtml+=rh;
   }
   // próxima conta a pagar (despesa futura OU fatura de cartão) — a mais próxima, fora das atrasadas
   (()=>{

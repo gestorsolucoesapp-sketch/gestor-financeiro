@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.85"; /* z4 */
+const APP_VER = "7.86"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2331,6 +2331,34 @@ function brlShort(v){
   return n.toLocaleString('pt-BR');
 }
 // total de despesas por mês do ano (competência pra cartão, data pra conta)
+// todos os meses com lançamento (pode passar de 2026 -> 2030 por causa das parcelas)
+function gastosMensaisTodos(ownerId){
+  const mapa={};
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(ehLancQuitacao(l)) continue;
+    if(l.user_id!==ownerId) continue;
+    let ym;
+    if(l.cartao_id){ if(!l.competencia) continue; ym=faturaYm(l.competencia,cartaoById(l.cartao_id)); }
+    else ym=(l.data||'').slice(0,7);
+    if(!ym) continue;
+    mapa[ym]=(mapa[ym]||0)+(Number(l.valor)||0);
+  }
+  const chaves=Object.keys(mapa).sort();
+  if(!chaves.length) return [];
+  // preenche os meses vazios entre o primeiro e o último
+  const [y0,m0]=chaves[0].split('-').map(Number);
+  const [y1,m1]=chaves[chaves.length-1].split('-').map(Number);
+  const out=[];
+  let y=y0, m=m0;
+  let guard=0;
+  while((y<y1 || (y===y1 && m<=m1)) && guard++<400){
+    const ym=`${y}-${String(m).padStart(2,'0')}`;
+    out.push({ym, ano:y, mes:m, valor:mapa[ym]||0});
+    m++; if(m>12){ m=1; y++; }
+  }
+  return out;
+}
 function gastosMensaisAno(ownerId,ano){
   const arr=Array(12).fill(0);
   for(const l of DATA.lancamentos){
@@ -2345,6 +2373,30 @@ function gastosMensaisAno(ownerId,ano){
   return arr;
 }
 const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+// gráfico de meses com rolagem horizontal (atravessa anos)
+function mesesChartHTML(itens,titulo,nota){
+  if(!itens || !itens.length) return '';
+  const maxV=Math.max(1,...itens.map(x=>x.valor));
+  const hojeYm=ymd(new Date()).slice(0,7);
+  let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
+  if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
+  html+=`<div class="daybars mesbars">`;
+  let ultAno=null;
+  itens.forEach(x=>{
+    const h=x.valor?Math.max(4,Math.round(x.valor/maxV*110)):4;
+    const lab=x.valor?brlShort(x.valor):'';
+    const inside=h>=30;
+    const ehAtual=(x.ym===hojeYm);
+    const novoAno=(x.ano!==ultAno); ultAno=x.ano;
+    html+=`<div class="daycol${ehAtual?' colHoje':''}">
+      ${lab&&!inside?`<span class="dayval out">${lab}</span>`:''}
+      <div class="daybar${ehAtual?' hoje':''}" style="height:${h}px">${lab&&inside?`<span class="dayval in">${lab}</span>`:''}</div>
+      <div class="daylab">${MESES_ABREV[x.mes-1]}${novoAno?`<br><span style="font-size:9px;opacity:.7">${String(x.ano).slice(2)}</span>`:''}</div>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  return html;
+}
 function anualChartHTML(vals,titulo,nota){
   const maxV=Math.max(1,...vals);
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
@@ -2387,6 +2439,12 @@ function pctChartHTML(vals,titulo){
 // centraliza o dia de HOJE nos gráficos diários (roda depois do render)
 function centralizarHoje(){
   requestAnimationFrame(()=>{
+    document.querySelectorAll('.daybars.mesbars').forEach(wrap=>{
+      const col=wrap.querySelector('.colHoje');
+      if(!col) return;
+      const alvo = col.offsetLeft - (wrap.clientWidth/2) + (col.offsetWidth/2);
+      wrap.scrollLeft = Math.max(0, alvo);
+    });
     document.querySelectorAll('.daybars.hasHoje').forEach(wrap=>{
       const col=wrap.querySelector('.colHoje');
       if(!col) return;
@@ -3934,7 +3992,10 @@ function renderRelatorios(){
   {
     const ano=viewMonth.getFullYear();
     const valsMe=gastosMensaisAno(USER.id,ano);
-    blocos.anual=anualChartHTML(valsMe, `Gastos por mês — Meus · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
+    const itensMe=gastosMensaisTodos(USER.id);
+    blocos.anual=itensMe.length
+      ? mesesChartHTML(itensMe, 'Gastos por mês — Meus', 'Todos os meses com lançamento (inclui parcelas futuras). Arraste ↔')
+      : anualChartHTML(valsMe, `Gastos por mês — Meus · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
     blocos.anualpct=pctChartHTML(valsMe, `Variação mês a mês — Meus · ${ano}`);
     defaultOrder.push('anual','anualpct');
   }
@@ -3942,7 +4003,10 @@ function renderRelatorios(){
     // gastos anuais + variação % mês a mês (mais pra baixo)
     const ano=viewMonth.getFullYear();
     const vals=gastosMensaisAno(p.owner_id,ano);
-    blocos['anual_'+p.owner_id]=anualChartHTML(vals, `Gastos por mês — ${esc(p.apelido)} · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
+    const itensP=gastosMensaisTodos(p.owner_id);
+    blocos['anual_'+p.owner_id]=itensP.length
+      ? mesesChartHTML(itensP, `Gastos por mês — ${esc(p.apelido)}`, 'Todos os meses com lançamento (inclui parcelas futuras). Arraste ↔')
+      : anualChartHTML(vals, `Gastos por mês — ${esc(p.apelido)} · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
     blocos['anualpct_'+p.owner_id]=pctChartHTML(vals, `Variação mês a mês — ${esc(p.apelido)} · ${ano}`);
     defaultOrder.push('anual_'+p.owner_id,'anualpct_'+p.owner_id);
   });

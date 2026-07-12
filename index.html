@@ -545,7 +545,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.96"; /* z4 */
+const APP_VER = "7.97"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4762,21 +4762,31 @@ function parseVoz(txt){
   cards.forEach(c=>{ if(!cartaoId && casaTok(c.nome)) cartaoId=c.id; });
   accs .forEach(c=>{ if(!contaId  && casaTok(c.nome)) contaId =c.id; });
   // descrição: tira números e palavras de comando
+  // categoria falada (ex.: "...alimentação")
+  let categoriaId=null;
+  DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa').forEach(c=>{
+    const n=_normTxt(c.nome);
+    if(!categoriaId && n.length>3 && tn.includes(n)) categoriaId=c.id;
+  });
   // descrição = o que vem ANTES da região de pagamento ("no cartão/conta…")
   const _mRegD=tn.match(/\b(?:cartao|conta|credito|debito|pix|dinheiro)\b/);
   let descBase = _mRegD ? tn.slice(0,_mRegD.index) : tn;
   if(!descBase.replace(/[\d\s.,]/g,'').trim()) descBase = tn;   // se sobrou só número, usa a frase toda
+  // tira o nome do cartão/conta e da categoria ANTES de remover os números (senão "c6" vira "c" + "bank")
+  const _escolhido = cartaoId?cartaoById(cartaoId):(contaId?contaById(contaId):null);
+  if(_escolhido){ const n=_normTxt(_escolhido.nome); if(n) descBase=descBase.split(n).join(' '); }
+  if(categoriaId){ const c=catById(categoriaId); if(c){ const n=_normTxt(c.nome); if(n) descBase=descBase.split(n).join(' '); } }
   let desc=descBase
     .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
     .replace(/\b(adicione|adicionar|adiciona|lancar|lance|lanca|registre|registrar|registra|coloque|colocar|coloca|gastei|paguei|comprei|anota|anotar|foi|de|um|uma)\b/g,' ')
     .replace(/\b(reais?|real|conto|pila|no|na|em|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista|vista)\b/g,' ')
     .replace(/\s+/g,' ').trim();
   Object.keys(NUM_EXT).forEach(w=>{ desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
-  const _esc = cartaoId?cartaoById(cartaoId):(contaId?contaById(contaId):null);
-  if(_esc){ const n=_normTxt(_esc.nome); if(n) desc=desc.replace(n,' '); }
-  desc=desc.replace(/\b[a-z]\b/g,' ').replace(/\s+/g,' ').trim();  // tira letras soltas (ex.: 'c' do 'c6')
-  desc=desc?_capWords(desc):'Despesa';
-  return {valor, desc, parcelas, noCartao, cartaoId, contaId};
+
+  desc=desc.replace(/\b[a-z]\b/g,' ').replace(/\s+/g,' ').trim();  // tira letras soltas
+  if(!desc && categoriaId){ const c=catById(categoriaId); if(c) desc=c.nome; }   // sobrou só a categoria? usa ela
+  desc=desc?_capWords(desc):'';
+  return {valor, desc, parcelas, noCartao, cartaoId, contaId, categoriaId};
 }
 function processarVoz(txt){
   const p=parseVoz(txt);
@@ -4791,9 +4801,9 @@ function processarVoz(txt){
       <span style="margin-left:auto;font-weight:800;font-size:19px;color:var(--red)">${brl(p.valor)}</span>
     </div>
     <div class="field" style="margin-bottom:8px"><label>Descrição *</label>
-      <input id="vzDesc" value="${(p.desc==='Despesa'?'':esc(p.desc))}" placeholder="O que foi? (obrigatório)" oninput="vozSugCat()"></div>
+      <input id="vzDesc" value="${esc(p.desc||'')}" placeholder="O que foi? (obrigatório)" oninput="vozSugCat()"></div>
     <div class="field" style="margin-bottom:8px"><label>Categoria</label>
-      <select id="vzCat">${_optsCats('despesa','')}</select>
+      <select id="vzCat">${_optsCats('despesa', p.categoriaId||'')}</select>
       <div class="note" id="vzCatNote" style="display:none"></div></div>
     <div class="field" style="margin-bottom:8px"><label>Pagar com</label>
       <select id="vzMeio" onchange="vozTrocaMeio()">

@@ -545,7 +545,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.93"; /* z4 */
+const APP_VER = "7.94"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4725,25 +4725,35 @@ function parseVoz(txt){
   let contaId=null, cartaoId=null;
   const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
   const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
-  const GEN=new Set(['bank','banco','conta','cartao','corrente','poupanca']);
-  const casa=(nome)=>{
+  const GEN=new Set(['bank','banco','conta','cartao','corrente','poupanca','credito','debito','de','do','da']);
+  const tn=_normTxt(txt);
+  // 1) nome COMPLETO em qualquer lugar da frase (ex.: "mercado pago", "nubank")
+  cards.forEach(c=>{ const n=_normTxt(c.nome); if(!cartaoId && n.length>2 && tn.includes(n)) cartaoId=c.id; });
+  accs .forEach(c=>{ const n=_normTxt(c.nome); if(!contaId  && n.length>2 && tn.includes(n)) contaId =c.id; });
+  // 2) senão, palavra-chave do nome (ex.: "c6") mas SÓ depois de "cartao/conta/no/na"
+  //    (evita a descrição "mercado" casar com o cartão "Mercado pago")
+  const mReg=tn.match(/\b(?:cartao|conta|credito|debito|pelo|pela)\b/);
+  const regiao = mReg ? tn.slice(mReg.index) : '';
+  const casaTok=(nome)=>{
+    if(!regiao) return false;
     const n=_normTxt(nome); if(!n) return false;
-    if(n.length>2 && t.includes(n)) return true;                    // nome inteiro
-    return n.split(' ').some(w=> w.length>=2 && !GEN.has(w) && new RegExp('\\b'+w+'\\b').test(t));  // ou palavra-chave (ex.: "c6")
+    return n.split(' ').some(w=> w.length>=2 && !GEN.has(w) && new RegExp('\\b'+w+'\\b').test(regiao));
   };
-  cards.forEach(c=>{ if(!cartaoId && casa(c.nome)) cartaoId=c.id; });
-  accs.forEach(c=>{ if(!contaId && casa(c.nome)) contaId=c.id; });
+  cards.forEach(c=>{ if(!cartaoId && casaTok(c.nome)) cartaoId=c.id; });
+  accs .forEach(c=>{ if(!contaId  && casaTok(c.nome)) contaId =c.id; });
   // descrição: tira números e palavras de comando
-  let desc=_normTxt(txt)
+  // descrição = o que vem ANTES da região de pagamento ("no cartão/conta…")
+  const _mRegD=tn.match(/\b(?:cartao|conta|credito|debito|pix|dinheiro)\b/);
+  let descBase = _mRegD ? tn.slice(0,_mRegD.index) : tn;
+  if(!descBase.replace(/[\d\s.,]/g,'').trim()) descBase = tn;   // se sobrou só número, usa a frase toda
+  let desc=descBase
     .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
-    .replace(/\b(reais?|real|conto|pila|no|na|em|de|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista)\b/g,' ')
+    .replace(/\b(adicione|adicionar|adiciona|lancar|lance|lanca|registre|registrar|registra|coloque|colocar|coloca|gastei|paguei|comprei|anota|anotar|foi|de|um|uma)\b/g,' ')
+    .replace(/\b(reais?|real|conto|pila|no|na|em|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista|vista)\b/g,' ')
     .replace(/\s+/g,' ').trim();
   Object.keys(NUM_EXT).forEach(w=>{ desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
-  [...cards,...accs].forEach(c=>{
-    const n=_normTxt(c.nome); if(!n) return;
-    desc=desc.replace(n,' ');
-    n.split(' ').forEach(w=>{ if(w.length>=2) desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
-  });
+  const _esc = cartaoId?cartaoById(cartaoId):(contaId?contaById(contaId):null);
+  if(_esc){ const n=_normTxt(_esc.nome); if(n) desc=desc.replace(n,' '); }
   desc=desc.replace(/\b[a-z]\b/g,' ').replace(/\s+/g,' ').trim();  // tira letras soltas (ex.: 'c' do 'c6')
   desc=desc?_capWords(desc):'Despesa';
   return {valor, desc, parcelas, noCartao, cartaoId, contaId};

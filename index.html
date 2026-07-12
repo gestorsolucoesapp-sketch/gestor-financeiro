@@ -537,7 +537,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.82"; /* z4 */
+const APP_VER = "7.83"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2732,6 +2732,30 @@ function renderHome(){
   }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
 
   let html=monthNav('home');
+  // última transação lançada (logo abaixo do mês)
+  if(recents.length){
+    const u=recents[0];
+    const cat=catById(u.categoria_id);
+    const vis=catVisual(cat,u.tipo);
+    const ondePg=u.cartao_id?cartaoById(u.cartao_id):contaById(u.conta_id);
+    const sinal=u.tipo==='receita'?'+':(u.tipo==='despesa'?'-':'');
+    const cls=u.tipo==='receita'?'g':(u.tipo==='despesa'?'r':'b');
+    const dU=new Date(u.data+'T00:00:00'), agoraU=new Date();
+    const ontemU=new Date(agoraU.getFullYear(),agoraU.getMonth(),agoraU.getDate()-1);
+    const qdo = dU.toDateString()===agoraU.toDateString() ? 'hoje'
+              : (dU.toDateString()===ontemU.toDateString() ? 'ontem'
+              : dU.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}));
+    const dono=(u.user_id!==USER.id)?` · ${esc(apelidoDe(u.user_id))}`:'';
+    const parc=(u.parcelas>1)?` <span class="pill" style="background:rgba(124,92,255,.18);color:#7c5cff">${u.parcela}/${u.parcelas}</span>`:'';
+    html+=`<div class="card" style="margin-bottom:12px;padding:12px 14px;cursor:pointer" onclick="openLanc('${u.id}')">
+      <div style="font-size:10px;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px">ÚLTIMA TRANSAÇÃO</div>
+      <div class="lrow" style="padding:0;border:0">
+        <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
+        <div class="mid"><div class="t">${esc(u.descricao)}${parc}</div>
+          <div class="s">${qdo}${ondePg?' · '+esc(ondePg.nome):''}${cat?' · '+esc(cat.nome):''}${dono}</div></div>
+        <div class="amt ${cls}">${sinal}${brl(Number(u.valor))}</div>
+      </div></div>`;
+  }
   const blocos={};
 
   // bloco: contas pra pagar (atrasadas/vencendo até amanhã)

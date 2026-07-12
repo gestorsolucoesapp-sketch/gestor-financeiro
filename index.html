@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.90"; /* z4 */
+const APP_VER = "7.91"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2989,7 +2989,7 @@ function renderHome(){
       Object.entries(porCatMes).forEach(([cid,meses])=>{
         const atual=meses[ymAtual]||0;
         const hist=Object.entries(meses).filter(([ym])=>ym<ymAtual).map(([,v])=>v);
-        if(hist.length<2 || atual<80) return;           // precisa de histórico e valor relevante
+        if(hist.length<1 || atual<80) return;           // precisa de ao menos 1 mês de histórico e valor relevante
         const media=hist.reduce((a,b)=>a+b,0)/hist.length;
         if(media<30) return;
         const pct=Math.round((atual/media-1)*100);

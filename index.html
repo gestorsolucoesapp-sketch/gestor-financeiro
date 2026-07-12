@@ -501,6 +501,7 @@ body.scrolling .fab{opacity:.25}
       <button class="amitem" onclick="pickAdd('transferencia')"><span class="am-ic tr"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="am-lab">Transferência</span></button>
       <button class="amitem" onclick="pickAdd('despesa_conta')"><span class="am-ic desp"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span><span class="am-lab">Despesa<br>em conta</span></button>
     </div>
+    <button class="amitem paste" onclick="pickAdd('voz')" style="margin-bottom:8px"><span class="am-ic" style="background:rgba(224,160,32,.18);color:#e0a020"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></span><span class="am-lab">Falar (voz)</span></button>
     <button class="amitem paste" onclick="pickAdd('banco')"><span class="am-ic bank"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/></svg></span><span class="am-lab">Colar do banco</span></button>
   </div>
   <button class="addmenu-x" onclick="closeAddMenu()">✕</button>
@@ -544,7 +545,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.92"; /* z4 */
+const APP_VER = "7.93"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4643,6 +4644,180 @@ async function confirmarImport(){
   else { await loadAll(); toast(rows.length+' lançamento(s) importado(s) ✅'); render(); }
 }
 
+// ================= LANÇAR POR VOZ =================
+const NUM_EXT={'um':1,'uma':1,'dois':2,'duas':2,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10,'onze':11,'doze':12,'meio':0.5,'meia':0.5,'vinte':20,'trinta':30,'quarenta':40,'cinquenta':50,'sessenta':60,'setenta':70,'oitenta':80,'noventa':90,'cem':100,'cento':100,'duzentos':200,'trezentos':300,'quatrocentos':400,'quinhentos':500,'mil':1000};
+function vozSuportado(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+function openVoz(){
+  if(!vozSuportado()){
+    openSheet(`<h2 style="margin:0 0 8px">🎙️ Falar</h2>
+      <p style="color:var(--muted);font-size:13px;line-height:1.5">Seu navegador não suporta reconhecimento de voz.<br><br>
+      <b>Dica:</b> use o teclado do iPhone — toque no campo Descrição e depois no 🎤 do teclado.</p>
+      <button class="btn" onclick="openLanc(null,'despesa_cartao')">Lançar digitando</button>`);
+    return;
+  }
+  openSheet(`<h2 style="margin:0 0 4px">🎙️ Lançar falando</h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px;line-height:1.45">
+      Toque no microfone e fale naturalmente. Ex.:<br>
+      <i>"mercado 85 reais no cartão C6"</i><br>
+      <i>"almoço 32 e cinquenta no débito"</i><br>
+      <i>"tênis 400 reais em 4 vezes no Nubank"</i>
+    </p>
+    <div style="text-align:center;padding:10px 0">
+      <button id="vozBtn" onclick="toggleVoz()" style="width:110px;height:110px;border-radius:50%;border:0;background:linear-gradient(140deg,#7c5cff,#5b3fd6);color:#fff;font-size:44px;box-shadow:0 10px 30px rgba(124,92,255,.45);cursor:pointer">🎤</button>
+      <div id="vozStatus" style="margin-top:14px;font-size:14px;color:var(--muted);min-height:22px">Toque para falar</div>
+      <div id="vozTexto" style="margin-top:10px;font-size:16px;font-weight:600;min-height:24px"></div>
+    </div>
+    <div id="vozPrevia" style="margin-top:6px"></div>`);
+}
+let _vozRec=null, _vozOn=false;
+function toggleVoz(){
+  if(_vozOn){ try{ _vozRec && _vozRec.stop(); }catch(e){} return; }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _vozRec=new SR();
+  _vozRec.lang='pt-BR'; _vozRec.interimResults=true; _vozRec.continuous=false; _vozRec.maxAlternatives=1;
+  const btn=$('vozBtn'), st=$('vozStatus'), tx=$('vozTexto');
+  _vozRec.onstart=()=>{ _vozOn=true; if(btn){btn.style.background='linear-gradient(140deg,#e5484d,#c23237)';btn.textContent='⏹';} if(st)st.textContent='Ouvindo… fale agora'; try{vibra();}catch(e){} };
+  _vozRec.onresult=(ev)=>{
+    let txt='';
+    for(let i=0;i<ev.results.length;i++) txt+=ev.results[i][0].transcript;
+    if(tx) tx.textContent=txt;
+    if(ev.results[ev.results.length-1].isFinal) processarVoz(txt);
+  };
+  _vozRec.onerror=(e)=>{
+    _vozOn=false;
+    if(btn){btn.style.background='linear-gradient(140deg,#7c5cff,#5b3fd6)';btn.textContent='🎤';}
+    if(st) st.textContent = (e.error==='not-allowed') ? 'Permita o microfone nas configurações do site' : 'Não consegui ouvir. Tente de novo.';
+  };
+  _vozRec.onend=()=>{ _vozOn=false; if(btn){btn.style.background='linear-gradient(140deg,#7c5cff,#5b3fd6)';btn.textContent='🎤';} if(st&&st.textContent==='Ouvindo… fale agora') st.textContent='Toque para falar'; };
+  try{ _vozRec.start(); }catch(e){ if(st) st.textContent='Erro ao iniciar o microfone'; }
+}
+// interpreta a frase falada
+function _normVoz(t){  // igual ao _normTxt mas preserva vírgula/ponto dos valores
+  return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9.,]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function parseVoz(txt){
+  const t=_normVoz(txt);
+  if(!t) return null;
+  // valor: "85", "85,50", "32 e cinquenta", "mil e duzentos"
+  let valor=0;
+  const mNum=t.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:reais?|real|conto|pila)?/);
+  if(mNum) valor=parseFloat(mNum[1].replace('.','').replace(',','.'))||0;
+  const mCent=t.match(/(\d+)\s*(?:reais?\s*)?e\s*(\d{1,2}|cinquenta|vinte|trinta|quarenta|dez)\b/);
+  if(mCent){
+    const cent=isNaN(+mCent[2])?(NUM_EXT[mCent[2]]||0):(+mCent[2]);
+    valor=parseFloat(mCent[1])+ (cent<100?cent/100:0);
+  }
+  if(!valor){ // valor por extenso simples
+    let acc=0, achou=false;
+    t.split(' ').forEach(w=>{ if(NUM_EXT[w]!==undefined){ acc+=NUM_EXT[w]; achou=true; } });
+    if(achou) valor=acc;
+  }
+  if(!(valor>0)) return null;
+  // meio de pagamento
+  const noDebito=/\b(debito|conta|dinheiro|pix|a vista na conta)\b/.test(t);
+  const noCartao=/\b(cartao|credito)\b/.test(t) || !noDebito;
+  // parcelas: "em 4 vezes", "4x", "parcelado em 3"
+  let parcelas=1;
+  const mP=t.match(/(?:em\s*)?(\d{1,2})\s*(?:x|vezes|parcelas)\b/) || t.match(/parcelad[oa]\s*(?:em\s*)?(\d{1,2})/);
+  if(mP) parcelas=Math.max(1,Math.min(48,parseInt(mP[1])||1));
+  // conta/cartão citado pelo nome
+  let contaId=null, cartaoId=null;
+  const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  const GEN=new Set(['bank','banco','conta','cartao','corrente','poupanca']);
+  const casa=(nome)=>{
+    const n=_normTxt(nome); if(!n) return false;
+    if(n.length>2 && t.includes(n)) return true;                    // nome inteiro
+    return n.split(' ').some(w=> w.length>=2 && !GEN.has(w) && new RegExp('\\b'+w+'\\b').test(t));  // ou palavra-chave (ex.: "c6")
+  };
+  cards.forEach(c=>{ if(!cartaoId && casa(c.nome)) cartaoId=c.id; });
+  accs.forEach(c=>{ if(!contaId && casa(c.nome)) contaId=c.id; });
+  // descrição: tira números e palavras de comando
+  let desc=_normTxt(txt)
+    .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
+    .replace(/\b(reais?|real|conto|pila|no|na|em|de|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+  Object.keys(NUM_EXT).forEach(w=>{ desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
+  [...cards,...accs].forEach(c=>{
+    const n=_normTxt(c.nome); if(!n) return;
+    desc=desc.replace(n,' ');
+    n.split(' ').forEach(w=>{ if(w.length>=2) desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
+  });
+  desc=desc.replace(/\b[a-z]\b/g,' ').replace(/\s+/g,' ').trim();  // tira letras soltas (ex.: 'c' do 'c6')
+  desc=desc?_capWords(desc):'Despesa';
+  return {valor, desc, parcelas, noCartao, cartaoId, contaId};
+}
+function processarVoz(txt){
+  const p=parseVoz(txt);
+  const st=$('vozStatus'), pv=$('vozPrevia');
+  if(!p){ if(st) st.textContent='Não achei o valor. Fale por exemplo: "mercado 85 reais"'; return; }
+  if(st) st.textContent='Entendi 👇 confira e confirme';
+  window._vozP=p;
+  const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  if(pv) pv.innerHTML=`<div class="card" style="margin:0">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <b style="font-size:16px">${esc(p.desc)}</b>
+      <span style="margin-left:auto;font-weight:800;font-size:17px;color:var(--red)">${brl(p.valor)}</span>
+    </div>
+    <div class="field" style="margin-bottom:8px"><label>Pagar com</label>
+      <select id="vzMeio" onchange="vozTrocaMeio()">
+        <option value="cartao" ${p.noCartao?'selected':''}>Cartão</option>
+        <option value="conta" ${!p.noCartao?'selected':''}>Débito / conta</option>
+      </select></div>
+    <div class="field" id="vzOndeWrap" style="margin-bottom:8px"></div>
+    <div class="field" style="margin-bottom:10px"><label>Parcelas</label>
+      <select id="vzParc">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${p.parcelas===n?'selected':''}>${n===1?'1x (à vista)':n+'x'}</option>`).join('')}</select></div>
+    <button class="btn" onclick="salvarVoz()">Lançar ${brl(p.valor)}</button>
+  </div>`;
+  vozTrocaMeio();
+  try{ vibra(); }catch(e){}
+}
+function vozTrocaMeio(){
+  const p=window._vozP; if(!p) return;
+  const meio=($('vzMeio')&&$('vzMeio').value)||'cartao';
+  const wrap=$('vzOndeWrap'); if(!wrap) return;
+  const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  if(meio==='cartao'){
+    wrap.innerHTML=`<label>Cartão</label><select id="vzOnde">${cards.map(c=>`<option value="${c.id}" ${p.cartaoId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>`;
+    const pw=$('vzParc'); if(pw) pw.parentElement.style.display='block';
+  }else{
+    wrap.innerHTML=`<label>Conta</label><select id="vzOnde">${accs.map(c=>`<option value="${c.id}" ${p.contaId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>`;
+    const pw=$('vzParc'); if(pw) pw.parentElement.style.display='none';
+  }
+}
+async function salvarVoz(){
+  const p=window._vozP; if(!p) return;
+  const meio=($('vzMeio')&&$('vzMeio').value)||'cartao';
+  const onde=($('vzOnde')&&$('vzOnde').value)||'';
+  if(!onde){ toast(meio==='cartao'?'Cadastre um cartão primeiro':'Cadastre uma conta primeiro'); return; }
+  const hoje=ymd(new Date());
+  const rows=[];
+  if(meio==='cartao'){
+    const n=Math.max(1,parseInt(($('vzParc')&&$('vzParc').value)||'1'));
+    const cartao=cartaoById(onde);
+    const base=Math.floor((p.valor/n)*100)/100;
+    const resto=Math.round((p.valor - base*n)*100)/100;
+    const grupo=(n>1)?(crypto.randomUUID?crypto.randomUUID():String(Date.now())):null;
+    for(let i=0;i<n;i++){
+      const comp=calcCompetencia(hoje, cartao?cartao.dia_fechamento:1);
+      const compI=new Date(comp.getFullYear(), comp.getMonth()+i, 1);
+      rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:(i===n-1?base+resto:base),data:hoje,status:'pago',
+        cartao_id:onde,competencia:ymd(compI), parcela:(n>1?i+1:null), parcelas:(n>1?n:null), grupo_id:grupo});
+    }
+  }else{
+    rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:p.valor,data:hoje,status:'pago',conta_id:onde});
+  }
+  const r=await insertRows(rows);
+  if(!r.ok) return;
+  window._vozP=null;
+  closeSheet(); vibra();
+  if(r.queued){ render(); toast('Salvo offline — sincroniza depois'); }
+  else { await loadAll(); toast('🎙️ Lançado: '+p.desc+' '+brl(p.valor)); render(); }
+}
+
 // ---- LANÇAMENTO ----
 let lancType='despesa';
 function openAddMenu(){
@@ -4660,6 +4835,7 @@ function closeAddMenu(){
 function pickAdd(tipo){
   closeAddMenu();
   if(tipo==='banco'){ openColarBanco(); return; }
+  if(tipo==='voz'){ openVoz(); return; }
   openLanc(null, tipo);
 }
 function openLanc(id, preset){

@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.84"; /* z4 */
+const APP_VER = "7.85"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4793,6 +4793,7 @@ function autoDesc(){
     .slice(0,5);
   if(!lista.length){ box.innerHTML=''; return; }
   window._acCache=lista;
+  const _n=$('catSugNote'); if(_n) _n.style.display='none';
   box.innerHTML=`<div class="acList">`+lista.map((r,i)=>{
     const c=r.catId?catById(r.catId):null;
     return `<div class="acItem" onmousedown="event.preventDefault()" onclick="usarAutoDesc(${i})">
@@ -4814,6 +4815,8 @@ function usarAutoDesc(i){
 function sugerirCategoria(){
   const inp=$('lDesc'), sel=$('lCatSel'), note=$('catSugNote');
   if(!inp||!sel||!note) return;
+  const _lst=$('acList');
+  if(_lst && _lst.innerHTML.trim()){ note.style.display='none'; return; }
   if(sel.value && sel.value!=='' && window._catManual){ note.style.display='none'; return; }
   const q=_normTxt(inp.value);
   if(q.length<3){ note.style.display='none'; return; }

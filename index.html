@@ -545,7 +545,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.95"; /* z4 */
+const APP_VER = "7.96"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2868,12 +2868,21 @@ function renderHome(){
               : dU.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}));
     const dono=(u.user_id!==USER.id)?` · ${esc(apelidoDe(u.user_id))}`:'';
     const parc=(u.parcelas>1)?` <span class="pill" style="background:rgba(124,92,255,.18);color:#7c5cff">${u.parcela}/${u.parcelas}</span>`:'';
+    let fatU='';
+    if(u.cartao_id && u.competencia){
+      try{
+        const _ym=faturaYm(u.competencia, cartaoById(u.cartao_id));
+        const _d=new Date(_ym+'-01T00:00:00');
+        const _mesmo=_d.getFullYear()===(new Date()).getFullYear();
+        fatU=` · <span style="color:#7c5cff;font-weight:600">fatura ${_d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}${_mesmo?'':'/'+String(_d.getFullYear()).slice(2)}</span>`;
+      }catch(e){}
+    }
     html+=`<div class="card" style="margin-bottom:12px;padding:12px 14px;cursor:pointer" onclick="openLanc('${u.id}')">
       <div style="font-size:10px;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px">ÚLTIMA TRANSAÇÃO</div>
       <div class="lrow" style="padding:0;border:0">
         <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
         <div class="mid"><div class="t">${esc(u.descricao)}${parc}</div>
-          <div class="s">${qdo}${ondePg?' · '+esc(ondePg.nome):''}${cat?' · '+esc(cat.nome):''}${dono}</div></div>
+          <div class="s">${qdo}${ondePg?' · '+esc(ondePg.nome):''}${cat?' · '+esc(cat.nome):''}${fatU}${dono}</div></div>
         <div class="amt ${cls}">${sinal}${brl(Number(u.valor))}</div>
       </div></div>`;
   }
@@ -3570,6 +3579,17 @@ function rowLanc(l){
   }else{
     const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
     sub=(cat?esc(cat.nome):'Sem categoria')+(conta?' · '+esc(conta.nome):'');
+    // compra no cartão: mostra em QUAL FATURA vai cair
+    if(l.cartao_id && l.competencia){
+      try{
+        const ym=faturaYm(l.competencia, cartaoById(l.cartao_id));
+        const dF=new Date(ym+'-01T00:00:00');
+        const agora=new Date();
+        const mesmoAno = dF.getFullYear()===agora.getFullYear();
+        const lab=dF.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+(mesmoAno?'':'/'+String(dF.getFullYear()).slice(2));
+        sub+=` · <span style="color:#7c5cff;font-weight:600">fatura ${lab}</span>`;
+      }catch(e){}
+    }
   }
   const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
   let hora='';

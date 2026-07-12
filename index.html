@@ -545,7 +545,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.94"; /* z4 */
+const APP_VER = "7.95"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4768,9 +4768,13 @@ function processarVoz(txt){
   const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
   if(pv) pv.innerHTML=`<div class="card" style="margin:0">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <b style="font-size:16px">${esc(p.desc)}</b>
-      <span style="margin-left:auto;font-weight:800;font-size:17px;color:var(--red)">${brl(p.valor)}</span>
+      <span style="margin-left:auto;font-weight:800;font-size:19px;color:var(--red)">${brl(p.valor)}</span>
     </div>
+    <div class="field" style="margin-bottom:8px"><label>Descrição *</label>
+      <input id="vzDesc" value="${(p.desc==='Despesa'?'':esc(p.desc))}" placeholder="O que foi? (obrigatório)" oninput="vozSugCat()"></div>
+    <div class="field" style="margin-bottom:8px"><label>Categoria</label>
+      <select id="vzCat">${_optsCats('despesa','')}</select>
+      <div class="note" id="vzCatNote" style="display:none"></div></div>
     <div class="field" style="margin-bottom:8px"><label>Pagar com</label>
       <select id="vzMeio" onchange="vozTrocaMeio()">
         <option value="cartao" ${p.noCartao?'selected':''}>Cartão</option>
@@ -4798,8 +4802,29 @@ function vozTrocaMeio(){
     const pw=$('vzParc'); if(pw) pw.parentElement.style.display='none';
   }
 }
+function vozSugCat(){
+  const inp=$('vzDesc'), sel=$('vzCat'), note=$('vzCatNote');
+  if(!inp||!sel) return;
+  const q=_normTxt(inp.value); if(q.length<3){ if(note)note.style.display='none'; return; }
+  const cats=new Set(DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa').map(c=>c.id));
+  const best={};
+  DATA.lancamentos.forEach(l=>{
+    if(l.user_id!==USER.id||l.tipo!=='despesa'||!l.categoria_id||!cats.has(l.categoria_id)) return;
+    const d=_normTxt(l.descricao); if(!d) return;
+    let pts=0;
+    if(d===q)pts=100; else if(d.startsWith(q)||q.startsWith(d))pts=70; else if(d.includes(q)||q.includes(d))pts=50;
+    if(pts<50) return;
+    if(!best[l.categoria_id]||pts>best[l.categoria_id]) best[l.categoria_id]=pts;
+  });
+  const top=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
+  if(top && sel.value!==top[0]){ sel.value=top[0]; if(note){ const c=catById(top[0]); note.style.display='block'; note.textContent='💡 categoria sugerida: '+(c?c.nome:''); } }
+}
 async function salvarVoz(){
   const p=window._vozP; if(!p) return;
+  const dsc=(($('vzDesc')&&$('vzDesc').value)||'').trim();
+  if(!dsc){ toast('Escreva o que foi essa despesa 🙂'); const el=$('vzDesc'); if(el){ el.style.borderColor='var(--red)'; el.focus(); } return; }
+  p.desc=dsc;
+  p.categoria_id=(($('vzCat')&&$('vzCat').value)||null)||null;
   const meio=($('vzMeio')&&$('vzMeio').value)||'cartao';
   const onde=($('vzOnde')&&$('vzOnde').value)||'';
   if(!onde){ toast(meio==='cartao'?'Cadastre um cartão primeiro':'Cadastre uma conta primeiro'); return; }
@@ -4815,17 +4840,20 @@ async function salvarVoz(){
       const comp=calcCompetencia(hoje, cartao?cartao.dia_fechamento:1);
       const compI=new Date(comp.getFullYear(), comp.getMonth()+i, 1);
       rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:(i===n-1?base+resto:base),data:hoje,status:'pago',
-        cartao_id:onde,competencia:ymd(compI), parcela:(n>1?i+1:null), parcelas:(n>1?n:null), grupo_id:grupo});
+        cartao_id:onde,categoria_id:p.categoria_id,competencia:ymd(compI), parcela:(n>1?i+1:null), parcelas:(n>1?n:null), grupo_id:grupo});
     }
   }else{
-    rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:p.valor,data:hoje,status:'pago',conta_id:onde});
+    rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:p.valor,data:hoje,status:'pago',conta_id:onde,categoria_id:p.categoria_id});
   }
   const r=await insertRows(rows);
   if(!r.ok) return;
   window._vozP=null;
   closeSheet(); vibra();
-  if(r.queued){ render(); toast('Salvo offline — sincroniza depois'); }
-  else { await loadAll(); toast('🎙️ Lançado: '+p.desc+' '+brl(p.valor)); render(); }
+  // otimista: já mostra na tela e sincroniza em segundo plano (não trava)
+  try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
+  render();
+  toast(r.queued?'Salvo offline — sincroniza depois':('🎙️ Lançado: '+p.desc+' '+brl(p.valor)));
+  if(!r.queued) setTimeout(()=>{ loadAll().then(()=>render()).catch(()=>{}); }, 50);
 }
 
 // ---- LANÇAMENTO ----
@@ -5433,8 +5461,12 @@ async function saveLanc(id){
     const r=await insertRows(rows);
     if(!r.ok) return;
     closeSheet();
-    vibra(); if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
-    else { await loadAll(); toast(rec?'Recorrência criada (24 meses)':(id?'Compra atualizada':'Compra registrada')); render(); }
+    vibra();
+    // otimista: aparece na hora; o servidor sincroniza em segundo plano
+    if(!id){ try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){} }
+    render();
+    toast(r.queued?'Salvo offline — sincroniza quando a internet voltar':(rec?'Recorrência criada (24 meses)':(id?'Compra atualizada':'Compra registrada')));
+    if(!r.queued) setTimeout(()=>{ loadAll().then(()=>render()).catch(()=>{}); }, 50);
     return;
   }
 

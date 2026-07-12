@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.86"; /* z4 */
+const APP_VER = "7.87"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2996,6 +2996,16 @@ function toggleRecents(){
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);
   const lim=Number(c.limite)||0;
+  // receitas ainda não confirmadas nesta conta, no mês em vista (previsão)
+  let recPrev=0;
+  try{
+    DATA.lancamentos.forEach(l=>{
+      if(l.tipo!=='receita' || l.status!=='pendente') return;
+      if(l.conta_id!==c.id) return;
+      if(!inMonthRep(l, viewMonth)) return;
+      recPrev+=Number(l.valor)||0;
+    });
+  }catch(e){}
   const usado=s<0?-s:0;
   const livre=Math.max(0,lim-usado);
   const pct=lim>0?Math.min(100,Math.round(usado/lim*100)):0;
@@ -3007,7 +3017,10 @@ function rowConta(c){
     <div class="lrow" style="border-bottom:none">
       ${dot}
       <div class="mid"><div class="t wrap">${esc(c.nome)}</div><div class="s">Saldo atual · <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div></div>
-      <div class="amt ${s<0?'r':''}">${brl(s)}</div>
+      <div style="text-align:right">
+        <div class="amt ${s<0?'r':''}" style="padding:0">${brl(s)}</div>
+        ${recPrev>0?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;white-space:nowrap">+${brl(recPrev)} a receber</div>`:''}
+      </div>
     </div>
     ${lim>0?`<div style="padding:0 2px 12px 52px;margin-top:-4px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px;white-space:nowrap">Limite ${brl(lim)} · usado <b style="color:${cor}">${brl(usado)}</b> · livre ${brl(livre)}</div>

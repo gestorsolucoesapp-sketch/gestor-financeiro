@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.88"; /* z4 */
+const APP_VER = "7.89"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2867,6 +2867,67 @@ function renderHome(){
     rh+=`</div>`;
     _alertaHtml+=rh;
   }
+  // bloco: PROJEÇÃO DE CAIXA — 60 dias à frente com o que já está agendado
+  (()=>{
+    try{
+      const H=new Date(); H.setHours(0,0,0,0);
+      const fim=new Date(H); fim.setDate(fim.getDate()+60);
+      const hjs=ymd(H), fims=ymd(fim);
+      const evs=[];
+      DATA.lancamentos.forEach(l=>{
+        if(l.status!=='pendente' || l.cartao_id) return;
+        if(!srcOk(l.user_id)) return;
+        if(l.tipo!=='despesa' && l.tipo!=='receita') return;
+        const d=(l.data<hjs)?hjs:l.data;           // atrasado conta como hoje
+        if(d>fims) return;
+        evs.push({data:d, desc:l.descricao||(l.tipo==='receita'?'Receita':'Conta'), delta:(l.tipo==='receita'?1:-1)*(Number(l.valor)||0)});
+      });
+      cartoesScope().forEach(c=>{
+        for(let off=0; off<3; off++){
+          const mes=new Date(H.getFullYear(), H.getMonth()+off, 1);
+          const fat=faturaTotal(c.id, mes);
+          if(!(fat>0) || faturaPaga(c.id, mes)) continue;
+          let due=new Date(mes.getFullYear(), mes.getMonth(), Math.min(Number(c.dia_vencimento)||1, 28));
+          if(due<H) due=H;
+          if(ymd(due)>fims) continue;
+          evs.push({data:ymd(due), desc:'Fatura '+c.nome, delta:-fat});
+        }
+      });
+      if(!evs.length){ blocos.projecao=''; return; }
+      evs.sort((a,b)=> a.data<b.data?-1:(a.data>b.data?1:0));
+      const saldo0=saldoTotal();
+      let run=saldo0, minRun=saldo0, minData=null, firstNeg=null;
+      const linhas=[];
+      evs.forEach(e=>{
+        run+=e.delta;
+        if(run<minRun){ minRun=run; minData=e.data; }
+        if(run<0 && !firstNeg) firstNeg={data:e.data, saldo:run};
+        linhas.push({...e, run});
+      });
+      const fmtD=d=>new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+      let head;
+      if(firstNeg){
+        head=`<div style="font-size:13px;line-height:1.4;margin-bottom:8px">⚠️ Em <b>${fmtD(firstNeg.data)}</b> seu caixa fica <b style="color:var(--red)">${brl(firstNeg.saldo)}</b> se tudo se confirmar.</div>`;
+      }else{
+        head=`<div style="font-size:13px;line-height:1.4;margin-bottom:8px">✅ Caixa positivo nos próximos 60 dias. Menor saldo: <b style="color:var(--green)">${brl(minRun)}</b>${minData?' em '+fmtD(minData):''}.</div>`;
+      }
+      let ph=`<div class="card" style="margin-bottom:0${firstNeg?';border:1.5px solid #e0a020':''}">
+        <h3 style="margin:0 0 4px;font-size:15px">🔮 Projeção de caixa · 60 dias</h3>
+        <div class="note" style="margin-bottom:8px">Saldo hoje ${brl(saldo0)} + o que está agendado (contas, receitas e faturas).</div>
+        ${head}`;
+      linhas.slice(0,8).forEach(e=>{
+        ph+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:12.5px">
+          <span style="color:var(--muted);flex:0 0 52px">${fmtD(e.data)}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc)}</span>
+          <span style="font-weight:600;color:${e.delta>=0?'var(--green)':'var(--red)'}">${e.delta>=0?'+':''}${brl(e.delta)}</span>
+          <span style="flex:0 0 86px;text-align:right;font-weight:700;color:${e.run<0?'var(--red)':'var(--ink)'}">${brl(e.run)}</span>
+        </div>`;
+      });
+      if(linhas.length>8) ph+=`<div class="note" style="margin-top:6px">+ ${linhas.length-8} evento(s) até ${fmtD(fims)}</div>`;
+      ph+=`</div>`;
+      blocos.projecao=ph;
+    }catch(e){ blocos.projecao=''; }
+  })();
   // próxima conta a pagar (despesa futura OU fatura de cartão) — a mais próxima, fora das atrasadas
   (()=>{
     const _fatMes=new Date(); _fatMes.setDate(1);
@@ -2998,7 +3059,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','saldo','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','saldo','projecao','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

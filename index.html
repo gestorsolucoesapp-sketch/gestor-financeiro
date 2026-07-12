@@ -79,6 +79,13 @@ body.modal-open{overflow:hidden}
 body.modal-open .fab{display:none !important}
 .field select{text-overflow:ellipsis}
 .field input:focus,.field select:focus{border-color:var(--mint)}
+.acWrap{position:relative}
+.acList{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;background:var(--card);border:1.5px solid var(--line-2);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:230px;overflow-y:auto}
+.acItem{padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid var(--line-2)}
+.acItem:last-child{border-bottom:0}
+.acItem:active{background:var(--input-bg)}
+.acItem .acTxt{font-weight:600;font-size:14px}
+.acItem .acCat{margin-left:auto;font-size:11px;color:var(--muted)}
 .field .err-flash,input.err-flash,select.err-flash{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(239,68,68,.25)!important;animation:errShake .35s}
 @keyframes errShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;
@@ -537,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.83"; /* z4 */
+const APP_VER = "7.84"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4403,7 +4410,7 @@ function openLanc(id, preset){
       <button id="ttDesp" class="${lancType==='despesa'?'on desp':''}" onclick="setLancType('despesa')">Despesa</button>
       <button id="ttTransf" class="${lancType==='transferencia'?'on transf':''}" onclick="setLancType('transferencia')">Transfer.</button>
     </div>
-    <div class="field"><label>Descrição</label><input id="lDesc" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="sugerirCategoria()" onblur="sugerirCategoria()"><div class="note" id="catSugNote" style="display:none"></div></div>
+    <div class="field acWrap"><label>Descrição</label><input id="lDesc" autocomplete="off" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="autoDesc();sugerirCategoria()" onfocus="autoDesc()" onblur="setTimeout(fecharAutoDesc,180);sugerirCategoria()"><div id="acList"></div><div class="note" id="catSugNote" style="display:none"></div></div>
     <div id="lancCatWrap"></div>
     <div id="lancDynamic"></div>
     <div class="field"><label>Data</label>
@@ -4750,6 +4757,59 @@ function _normTxt(t){
   return String(t||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+// autocompletar descrição pelo histórico (estilo Excel) — preenche categoria junto
+function _histDescricoes(){
+  const tipo=(lancType==='receita')?'receita':'despesa';
+  const mapa={}; // desc normalizada -> {texto, catId, n, ultima}
+  DATA.lancamentos.forEach(l=>{
+    if(l.user_id!==USER.id || l.tipo!==tipo) return;
+    const d=String(l.descricao||'').trim(); if(d.length<2) return;
+    const k=_normTxt(d); if(!k) return;
+    const m=mapa[k];
+    const quando=l.criado_em||l.data||'';
+    if(!m){ mapa[k]={texto:d, cats:{}, n:0, ultima:quando}; }
+    const r=mapa[k];
+    r.n++;
+    if(quando>r.ultima){ r.ultima=quando; r.texto=d; }
+    if(l.categoria_id) r.cats[l.categoria_id]=(r.cats[l.categoria_id]||0)+1;
+  });
+  return Object.values(mapa).map(r=>{
+    const cat=Object.entries(r.cats).sort((a,b)=>b[1]-a[1])[0];
+    return {texto:r.texto, n:r.n, ultima:r.ultima, catId:cat?cat[0]:null};
+  });
+}
+function autoDesc(){
+  const inp=$('lDesc'), box=$('acList');
+  if(!inp||!box) return;
+  const q=_normTxt(inp.value);
+  if(q.length<2){ box.innerHTML=''; return; }
+  const lista=_histDescricoes()
+    .filter(r=>{ const k=_normTxt(r.texto); return k!==q && k.includes(q); })
+    .sort((a,b)=>{
+      const ap=_normTxt(a.texto).startsWith(q)?1:0, bp=_normTxt(b.texto).startsWith(q)?1:0;
+      return (bp-ap) || (b.n-a.n) || (b.ultima<a.ultima?-1:1);
+    })
+    .slice(0,5);
+  if(!lista.length){ box.innerHTML=''; return; }
+  window._acCache=lista;
+  box.innerHTML=`<div class="acList">`+lista.map((r,i)=>{
+    const c=r.catId?catById(r.catId):null;
+    return `<div class="acItem" onmousedown="event.preventDefault()" onclick="usarAutoDesc(${i})">
+      <span class="acTxt">${esc(r.texto)}</span>
+      ${c?`<span class="acCat">${c.icone?c.icone+' ':''}${esc(c.nome)}</span>`:''}
+    </div>`;
+  }).join('')+`</div>`;
+}
+function fecharAutoDesc(){ const b=$('acList'); if(b) b.innerHTML=''; }
+function usarAutoDesc(i){
+  const r=(window._acCache||[])[i]; if(!r) return;
+  const inp=$('lDesc'); if(inp) inp.value=r.texto;
+  fecharAutoDesc();
+  const sel=$('lCatSel');
+  if(sel && r.catId && catById(r.catId)){ sel.value=r.catId; window._catSel=r.catId; window._catManual=true; }
+  const note=$('catSugNote'); if(note) note.style.display='none';
+  try{ vibra(); }catch(e){}
 }
 function sugerirCategoria(){
   const inp=$('lDesc'), sel=$('lCatSel'), note=$('catSugNote');

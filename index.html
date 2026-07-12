@@ -544,7 +544,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.91"; /* z4 */
+const APP_VER = "7.92"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2022,6 +2022,21 @@ function renderAssistente(){
   $('content').innerHTML=html;
   const box=$('aiChat'); if(box) box.scrollTop=box.scrollHeight;
 }
+// extrai o texto humano de respostas da IA que venham em JSON de ação
+function _limparTextoIA(t){
+  t=String(t||'').trim();
+  t=t.replace(/<\/?parameter[^>]*>/g,'').replace(/<\/?invoke[^>]*>/g,'').replace(/<\/?function[^>]*>/g,'').trim();
+  if(t[0]==='{'){
+    try{
+      const j=JSON.parse(t.slice(0, t.lastIndexOf('}')+1));
+      if(j && j.texto) return String(j.texto).trim();
+    }catch(e){
+      const m=t.match(/"texto"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if(m){ try{ return JSON.parse('"'+m[1]+'"'); }catch(_e){ return m[1]; } }
+    }
+  }
+  return t;
+}
 // resumo semanal proativo: compila estatísticas e pede à IA um resumo curto
 async function gerarResumoIA(forcado){
   if(window._resumoIAGerando) return;
@@ -2055,7 +2070,7 @@ async function gerarResumoIA(forcado){
     });
     const d=await r.json();
     if(d && d.ok && d.texto){
-      try{ localStorage.setItem('gf_resumo_ia', JSON.stringify({t:Date.now(), texto:String(d.texto).trim()})); }catch(e){}
+      try{ localStorage.setItem('gf_resumo_ia', JSON.stringify({t:Date.now(), texto:_limparTextoIA(d.texto)})); }catch(e){}
       if(tab==='home') render();
       if(forcado) toast('Resumo atualizado 🤖');
     }else if(forcado){ toast('Não consegui gerar agora'); }
@@ -3021,7 +3036,8 @@ function renderHome(){
       const velho=!cache || (agora-(cache.t||0)) > 7*24*3600*1000;
       let corpo;
       if(cache && cache.texto){
-        corpo=`<div style="font-size:13.5px;line-height:1.55;white-space:pre-wrap">${esc(cache.texto)}</div>
+        const txt=_limparTextoIA(cache.texto);
+        corpo=`<div style="font-size:13.5px;line-height:1.55;white-space:pre-wrap">${esc(txt)}</div>
           <div class="note" style="margin-top:8px">${new Date(cache.t).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · <a href="#" onclick="event.preventDefault();gerarResumoIA(true)" style="color:var(--mint)">atualizar</a></div>`;
       }else{
         corpo=`<div class="note">Preparando seu primeiro resumo…</div>`;

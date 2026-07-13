@@ -550,7 +550,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.99"; /* z4 */
+const APP_VER = "8.00"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4745,10 +4745,19 @@ function parseVoz(txt){
   // meio de pagamento
   const noDebito=/\b(debito|conta|dinheiro|pix|a vista na conta)\b/.test(t);
   const noCartao=/\b(cartao|credito)\b/.test(t) || !noDebito;
-  // parcelas: "em 4 vezes", "4x", "parcelado em 3"
+  // parcelas: "em 4 vezes", "4x", "parcelado em 3", "três vezes", "em dez vezes"
   let parcelas=1;
+  const EXT_P={'uma':1,'um':1,'duas':2,'dois':2,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10,'onze':11,'doze':12,'quinze':15,'dezoito':18,'vinte':20,'vinte e quatro':24};
   const mP=t.match(/(?:em\s*)?(\d{1,2})\s*(?:x|vezes|parcelas)\b/) || t.match(/parcelad[oa]\s*(?:em\s*)?(\d{1,2})/);
-  if(mP) parcelas=Math.max(1,Math.min(48,parseInt(mP[1])||1));
+  if(mP){ parcelas=Math.max(1,Math.min(48,parseInt(mP[1])||1)); }
+  else{
+    // por extenso: "três vezes", "parcelado em cinco"
+    const chaves=Object.keys(EXT_P).sort((a,b)=>b.length-a.length);   // frases maiores primeiro
+    for(const w of chaves){
+      const re=new RegExp('(?:em\\s+)?\\b'+w+'\\b\\s*(?:x|vezes|parcelas)\\b|parcelad[oa]\\s*(?:em\\s*)?\\b'+w+'\\b');
+      if(re.test(t)){ parcelas=EXT_P[w]; break; }
+    }
+  }
   // conta/cartão citado pelo nome
   let contaId=null, cartaoId=null;
   const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
@@ -4763,9 +4772,13 @@ function parseVoz(txt){
   const mReg=tn.match(/\b(?:cartao|conta|credito|debito|pelo|pela)\b/);
   const regiao = mReg ? tn.slice(mReg.index) : '';
   const casaTok=(nome)=>{
-    if(!regiao) return false;
     const n=_normTxt(nome); if(!n) return false;
-    return n.split(' ').some(w=> w.length>=2 && !GEN.has(w) && new RegExp('\\b'+w+'\\b').test(regiao));
+    return n.split(' ').some(w=>{
+      if(w.length<2 || GEN.has(w)) return false;
+      const re=new RegExp('\\b'+w+'\\b');
+      if(/\d/.test(w)) return re.test(tn);          // apelido com número (ex.: "c6") vale em qualquer lugar
+      return regiao ? re.test(regiao) : false;        // demais só depois de "cartao/conta/debito..."
+    });
   };
   cards.forEach(c=>{ if(!cartaoId && casaTok(c.nome)) cartaoId=c.id; });
   accs .forEach(c=>{ if(!contaId  && casaTok(c.nome)) contaId =c.id; });
@@ -4788,6 +4801,7 @@ function parseVoz(txt){
     .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
     .replace(/\b(adicione|adicionar|adiciona|lancar|lance|lanca|registre|registrar|registra|coloque|colocar|coloca|gastei|paguei|comprei|anota|anotar|foi|de|um|uma)\b/g,' ')
     .replace(/\b(reais?|real|conto|pila|no|na|em|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista|vista)\b/g,' ')
+    .replace(/\b(uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|dezoito|vinte)\s+(?=vezes|parcelas?|x\b)/g,' ')
     .replace(/\s+/g,' ').trim();
   Object.keys(NUM_EXT).forEach(w=>{ desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });
 

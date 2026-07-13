@@ -217,7 +217,8 @@ body.modal-open .fab{display:none !important}
 /* ===== WALKTHROUGH GUIADO (coach marks) ===== */
 #wtOverlay{position:fixed;inset:0;z-index:200;pointer-events:none}
 #wtOverlay .wt-dim{position:absolute;inset:0;background:rgba(6,8,16,.78);pointer-events:auto;transition:clip-path .3s ease}
-#wtOverlay .wt-ring{position:absolute;border-radius:18px;box-shadow:0 0 0 3px #ff8a1a,0 0 0 9999px rgba(6,8,16,.78);transition:all .35s cubic-bezier(.22,1,.36,1);pointer-events:none}
+#wtOverlay .wt-ring{position:absolute;border-radius:18px;box-shadow:0 0 0 3px #ff8a1a,0 0 0 9999px rgba(6,8,16,.42);transition:all .35s cubic-bezier(.22,1,.36,1);pointer-events:none;animation:wtPulse 1.6s ease-in-out infinite}
+@keyframes wtPulse{0%,100%{box-shadow:0 0 0 3px #ff8a1a,0 0 0 9999px rgba(6,8,16,.42)}50%{box-shadow:0 0 0 6px rgba(255,138,26,.55),0 0 0 9999px rgba(6,8,16,.42)}}
 #wtOverlay .wt-baloon{position:absolute;max-width:290px;background:#fff;color:#16182a;border-radius:16px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.5);pointer-events:auto;transition:all .35s cubic-bezier(.22,1,.36,1)}
 #wtOverlay .wt-baloon h4{font-size:16px;font-weight:800;margin-bottom:5px;color:#7c3aed}
 #wtOverlay .wt-baloon p{font-size:13.5px;line-height:1.5;color:#3a3d55;margin-bottom:12px}
@@ -549,7 +550,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.98"; /* z4 */
+const APP_VER = "7.99"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1293,22 +1294,22 @@ function iniciarWalkthrough(){
   // define os passos: cada um aponta um elemento e sabe quando foi concluído
   _wtSteps=[
     { alvo:()=>document.querySelector('[data-tab="contas"]'), titulo:'1. Cadastre suas contas',
-      texto:'Toque aqui em "Contas" para adicionar seus bancos e carteiras (ex: Nubank, Itaú, Caixa, Dinheiro).',
+      texto:'Toque em "Contas" ali embaixo. Cadastre onde você guarda dinheiro: banco, carteira, dinheiro vivo.',
       feito:()=>DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada).length>=1 },
     { alvo:()=>document.querySelector('[data-tab="contas"]'), titulo:'2. Informe o saldo atual',
-      texto:'Ao criar a conta, coloque o saldo que você tem nela hoje. É isso que faz o app calcular certo.',
+      texto:'Coloque quanto tem nela HOJE. É esse número que faz as contas baterem.',
       feito:()=>DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada).length>=1, auto:true },
     { alvo:()=>document.getElementById('fab'), titulo:'3. Cadastre um cartão',
-      texto:'Toque no "+" e escolha Cartão. Informe o dia de fechamento e de vencimento da fatura.',
+      texto:'Toque no "+" rosa e escolha Cartão. Precisa do dia que a fatura fecha e do dia que vence (está no app do banco).',
       feito:()=>DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado).length>=1, skip:true },
     { alvo:()=>document.getElementById('fab'), titulo:'4. Informe sua receita fixa',
-      texto:'Toque no "+" e registre seu salário ou entrada de dinheiro do mês.',
+      texto:'Toque no "+" e lance seu salário. Assim o app sabe quanto entra por mês.',
       feito:()=>DATA.lancamentos.filter(l=>l.user_id===USER.id&&l.tipo==='receita').length>=1 },
     { alvo:()=>document.getElementById('fab'), titulo:'5. Primeira compra no cartão',
-      texto:'Toque no "+", escolha Despesa e pague com Cartão. Assim você vê como a fatura funciona.',
+      texto:'Lance uma compra que você fez no cartão. Veja como ela entra na fatura certinha.',
       feito:()=>DATA.lancamentos.filter(l=>l.user_id===USER.id&&l.tipo==='despesa'&&l.cartao_id).length>=1, skip:true },
     { alvo:()=>document.getElementById('fab'), titulo:'6. Primeira despesa no débito',
-      texto:'Por fim, registre um gasto pago no débito/dinheiro. Pronto, você já domina o app! 🎉',
+      texto:'Agora um gasto pago no débito ou dinheiro. Pronto — você já sabe usar o app! 🎉',
       feito:()=>DATA.lancamentos.filter(l=>l.user_id===USER.id&&l.tipo==='despesa'&&!l.cartao_id).length>=1 },
   ];
   _wtIdx=0;
@@ -1347,11 +1348,14 @@ function mostrarWtPasso(){
   } else { ring.style.display='none'; }
   // conteúdo do balão
   const ultimo=_wtIdx===_wtSteps.length-1;
-  bal.innerHTML=`<div class="wt-step">PASSO ${_wtIdx+1} DE ${_wtSteps.length}</div>
+  bal.innerHTML=`<button onclick="pularWalkthrough()" aria-label="Fechar"
+      style="position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:50%;background:#eef0f6;color:#3a3f55;font-size:16px;font-weight:700;cursor:pointer;line-height:1">✕</button>
+    <div class="wt-step">PASSO ${_wtIdx+1} DE ${_wtSteps.length}</div>
     <h4>${s.titulo}</h4><p>${s.texto}</p>
+    <p style="font-size:11.5px;color:#6b7188;margin:8px 0 0">👆 Pode tocar na tela normalmente — o guia acompanha você.</p>
     <div class="wt-btns">
-      <button class="wt-skip" onclick="pularWalkthrough()">Pular tutorial</button>
-      ${s.skip?`<button class="wt-skip" onclick="avancarWt()">Pular passo ›</button>`:`<span></span>`}
+      <button class="wt-skip" onclick="pularWalkthrough()">Fechar guia</button>
+      ${s.skip?`<button class="wt-skip" onclick="avancarWt()">Pular esta ›</button>`:`<span></span>`}
     </div>`;
   // posiciona o balão perto do elemento (acima se estiver embaixo, abaixo se estiver em cima)
   const br=el?el.getBoundingClientRect():{top:window.innerHeight/2,left:20,bottom:window.innerHeight/2,width:0};
@@ -1397,14 +1401,14 @@ function renderTutorial(){
   const pct=Math.round(feitos/steps.length*100);
   let html=`<div class="page-title">👋 Primeiros passos</div>
   <div class="card" style="background:linear-gradient(120deg,#7c5cff,#a855ff);color:#fff;border:none">
-    <b style="font-size:15px">Configure o app em poucos minutos</b>
-    <div style="font-size:13.5px;opacity:.95;margin-top:4px;line-height:1.5">Concluir estas etapas é <b>essencial</b> para o Gestor calcular seus saldos, faturas e relatórios corretamente. Sem elas, os números não fecham. Leva menos de 5 minutos.</div>
+    <b style="font-size:16px">Vamos configurar em 5 minutinhos</b>
+    <div style="font-size:13.5px;opacity:.95;margin-top:6px;line-height:1.55">É só seguir a lista abaixo, na ordem. <b>Toque no botão de cada passo</b> que eu abro a tela certa pra você. Sem isso, os números não fecham.</div>
   </div>
   <div class="card" style="padding:14px 16px">
     <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ink)"><b>Seu progresso</b><span style="color:var(--muted)">${feitos} de ${steps.length}</span></div>
     <div class="prog"><div class="progfill" style="width:${pct}%;background:var(--mint)"></div></div>
   </div>
-  <button class="btn" style="margin:2px 0 10px" onclick="iniciarWalkthrough()">✨ Iniciar tutorial guiado (passo a passo)</button>
+  <button class="btn" style="margin:2px 0 10px" onclick="iniciarWalkthrough()">✨ Me mostre onde toca (guia na tela)</button>
   <button class="btn outline" style="margin:0 0 14px" onclick="addTudoRapido()">➕ Adicionar várias contas e cartões de uma vez</button>`;
   steps.forEach(s=>{
     const pulou=s.skip&&obSkip(s.k)&&!s.ok;
@@ -1414,9 +1418,9 @@ function renderTutorial(){
       <div style="flex:1;min-width:0">
         <b style="color:var(--ink)">${s.titulo}${s.prog&&!s.ok?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">${s.prog}</span>`:''}${pulou?' <span class="pill">pulado</span>':''}</b>
         <div class="s" style="margin:2px 0 10px">${s.sub}</div>
-        ${done?'':`<div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" style="margin:0" onclick="${s.acao}">${s.btn}</button>
-          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Não se aplica</button>`:''}
+        ${done?'':`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn" style="margin:0;flex:1;min-width:170px;padding:12px 16px;font-size:14px" onclick="${s.acao}">${s.btn} →</button>
+          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Não uso isso</button>`:''}
         </div>`}
       </div>
     </div>`;

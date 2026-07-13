@@ -550,7 +550,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.00"; /* z4 */
+const APP_VER = "8.01"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4728,20 +4728,28 @@ function parseVoz(txt){
   const t=_normVoz(txt);
   if(!t) return null;
   // valor: "85", "85,50", "32 e cinquenta", "mil e duzentos"
+  // tira antes o trecho das parcelas, senão "10 vezes de 240" pegaria o 10 como valor
+  const tv = t.replace(/(?:em\s*)?\d{1,2}\s*(?:x|vezes|parcelas)\b/g,' ')
+              .replace(/parcelad[oa]\s*(?:em\s*)?\d{1,2}\b/g,' ')
+              .replace(/\b(?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|dezoito|vinte)\s*(?:x|vezes|parcelas)\b/g,' ')
+              .replace(/\s+/g,' ').trim();
   let valor=0;
-  const mNum=t.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:reais?|real|conto|pila)?/);
+  const mNum=tv.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:reais?|real|conto|pila)?/);
   if(mNum) valor=parseFloat(mNum[1].replace('.','').replace(',','.'))||0;
-  const mCent=t.match(/(\d+)\s*(?:reais?\s*)?e\s*(\d{1,2}|cinquenta|vinte|trinta|quarenta|dez)\b/);
+  const mCent=tv.match(/(\d+)\s*(?:reais?\s*)?e\s*(\d{1,2}|cinquenta|vinte|trinta|quarenta|dez)\b/);
   if(mCent){
     const cent=isNaN(+mCent[2])?(NUM_EXT[mCent[2]]||0):(+mCent[2]);
     valor=parseFloat(mCent[1])+ (cent<100?cent/100:0);
   }
   if(!valor){ // valor por extenso simples
     let acc=0, achou=false;
-    t.split(' ').forEach(w=>{ if(NUM_EXT[w]!==undefined){ acc+=NUM_EXT[w]; achou=true; } });
+    tv.split(' ').forEach(w=>{ if(NUM_EXT[w]!==undefined){ acc+=NUM_EXT[w]; achou=true; } });
     if(achou) valor=acc;
   }
   if(!(valor>0)) return null;
+  // "3 vezes DE 61" / "em 4x de 100"  -> o valor falado é o da PARCELA (não o total)
+  const valorEhParcela = /(?:x|vezes|parcelas?)\s+de\s+r?\$?\s*[\d.,]/.test(t)
+                      || /(?:x|vezes|parcelas?)\s+de\s+(?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|vinte|trinta|quarenta|cinquenta|cem|cento|duzentos|trezentos|quatrocentos|quinhentos|mil)\b/.test(t);
   // meio de pagamento
   const noDebito=/\b(debito|conta|dinheiro|pix|a vista na conta)\b/.test(t);
   const noCartao=/\b(cartao|credito)\b/.test(t) || !noDebito;
@@ -4808,19 +4816,27 @@ function parseVoz(txt){
   desc=desc.replace(/\b[a-z]\b/g,' ').replace(/\s+/g,' ').trim();  // tira letras soltas
   if(!desc && categoriaId){ const c=catById(categoriaId); if(c) desc=c.nome; }   // sobrou só a categoria? usa ela
   desc=desc?_capWords(desc):'';
-  return {valor, desc, parcelas, noCartao, cartaoId, contaId, categoriaId};
+  return {valor, desc, parcelas, noCartao, cartaoId, contaId, categoriaId, valorEhParcela};
 }
 function processarVoz(txt){
   const p=parseVoz(txt);
   const st=$('vozStatus'), pv=$('vozPrevia');
   if(!p){ if(st) st.textContent='Não achei o valor. Fale por exemplo: "mercado 85 reais"'; return; }
   if(st) st.textContent='Entendi 👇 confira e confirme';
+  // "3x de 61" -> total = 61 * 3
+  if(p.valorEhParcela && p.parcelas>1){
+    p.valorParcela = p.valor;
+    p.valor = Math.round(p.valor * p.parcelas * 100)/100;
+  }
   window._vozP=p;
   const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
   const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
   if(pv) pv.innerHTML=`<div class="card" style="margin:0">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="margin-left:auto;font-weight:800;font-size:19px;color:var(--red)">${brl(p.valor)}</span>
+      <div style="text-align:right;margin-left:auto">
+        <div style="font-weight:800;font-size:19px;color:var(--red)">${brl(p.valor)}</div>
+        <div id="vzParcNote" class="note" style="margin:2px 0 0">${p.parcelas>1?`${p.parcelas}x de ${brl(p.valor/p.parcelas)}`:''}</div>
+      </div>
     </div>
     <div class="field" style="margin-bottom:8px"><label>Descrição *</label>
       <input id="vzDesc" value="${esc(p.desc||'')}" placeholder="O que foi? (obrigatório)" oninput="vozSugCat()"></div>
@@ -4834,11 +4850,17 @@ function processarVoz(txt){
       </select></div>
     <div class="field" id="vzOndeWrap" style="margin-bottom:8px"></div>
     <div class="field" style="margin-bottom:10px"><label>Parcelas</label>
-      <select id="vzParc">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${p.parcelas===n?'selected':''}>${n===1?'1x (à vista)':n+'x'}</option>`).join('')}</select></div>
+      <select id="vzParc" onchange="vozParcNote()">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${p.parcelas===n?'selected':''}>${n===1?'1x (à vista)':n+'x'}</option>`).join('')}</select></div>
     <button class="btn" onclick="salvarVoz()">Lançar ${brl(p.valor)}</button>
   </div>`;
   vozTrocaMeio();
   try{ vibra(); }catch(e){}
+}
+function vozParcNote(){
+  const p=window._vozP, el=$('vzParcNote'), sel=$('vzParc');
+  if(!p||!el) return;
+  const n=Math.max(1,parseInt((sel&&sel.value)||'1'));
+  el.textContent = n>1 ? (n+'x de '+brl(p.valor/n)) : '';
 }
 function vozTrocaMeio(){
   const p=window._vozP; if(!p) return;

@@ -79,6 +79,10 @@ body.modal-open{overflow:hidden}
 body.modal-open .fab{display:none !important}
 .field select{text-overflow:ellipsis}
 .field input:focus,.field select:focus{border-color:var(--mint)}
+.pwWrap{position:relative}
+.pwWrap input{padding-right:46px!important}
+.pwEye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.pwEye:active{background:var(--input-bg)}
 .acWrap{position:relative}
 .acList{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;background:var(--card);border:1.5px solid var(--line-2);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:230px;overflow-y:auto}
 .acItem{padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid var(--line-2)}
@@ -430,7 +434,7 @@ body.scrolling .fab{opacity:.25}
       <div class="sub">Acesse sua conta</div>
       <div id="savedAccounts"></div>
       <div class="field"><label>E-mail</label><input id="liEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="voce@email.com"></div>
-      <div class="field"><label>Senha</label><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <div class="field"><label>Senha</label><div class="pwWrap"><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"><button type="button" class="pwEye" onclick="verSenha('liPass',this)" aria-label="Ver senha">👁️</button></div></div>
       <label class="savepass-row"><input type="checkbox" id="liSavePass"> Salvar senha neste aparelho</label>
       <button class="btn" onclick="doLogin()">Entrar</button>
       <div class="auth-switch">Não tem conta? <b onclick="showSignup()">Criar agora</b></div>
@@ -447,7 +451,7 @@ body.scrolling .fab{opacity:.25}
         <div class="field" style="width:88px"><label>UF</label><input id="suUF" type="text" maxlength="2" autocapitalize="characters" placeholder="SP" style="text-transform:uppercase"></div>
       </div>
       <div class="field"><label>E-mail</label><input id="suEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email" placeholder="voce@email.com"></div>
-      <div class="field"><label>Senha</label><input id="suPass" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
+      <div class="field"><label>Senha</label><div class="pwWrap"><input id="suPass" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"><button type="button" class="pwEye" onclick="verSenha('suPass',this)" aria-label="Ver senha">👁️</button></div></div>
       <label class="savepass-row" style="align-items:flex-start;margin:4px 0 14px"><input type="checkbox" id="suAceite" style="margin-top:3px"> <span style="font-size:12.5px;line-height:1.5">Li e concordo com os <a href="termos.html" target="_blank" style="color:var(--nav-on);font-weight:700">Termos de Uso</a> e a <a href="privacidade.html" target="_blank" style="color:var(--nav-on);font-weight:700">Política de Privacidade</a>.</span></label>
       <button class="btn coral" onclick="doSignup()">Criar conta</button>
       <div class="auth-switch">Já tem conta? <b onclick="showLogin()">Entrar</b></div>
@@ -545,7 +549,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "7.97"; /* z4 */
+const APP_VER = "7.98"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1026,8 +1030,8 @@ function mostrarNovaSenha(){
   _emRecovery=true;
   openSheet(`<h2>🔑 Definir nova senha</h2>
     <div class="note" style="margin-bottom:12px">Você chegou pelo link de recuperação de senha. <b>Defina sua nova senha abaixo</b> para continuar usando o app.</div>
-    <div class="field"><label>Nova senha</label><input id="npSenha" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"></div>
-    <div class="field"><label>Repita a nova senha</label><input id="npSenha2" type="password" autocomplete="new-password" placeholder="digite de novo"></div>
+    <div class="field"><label>Nova senha</label><div class="pwWrap"><input id="npSenha" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"><button type="button" class="pwEye" onclick="verSenha('npSenha',this)" aria-label="Ver senha">👁️</button></div></div>
+    <div class="field"><label>Repita a nova senha</label><div class="pwWrap"><input id="npSenha2" type="password" autocomplete="new-password" placeholder="digite de novo"><button type="button" class="pwEye" onclick="verSenha('npSenha2',this)" aria-label="Ver senha">👁️</button></div></div>
     <button class="btn" onclick="salvarNovaSenha()">Salvar e entrar</button>`);
 }
 async function salvarNovaSenha(){
@@ -4096,7 +4100,7 @@ function pedirSenha(titulo, onok){
   openSheet(`
     <h2>${titulo}</h2>
     <div class="note">Por segurança, confirme sua senha para continuar.</div>
-    <div class="field" style="margin-top:12px"><label>Sua senha</label><input id="pwConfirm" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <div class="field" style="margin-top:12px"><label>Sua senha</label><div class="pwWrap"><input id="pwConfirm" type="password" autocomplete="current-password" placeholder="••••••••"><button type="button" class="pwEye" onclick="verSenha('pwConfirm',this)" aria-label="Ver senha">👁️</button></div></div>
     <button class="btn" onclick="verificarSenha()">Confirmar</button>
     <button class="btn ghost" onclick="closeSheet()">Cancelar</button>
   `);
@@ -4884,6 +4888,14 @@ async function salvarVoz(){
   render();
   toast(r.queued?'Salvo offline — sincroniza depois':('🎙️ Lançado: '+p.desc+' '+brl(p.valor)));
   if(!r.queued) setTimeout(()=>{ loadAll().then(()=>render()).catch(()=>{}); }, 50);
+}
+
+function verSenha(id, btn){
+  const el=document.getElementById(id); if(!el) return;
+  const ver = el.type==='password';
+  el.type = ver ? 'text' : 'password';
+  if(btn) btn.textContent = ver ? '🙈' : '👁️';
+  try{ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }catch(e){}
 }
 
 // ---- LANÇAMENTO ----

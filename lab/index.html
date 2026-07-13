@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Gestor">
 <title>Gestor Soluções · Financeiro</title>
 <script src="../assets/supabase.js"></script>
+<script src="https://cdn.pluggy.ai/pluggy-connect/v2.9.2/pluggy-connect.js"></script>
 <style>
 :root{
   --ink:#0c1c1a; --paper:#f4f1ea; --card:#ffffff;
@@ -548,7 +549,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://dkwjedoyosaufusvudgm.supabase.co";  /* LAB — banco isolado */
 const SUPABASE_KEY = "sb_publishable_TyjYWZQkBgxPJqOOIIUX5Q_RPJ3GrGE";  /* LAB */
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "LAB-1.1"; /* z4 */
+const APP_VER = "LAB-2.0"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3864,6 +3865,7 @@ function renderConfig(){
     ${hubItem('bank','Contas','Suas contas e saldos',"go('contas')",'#1f9d8a')}
     ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
     ${hubItem('download','Importar do banco','Cole as notificações do banco e lance automático',"openImportBanco()",'#e0a020')}
+    ${hubItem('bank','🏦 Bancos (Open Finance)','Conecte seus bancos e importe tudo sozinho',"openOpenFinance()",'#1f9d8a')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
     ${temaRow('claro','Modo claro','Tema claro sempre',ICON('sun',20),'#e0a020')}
@@ -4653,10 +4655,12 @@ async function confirmarImport(){
       const cartao=cartaoById(x.cartao_id);
       const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
       rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
-        cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
+        cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp),
+        origem:x.origem_id?'openfinance':null, origem_id:x.origem_id||null});
     }else{
       rows.push({user_id:USER.id,tipo:x.tipo,descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
-        conta_id:x.conta_id,categoria_id:x.categoria_id||null});
+        conta_id:x.conta_id,categoria_id:x.categoria_id||null,
+        origem:x.origem_id?'openfinance':null, origem_id:x.origem_id||null});
     }
   });
   const r=await insertRows(rows);
@@ -4887,6 +4891,94 @@ async function salvarVoz(){
   render();
   toast(r.queued?'Salvo offline — sincroniza depois':('🎙️ Lançado: '+p.desc+' '+brl(p.valor)));
   if(!r.queued) setTimeout(()=>{ loadAll().then(()=>render()).catch(()=>{}); }, 50);
+}
+
+// ================= OPEN FINANCE (Pluggy) =================
+async function openOpenFinance(){
+  openSheet(`<h2 style="margin:0 0 4px">🏦 Bancos conectados</h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.45">
+      Conecte seus bancos pelo Open Finance. As compras entram sozinhas — você só confere e confirma.
+      <br><b>Leitura apenas:</b> ninguém movimenta nada na sua conta.
+    </p>
+    <div id="ofLista"><div class="note">Carregando…</div></div>
+    <button class="btn" style="margin-top:12px" onclick="ofConectar()">＋ Conectar um banco</button>
+    <button class="btn-sec" style="margin-top:8px" onclick="ofSincronizar()">🔄 Sincronizar transações</button>`);
+  ofListar();
+}
+async function ofListar(){
+  const el=$('ofLista'); if(!el) return;
+  const {data,error}=await sb.from('of_itens').select('*').order('criado_em');
+  if(error){ el.innerHTML=`<div class="note" style="color:var(--red)">Erro: ${esc(error.message)}</div>`; return; }
+  if(!data || !data.length){ el.innerHTML=`<div class="note">Nenhum banco conectado ainda.</div>`; return; }
+  el.innerHTML=`<div class="card" style="margin:0">`+data.map(i=>`
+    <div class="lrow">
+      <div class="dot" style="background:${tintBg('#1f9d8a')};color:#1f9d8a">🏦</div>
+      <div class="mid"><div class="t">${esc(i.banco||'Banco')}</div>
+        <div class="s">${i.ultima_sync?('sincronizado '+new Date(i.ultima_sync).toLocaleDateString('pt-BR')):'aguardando sincronização'}</div></div>
+      <button class="lconf" style="background:transparent;color:var(--red)" onclick="ofRemover('${i.item_id}')">✕</button>
+    </div>`).join('')+`</div>`;
+}
+async function ofConectar(){
+  toast('Abrindo…');
+  const {data:token,error}=await sb.rpc('of_connect_token');
+  if(error||!token){ toast('Erro: '+(error?error.message:'sem token')); return; }
+  if(!window.PluggyConnect){ toast('Widget não carregou — recarregue o app'); return; }
+  const pc=new window.PluggyConnect({
+    connectToken: token,
+    includeSandbox: false,
+    onSuccess: async (itemData)=>{
+      const itemId=itemData?.item?.id;
+      if(!itemId){ toast('Não recebi o banco'); return; }
+      const {data:banco,error:e2}=await sb.rpc('of_save_item',{p_item_id:itemId});
+      if(e2){ toast('Erro ao salvar: '+e2.message); return; }
+      toast('✅ '+(banco||'Banco')+' conectado!');
+      ofListar();
+    },
+    onError: (err)=>{ toast('Não deu certo: '+(err?.message||'tente de novo')); }
+  });
+  pc.init();
+}
+async function ofRemover(itemId){
+  if(!confirm('Desconectar este banco?')) return;
+  const {error}=await sb.rpc('of_remove_item',{p_item_id:itemId});
+  if(error){ toast('Erro: '+error.message); return; }
+  toast('Banco desconectado'); ofListar();
+}
+async function ofSincronizar(){
+  toast('🔄 Buscando no banco… pode levar alguns segundos');
+  const {data,error}=await sb.rpc('of_sync',{p_dias:90});
+  if(error){ toast('Erro: '+error.message); return; }
+  const txs=(data && data.transacoes) || [];
+  if(!txs.length){ toast('Nada novo por aqui 🤷'); return; }
+
+  // já importados antes? (origem_id)
+  const jaTem=new Set(DATA.lancamentos.filter(l=>l.origem_id).map(l=>String(l.origem_id)));
+  const mapa=mapFinal();
+  const itens=[];
+  txs.forEach(t=>{
+    if(jaTem.has(String(t.id))) return;                       // não importa 2x
+    const cartaoSug = t.no_cartao ? (Object.values(mapa)[0]||'') : '';
+    itens.push({
+      tipo: t.tipo,
+      viaCartao: !!t.no_cartao,
+      finalCart: null,
+      desc: _capWords(t.descricao||'Transação'),
+      valor: Number(t.valor)||0,
+      data: t.data,
+      dup: DATA.lancamentos.some(l=> l.tipo===t.tipo && Math.abs(Number(l.valor)-Number(t.valor))<0.005 && String(l.data)===t.data),
+      incluir: true,
+      cartao_id: cartaoSug,
+      conta_id: (DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado)[0]||{}).id||'',
+      categoria_id: '',
+      origem_id: String(t.id),
+      banco: t.banco
+    });
+  });
+  if(!itens.length){ toast('Tudo já estava importado ✅'); return; }
+  itens.forEach(x=>{ if(x.dup) x.incluir=false; });
+  window._impItens=itens;
+  renderPreviaImport();
+  toast(itens.length+' transação(ões) do banco — confira 👇');
 }
 
 // ---- LANÇAMENTO ----

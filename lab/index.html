@@ -554,7 +554,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://dkwjedoyosaufusvudgm.supabase.co";  /* LAB — banco isolado */
 const SUPABASE_KEY = "sb_publishable_TyjYWZQkBgxPJqOOIIUX5Q_RPJ3GrGE";  /* LAB */
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "LAB-2.4"; /* z4 */
+const APP_VER = "LAB-2.5"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4727,6 +4727,40 @@ function toggleVoz(){
   try{ _vozRec.start(); }catch(e){ if(st) st.textContent='Erro ao iniciar o microfone'; }
 }
 // interpreta a frase falada
+// distância de edição (quantas letras diferem) — pra casar "caminhonete" com "camionete"
+function _dist(a,b){
+  if(a===b) return 0;
+  const m=a.length, n=b.length;
+  if(!m) return n; if(!n) return m;
+  let prev=Array.from({length:n+1},(_,j)=>j), cur=new Array(n+1);
+  for(let i=1;i<=m;i++){
+    cur[0]=i;
+    for(let j=1;j<=n;j++){
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    [prev,cur]=[cur,prev];
+  }
+  return prev[n];
+}
+// a palavra falada "parece" o nome? (tolera 1-2 letras de diferença)
+function _pareceCom(frase, nome){
+  const n=_normTxt(nome); if(!n || n.length<4) return false;
+  if(frase.includes(n)) return true;                       // igualzinho
+  const tol = n.length<=6 ? 1 : (n.length<=10 ? 2 : 3);    // nome maior, mais tolerância
+  const pals = frase.split(' ');
+  // palavra a palavra
+  for(const w of pals){
+    if(Math.abs(w.length-n.length)<=tol && _dist(w,n)<=tol) return true;
+  }
+  // nome com 2 palavras (ex.: "mercado pago")
+  if(n.includes(' ')){
+    for(let i=0;i<pals.length-1;i++){
+      const par = pals[i]+' '+pals[i+1];
+      if(Math.abs(par.length-n.length)<=tol && _dist(par,n)<=tol) return true;
+    }
+  }
+  return false;
+}
 function _normVoz(t){  // igual ao _normTxt mas preserva vírgula/ponto dos valores
   return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9.,]+/g,' ').replace(/\s+/g,' ').trim();
@@ -4781,6 +4815,8 @@ function parseVoz(txt){
   // 1) nome COMPLETO em qualquer lugar da frase (ex.: "mercado pago", "nubank")
   cards.forEach(c=>{ const n=_normTxt(c.nome); if(!cartaoId && n.length>2 && tn.includes(n)) cartaoId=c.id; });
   accs .forEach(c=>{ const n=_normTxt(c.nome); if(!contaId  && n.length>2 && tn.includes(n)) contaId =c.id; });
+  if(!cartaoId) { const c=cards.find(x=>_pareceCom(tn,x.nome)); if(c) cartaoId=c.id; }
+  if(!contaId)  { const c=accs .find(x=>_pareceCom(tn,x.nome)); if(c) contaId =c.id; }
   // 2) senão, palavra-chave do nome (ex.: "c6") mas SÓ depois de "cartao/conta/no/na"
   //    (evita a descrição "mercado" casar com o cartão "Mercado pago")
   const mReg=tn.match(/\b(?:cartao|conta|credito|debito|pelo|pela)\b/);
@@ -4799,10 +4835,13 @@ function parseVoz(txt){
   // descrição: tira números e palavras de comando
   // categoria falada (ex.: "...alimentação")
   let categoriaId=null;
-  DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa').forEach(c=>{
-    const n=_normTxt(c.nome);
-    if(!categoriaId && n.length>3 && tn.includes(n)) categoriaId=c.id;
-  });
+  {
+    const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa');
+    // 1º as que batem exatamente; 2º as parecidas (ex.: "caminhonete" -> "Camionete")
+    let achou = cats.find(c=>{ const n=_normTxt(c.nome); return n.length>3 && tn.includes(n); });
+    if(!achou) achou = cats.find(c=> _pareceCom(tn, c.nome));
+    if(achou) categoriaId=achou.id;
+  }
   // descrição = o que vem ANTES da região de pagamento ("no cartão/conta…")
   const _mRegD=tn.match(/\b(?:cartao|conta|credito|debito|pix|dinheiro)\b/);
   let descBase = _mRegD ? tn.slice(0,_mRegD.index) : tn;
@@ -4810,7 +4849,18 @@ function parseVoz(txt){
   // tira o nome do cartão/conta e da categoria ANTES de remover os números (senão "c6" vira "c" + "bank")
   const _escolhido = cartaoId?cartaoById(cartaoId):(contaId?contaById(contaId):null);
   if(_escolhido){ const n=_normTxt(_escolhido.nome); if(n) descBase=descBase.split(n).join(' '); }
-  if(categoriaId){ const c=catById(categoriaId); if(c){ const n=_normTxt(c.nome); if(n) descBase=descBase.split(n).join(' '); } }
+  if(categoriaId){
+    const c=catById(categoriaId);
+    if(c){
+      const n=_normTxt(c.nome);
+      if(n){
+        descBase=descBase.split(n).join(' ');
+        // tira também a variação falada (ex.: "caminhonete" quando a categoria é "Camionete")
+        const tol = n.length<=6?1:(n.length<=10?2:3);
+        descBase = descBase.split(' ').filter(w=> !(w.length>3 && Math.abs(w.length-n.length)<=tol && _dist(w,n)<=tol)).join(' ');
+      }
+    }
+  }
   let desc=descBase
     .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
     .replace(/\b(adicione|adicionar|adiciona|lancar|lance|lanca|registre|registrar|registra|coloque|colocar|coloca|gastei|paguei|comprei|anota|anotar|foi|de|um|uma)\b/g,' ')
@@ -4893,6 +4943,7 @@ function vozSugCat(){
     const d=_normTxt(l.descricao); if(!d) return;
     let pts=0;
     if(d===q)pts=100; else if(d.startsWith(q)||q.startsWith(d))pts=70; else if(d.includes(q)||q.includes(d))pts=50;
+    else if(typeof _dist==='function' && Math.abs(d.length-q.length)<=2 && _dist(d,q)<=2) pts=55;
     if(pts<50) return;
     if(!best[l.categoria_id]||pts>best[l.categoria_id]) best[l.categoria_id]=pts;
   });

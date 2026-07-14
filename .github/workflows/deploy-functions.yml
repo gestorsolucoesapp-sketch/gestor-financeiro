@@ -1,0 +1,25 @@
+name: Deploy Edge Functions
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy agenda-push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy agenda-push \
+            --project-ref cppuceykhffjdcmwpfpk --no-verify-jwt
+      - name: Set CRON_SECRET
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase secrets set CRON_SECRET="${{ secrets.CRON_SECRET }}" \
+            --project-ref cppuceykhffjdcmwpfpk

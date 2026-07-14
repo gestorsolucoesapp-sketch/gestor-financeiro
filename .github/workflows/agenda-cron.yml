@@ -1,0 +1,17 @@
+name: Agenda - Aviso Diario
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 10:00 UTC = 07:00 BRT
+  workflow_dispatch: {}
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar agenda-push
+        run: |
+          curl -sS -X POST \
+            "https://cppuceykhffjdcmwpfpk.supabase.co/functions/v1/agenda-push" \
+            -H "x-cron-key: ${{ secrets.CRON_SECRET }}" \
+            -w "\nHTTP %{http_code}\n"

@@ -571,7 +571,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.05"; /* z4 */
+const APP_VER = "8.06"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5085,6 +5085,10 @@ async function renderAgenda(){
       Rode o SQL da agenda no Supabase e volte aqui.</p></div>`;
     return;
   }
+  pintarAgenda();
+}
+// desenha a agenda com o que já está na memória (instantâneo)
+function pintarAgenda(){
   const ano=_agMes.getFullYear(), mes=_agMes.getMonth();
   const FER=feriadosDoAno(ano);
   const hoje=ymd(new Date());
@@ -5173,9 +5177,9 @@ async function renderAgenda(){
   }
   $('content').innerHTML=h;
 }
-function agMes(n){ _agMes=new Date(_agMes.getFullYear(), _agMes.getMonth()+n, 1); _agSel=ymd(new Date(_agMes.getFullYear(),_agMes.getMonth(),1)); renderAgenda(); }
-function agSel(k){ _agSel=k; renderAgenda(); }
-function agIrPara(k){ const d=new Date(k+'T00:00:00'); _agMes=new Date(d.getFullYear(),d.getMonth(),1); _agSel=k; renderAgenda(); }
+function agMes(n){ _agMes=new Date(_agMes.getFullYear(), _agMes.getMonth()+n, 1); _agSel=ymd(new Date(_agMes.getFullYear(),_agMes.getMonth(),1)); pintarAgenda(); }
+function agSel(k){ _agSel=k; pintarAgenda(); }
+function agIrPara(k){ const d=new Date(k+'T00:00:00'); _agMes=new Date(d.getFullYear(),d.getMonth(),1); _agSel=k; pintarAgenda(); }
 function agNovo(data, id){
   const e = id ? (_AGENDA.find(x=>x.id===id)||{}) : {};
   openSheet(`<h2 style="margin:0 0 12px">${id?'Editar':'Novo'} compromisso</h2>
@@ -5206,26 +5210,50 @@ async function agSalvar(id){
   else  { r=await dbInsert('agenda', [row]); }
   if(!r.ok) return;
   closeSheet(); vibra();
+  // atualiza a lista local na hora (sem ir buscar no servidor)
+  if(id){
+    const i=_AGENDA.findIndex(x=>x.id===id);
+    if(i>-1) _AGENDA[i]=Object.assign({}, _AGENDA[i], row);
+  }else{
+    const novo=(r.rows&&r.rows[0])||Object.assign({id:uuid()},row);
+    _AGENDA.push(novo);
+  }
+  _AGENDA.sort((a,b)=> a.data===b.data ? String(a.hora||'').localeCompare(String(b.hora||'')) : (a.data<b.data?-1:1));
   _agSel=row.data;
   const d=new Date(row.data+'T00:00:00'); _agMes=new Date(d.getFullYear(),d.getMonth(),1);
-  await renderAgenda();
+  pintarAgenda();
   try{ updateAgBadge(); }catch(e){}
   toast(id?'Compromisso atualizado':'Compromisso marcado 📅');
 }
-async function agToggle(id){
+function agToggle(id){
   const a=_AGENDA.find(x=>x.id===id); if(!a) return;
   a.feito=!a.feito;
-  renderAgenda();  // otimista
   vibra();
-  await dbUpdate('agenda', {feito:a.feito}, 'id', id);
+  // pinta na hora, sem redesenhar a tela (instantâneo)
+  const btn=event&&event.currentTarget;
+  if(btn){
+    btn.classList.toggle('on', a.feito);
+    btn.textContent = a.feito ? '✓' : '';
+    const item=btn.closest('.agItem');
+    if(item) item.classList.toggle('done', a.feito);
+    const cell=document.querySelector(`.cal .cell[onclick*="${a.data}"] .dots`);
+    if(cell){
+      const evs=_AGENDA.filter(x=>x.data===a.data).slice(0,3);
+      cell.innerHTML=evs.map(e=>`<i class="dot1 ${e.feito?'ok':''}"></i>`).join('');
+    }
+  }else{ renderAgenda(); }
+  // salva em segundo plano
+  dbUpdate('agenda', {feito:a.feito}, 'id', id).catch(()=>{});
   try{ updateAgBadge(); }catch(e){}
 }
 async function agExcluir(id){
   if(!confirm('Excluir este compromisso?')) return;
+  _AGENDA=_AGENDA.filter(x=>x.id!==id);   // some na hora
+  pintarAgenda(); vibra();
   const r=await dbDelete('agenda','id',id);
-  if(!r.ok) return;
-  _AGENDA=_AGENDA.filter(x=>x.id!==id);
-  renderAgenda(); vibra(); toast('Excluído');
+  if(!r.ok) { await renderAgenda(); return; }
+  try{ updateAgBadge(); }catch(e){}
+  toast('Excluído');
 }
 
 // ---- LANÇAMENTO ----

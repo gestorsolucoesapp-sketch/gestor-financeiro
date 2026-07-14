@@ -571,7 +571,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.06"; /* z4 */
+const APP_VER = "8.07"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3366,13 +3366,16 @@ function calcVal(s){
   if(!/^[0-9+\-*/().]+$/.test(s)) return NaN;
   try{ const v=Function('"use strict";return('+s+')')(); return (typeof v==='number'&&isFinite(v))?+v.toFixed(2):NaN; }catch(e){ return NaN; }
 }
+// sincroniza com o servidor em segundo plano (a tela já respondeu)
+function bgSync(){ setTimeout(()=>{ loadAll().then(()=>render()).catch(()=>{}); }, 60); }
 async function toggleLancPago(id){
   const l=DATA.lancamentos.find(x=>x.id===id); if(!l)return;
   if(l.status==='pago'){
-    const r=await dbUpdate('lancamentos',{status:'pendente'},'id',id);
-    if(r&&r.error){toast('Erro: '+r.error.message);return;}
-    if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-    vibra(); render(); toast(r&&r.queued?'Voltou a pendente (offline) — sincroniza depois':'Voltou a pendente (virtual)');
+    l.status='pendente';                      // muda na hora
+    vibra(); render(); toast('Voltou a pendente');
+    dbUpdate('lancamentos',{status:'pendente'},'id',id).then(r=>{
+      if(r&&r.error){ toast('Erro: '+r.error.message); loadAll().then(()=>render()); }
+    });
     return;
   }
   // pendente → abre caixinha pra ajustar conta/valor antes de efetivar
@@ -3859,8 +3862,9 @@ async function confirmPagarFatura(cartaoId,tot){
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  try{ (r.rows||[]).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
   vibra(); toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':'Fatura paga'); renderFatura();
+  if(!(r&&r.queued)) bgSync();
 }
 
 // ============ CONTAS ============
@@ -4703,8 +4707,10 @@ async function confirmarImport(){
   if(!r.ok) return;
   window._impItens=null;
   closeSheet(); vibra();
-  if(r.queued){ render(); toast('Salvo offline — sincroniza depois'); }
-  else { await loadAll(); toast(rows.length+' lançamento(s) importado(s) ✅'); render(); }
+  try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
+  render();
+  toast(r.queued?'Salvo offline — sincroniza depois':(rows.length+' lançamento(s) importado(s) ✅'));
+  if(!r.queued) bgSync();
 }
 
 // ================= LANÇAR POR VOZ =================
@@ -5997,18 +6003,21 @@ async function upsertLanc(id,row){
 }
 async function delLanc(id){
   const l=DATA.lancamentos.find(x=>x.id===id);
-  let r;
+  let filtro, valorF;
   if(l&&l.grupo_id){
     if(!confirm('Excluir TODAS as parcelas desta compra?'))return;
-    r=await dbDelete('lancamentos','grupo_id',l.grupo_id);
+    filtro='grupo_id'; valorF=l.grupo_id;
+    DATA.lancamentos=DATA.lancamentos.filter(x=>x.grupo_id!==l.grupo_id);   // some na hora
   }else{
     if(!confirm('Excluir esta transação?'))return;
-    r=await dbDelete('lancamentos','id',id);
+    filtro='id'; valorF=id;
+    DATA.lancamentos=DATA.lancamentos.filter(x=>x.id!==id);
   }
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  closeSheet();
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  vibra(); toast(r&&r.queued?'Excluído offline — sincroniza depois':'Excluído'); render();
+  closeSheet(); vibra(); render(); toast('Excluído');
+  dbDelete('lancamentos',filtro,valorF).then(r=>{
+    if(r&&r.error){ toast('Erro: '+r.error.message); loadAll().then(()=>render()); return; }
+    if(!(r&&r.queued)) bgSync();
+  });
 }
 
 // ---- CONTA ----
@@ -6154,7 +6163,12 @@ async function saveConta(id){
   const row={user_id:USER.id,nome,tipo:window._contaTipo||'pessoal',saldo_inicial:saldo,limite,titular:($('cTitular').value.trim()||null),incluir_principal:window._cInc!==false,eh_investimento:window._cInv===true,logo_url:window._cLogo||null};
   const r = id ? await dbUpdate('contas',row,'id',id) : await dbInsert('contas',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  // reflete na hora
+  try{
+    if(id){ const i=DATA.contas.findIndex(c=>c.id===id); if(i>-1) DATA.contas[i]=Object.assign({},DATA.contas[i],row); }
+    else { (r.rows||[]).forEach(x=>{ if(!DATA.contas.find(c=>c.id===x.id)) DATA.contas.push(x); }); }
+  }catch(e){}
+  if(!(r&&r.queued)) bgSync();
   vibra();
   toast(r&&r.queued?(id?'Conta atualizada (offline)':'Conta criada (offline)')+' — sincroniza depois':(id?'Conta atualizada':'Conta criada'));
   if(!id && window._addLoop==='conta'){ openConta(); return; }
@@ -6251,7 +6265,11 @@ async function saveCartao(id){
   const row={user_id:USER.id,nome,tipo:window._cartaoTipo||'pessoal',limite:parseFloat($('kLimite').value)||0,dia_fechamento:fecha,dia_vencimento:vence,titular:($('kTitular').value.trim()||null),incluir_principal:window._kInc!==false,logo_url:window._kLogo||null};
   const r = id ? await dbUpdate('cartoes',row,'id',id) : await dbInsert('cartoes',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
-  if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
+  try{
+    if(id){ const i=DATA.cartoes.findIndex(c=>c.id===id); if(i>-1) DATA.cartoes[i]=Object.assign({},DATA.cartoes[i],row); }
+    else { (r.rows||[]).forEach(x=>{ if(!DATA.cartoes.find(c=>c.id===x.id)) DATA.cartoes.push(x); }); }
+  }catch(e){}
+  if(!(r&&r.queued)) bgSync();
   vibra();
   toast(r&&r.queued?(id?'Cartão atualizado (offline)':'Cartão criado (offline)')+' — sincroniza depois':(id?'Cartão atualizado':'Cartão criado'));
   if(!id && window._addLoop==='cartao'){ openCartao(); return; }

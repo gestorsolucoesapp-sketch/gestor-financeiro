@@ -311,6 +311,26 @@ body.scrolling .fab{opacity:.25}
 .hbars{display:flex;align-items:flex-end;height:110px;gap:9px;min-width:max-content;padding-top:2px}
 .barcolH{flex:0 0 auto;width:30px}
 .barcolH .barlab{line-height:1.15;text-align:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .dow{text-align:center;font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.5px;padding:4px 0}
+.cal .cell{aspect-ratio:1;border-radius:11px;background:var(--input-bg);border:1.5px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative;transition:transform .12s}
+.cal .cell:active{transform:scale(.94)}
+.cal .cell.vazio{background:transparent;cursor:default}
+.cal .cell .n{font-size:14px;font-weight:700;line-height:1}
+.cal .cell.hoje{border-color:#ff8a1a}
+.cal .cell.hoje .n{color:#ff8a1a}
+.cal .cell.fer{background:rgba(224,32,80,.14)}
+.cal .cell.fer .n{color:#e05050}
+.cal .cell.fds .n{opacity:.5}
+.cal .cell.sel{border-color:var(--mint);background:var(--card)}
+.cal .dots{display:flex;gap:2px;height:5px;align-items:center}
+.cal .dot1{width:5px;height:5px;border-radius:50%;background:var(--mint)}
+.cal .dot1.ok{background:#22c55e}
+.agItem{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line-2)}
+.agItem:last-child{border-bottom:0}
+.agChk{width:26px;height:26px;flex:0 0 auto;border-radius:8px;border:2px solid var(--line-2);background:transparent;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer}
+.agChk.on{background:#22c55e;border-color:#22c55e;color:#fff}
+.agItem.done .agT{text-decoration:line-through;opacity:.5}
 .daybars{display:flex;align-items:flex-end;height:170px;gap:6px;overflow-x:auto;padding:22px 4px 2px;overflow-y:visible}
 .daycol{flex:0 0 auto;width:30px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative}
 .daybar{width:24px;border-radius:5px 5px 0 0;min-height:4px;background:var(--bar-desp);display:flex;align-items:center;justify-content:center;transform-origin:bottom;animation:barGrow .6s cubic-bezier(.22,1,.36,1) both}
@@ -550,7 +570,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.02"; /* z4 */
+const APP_VER = "8.03"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1869,6 +1889,7 @@ function _doRender(){
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='tema')renderTema();
+  else if(tab==='agenda')renderAgenda();
   else if(tab==='assistente')renderAssistente();
   else if(tab==='clientes')renderClientes();
   else if(tab==='tutorial')renderTutorial();
@@ -3869,6 +3890,7 @@ function renderConfig(){
     ${hubItem('bank','Contas','Suas contas e saldos',"go('contas')",'#1f9d8a')}
     ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
     ${hubItem('download','Importar do banco','Cole as notificações do banco e lance automático',"openImportBanco()",'#e0a020')}
+    ${hubItem('calendar','📅 Agenda','Compromissos e feriados — com aviso no celular',"go('agenda')",'#7c5cff')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
     ${temaRow('claro','Modo claro','Tema claro sempre',ICON('sun',20),'#e0a020')}
@@ -4987,6 +5009,208 @@ function verSenha(id, btn){
   el.type = ver ? 'text' : 'password';
   if(btn) btn.textContent = ver ? '🙈' : '👁️';
   try{ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }catch(e){}
+}
+
+// ================= AGENDA / CALENDÁRIO =================
+// Páscoa (algoritmo de Meeus/Jones/Butcher) -> base dos feriados móveis
+function _pascoa(ano){
+  const a=ano%19, b=Math.floor(ano/100), c=ano%100, d=Math.floor(b/4), e=b%4,
+        f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+  return new Date(ano, mes-1, dia);
+}
+const _addD=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+
+// feriados do ano — nacionais, estaduais (SP) e municipais (São José do Rio Pardo)
+function feriadosDoAno(ano){
+  const P=_pascoa(ano), f={};
+  const põe=(dt,nome,tipo)=>{ f[ymd(dt)]={nome,tipo}; };
+
+  // móveis
+  põe(_addD(P,-48),'Carnaval','nacional');
+  põe(_addD(P,-47),'Carnaval','nacional');
+  põe(_addD(P,-2),'Sexta-feira Santa','nacional');
+  põe(P,'Páscoa','nacional');
+  põe(_addD(P,60),'Corpus Christi','nacional');
+
+  // fixos nacionais
+  põe(new Date(ano,0,1),'Confraternização Universal','nacional');
+  põe(new Date(ano,3,21),'Tiradentes','nacional');
+  põe(new Date(ano,4,1),'Dia do Trabalho','nacional');
+  põe(new Date(ano,8,7),'Independência do Brasil','nacional');
+  põe(new Date(ano,9,12),'N. Sra. Aparecida','nacional');
+  põe(new Date(ano,10,2),'Finados','nacional');
+  põe(new Date(ano,10,15),'Proclamação da República','nacional');
+  põe(new Date(ano,10,20),'Consciência Negra','nacional');
+  põe(new Date(ano,11,25),'Natal','nacional');
+
+  // estadual (SP)
+  põe(new Date(ano,6,9),'Revolução Constitucionalista (SP)','estadual');
+
+  // municipais — São José do Rio Pardo
+  põe(new Date(ano,2,19),'Dia da Cidade / São José','municipal');
+  põe(new Date(ano,7,15),'Dia de Euclides da Cunha','municipal');
+
+  return f;
+}
+let _agMes = new Date(), _agSel = null, _AGENDA = [];
+
+async function carregarAgenda(){
+  try{
+    const {data,error}=await sb.from('agenda').select('*').order('data').order('hora',{nullsFirst:true});
+    if(error){ if(/does not exist|schema cache/i.test(error.message||'')) { _AGENDA=[]; return 'faltaTabela'; } throw error; }
+    _AGENDA=data||[];
+  }catch(e){ _AGENDA=[]; }
+  return 'ok';
+}
+async function renderAgenda(){
+  const st=await carregarAgenda();
+  if(st==='faltaTabela'){
+    setHTML('view',`<div class="card"><h3 style="margin:0 0 8px">📅 Agenda</h3>
+      <p style="color:var(--muted);font-size:13.5px;line-height:1.55">A agenda ainda não foi criada no banco.<br>
+      Rode o SQL que o Claude te passou e volte aqui.</p></div>`);
+    return;
+  }
+  const ano=_agMes.getFullYear(), mes=_agMes.getMonth();
+  const FER=feriadosDoAno(ano);
+  const hoje=ymd(new Date());
+  if(!_agSel) _agSel = (new Date().getMonth()===mes && new Date().getFullYear()===ano) ? hoje : ymd(new Date(ano,mes,1));
+
+  const primeiro=new Date(ano,mes,1), ultimo=new Date(ano,mes+1,0);
+  const inicio=primeiro.getDay();     // 0=dom
+  const dias=ultimo.getDate();
+
+  let h=`<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button class="btn ghost sm" style="margin:0;width:auto;padding:6px 12px" onclick="agMes(-1)">‹</button>
+      <b style="font-size:16px">${primeiro.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase())}</b>
+      <button class="btn ghost sm" style="margin:0;width:auto;padding:6px 12px" onclick="agMes(1)">›</button>
+    </div>
+    <div class="cal">
+      ${['D','S','T','Q','Q','S','S'].map(d=>`<div class="dow">${d}</div>`).join('')}
+      ${Array.from({length:inicio},()=>`<div class="cell vazio"></div>`).join('')}`;
+
+  for(let d=1; d<=dias; d++){
+    const dt=new Date(ano,mes,d), k=ymd(dt), dow=dt.getDay();
+    const fer=FER[k];
+    const evs=_AGENDA.filter(a=>a.data===k);
+    const cls=['cell'];
+    if(k===hoje) cls.push('hoje');
+    if(fer) cls.push('fer');
+    if(dow===0||dow===6) cls.push('fds');
+    if(k===_agSel) cls.push('sel');
+    h+=`<div class="${cls.join(' ')}" onclick="agSel('${k}')" title="${fer?esc(fer.nome):''}">
+      <span class="n">${d}</span>
+      <span class="dots">${evs.slice(0,3).map(e=>`<i class="dot1 ${e.feito?'ok':''}"></i>`).join('')}</span>
+    </div>`;
+  }
+  h+=`</div>
+    <div class="note" style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap">
+      <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:rgba(224,32,80,.5);vertical-align:middle"></i> feriado</span>
+      <span><i class="dot1" style="display:inline-block;vertical-align:middle"></i> compromisso</span>
+      <span><i class="dot1 ok" style="display:inline-block;vertical-align:middle"></i> concluído</span>
+    </div></div>`;
+
+  // ---- painel do dia selecionado ----
+  const dSel=new Date(_agSel+'T00:00:00');
+  const ferSel=FER[_agSel];
+  const evsSel=_AGENDA.filter(a=>a.data===_agSel);
+  h+=`<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <b style="font-size:15px">${dSel.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}</b>
+      <button class="btn sm" style="margin:0;width:auto" onclick="agNovo('${_agSel}')">＋ Novo</button>
+    </div>`;
+  if(ferSel){
+    const cor = ferSel.tipo==='municipal' ? '#e0a020' : (ferSel.tipo==='estadual' ? '#3b82f6' : '#e05050');
+    h+=`<div style="background:${tintBg(cor)};color:${cor};border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;margin-bottom:10px">
+      🎉 ${esc(ferSel.nome)} <span style="opacity:.75;font-weight:600">· feriado ${ferSel.tipo}</span></div>`;
+  }
+  if(!evsSel.length){
+    h+=`<div class="note" style="padding:14px 0;text-align:center">Nada marcado neste dia.</div>`;
+  }else{
+    evsSel.forEach(a=>{
+      h+=`<div class="agItem ${a.feito?'done':''}">
+        <button class="agChk ${a.feito?'on':''}" onclick="agToggle('${a.id}')">${a.feito?'✓':''}</button>
+        <div style="flex:1;min-width:0" onclick="agNovo('${a.data}','${a.id}')">
+          <div class="agT" style="font-weight:600;font-size:14.5px">${esc(a.titulo)}</div>
+          <div class="note" style="margin-top:2px">${a.hora?String(a.hora).slice(0,5)+' · ':''}${a.nota?esc(a.nota):(a.avisar?'🔔 avisa no dia':'sem aviso')}</div>
+        </div>
+        <button class="lconf" style="background:transparent;color:var(--red);padding:6px 8px" onclick="agExcluir('${a.id}')">✕</button>
+      </div>`;
+    });
+  }
+  h+=`</div>`;
+
+  // ---- próximos compromissos ----
+  const prox=_AGENDA.filter(a=>!a.feito && a.data>=hoje).slice(0,5);
+  if(prox.length){
+    h+=`<div class="card"><h3 style="margin:0 0 8px;font-size:15px">🔜 Próximos</h3>`;
+    prox.forEach(a=>{
+      const d=new Date(a.data+'T00:00:00');
+      const dias=Math.round((d-new Date(hoje+'T00:00:00'))/86400000);
+      const quando = dias===0?'hoje':(dias===1?'amanhã':`em ${dias} dias`);
+      h+=`<div class="lrow" onclick="agIrPara('${a.data}')">
+        <div class="dot" style="background:${tintBg('#7c5cff')};color:#7c5cff">📌</div>
+        <div class="mid"><div class="t">${esc(a.titulo)}</div>
+          <div class="s">${quando} · ${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}${a.hora?' · '+String(a.hora).slice(0,5):''}</div></div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  setHTML('view',h);
+}
+function agMes(n){ _agMes=new Date(_agMes.getFullYear(), _agMes.getMonth()+n, 1); _agSel=ymd(new Date(_agMes.getFullYear(),_agMes.getMonth(),1)); renderAgenda(); }
+function agSel(k){ _agSel=k; renderAgenda(); }
+function agIrPara(k){ const d=new Date(k+'T00:00:00'); _agMes=new Date(d.getFullYear(),d.getMonth(),1); _agSel=k; renderAgenda(); }
+function agNovo(data, id){
+  const e = id ? (_AGENDA.find(x=>x.id===id)||{}) : {};
+  openSheet(`<h2 style="margin:0 0 12px">${id?'Editar':'Novo'} compromisso</h2>
+    <div class="field"><label>O que é</label><input id="agTit" value="${esc(e.titulo||'')}" placeholder="Ex: Dentista, Reunião, Pagar IPVA"></div>
+    <div class="field"><label>Data</label><input id="agData" type="date" value="${e.data||data}"></div>
+    <div class="field"><label>Hora (opcional)</label><input id="agHora" type="time" value="${e.hora?String(e.hora).slice(0,5):''}"></div>
+    <div class="field"><label>Observação (opcional)</label><input id="agNota" value="${esc(e.nota||'')}" placeholder="Detalhes"></div>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line-2);border-radius:12px;cursor:pointer;margin-bottom:12px">
+      <input type="checkbox" id="agAvisar" ${(e.avisar===false?'':'checked')} style="width:20px;height:20px;accent-color:var(--mint)">
+      <span style="font-weight:600">🔔 Me avisar no dia</span>
+    </label>
+    <button class="btn" onclick="agSalvar('${id||''}')">${id?'Salvar':'Adicionar'}</button>`);
+  setTimeout(()=>{ const el=$('agTit'); if(el) el.focus(); },250);
+}
+async function agSalvar(id){
+  const titulo=(($('agTit')&&$('agTit').value)||'').trim();
+  if(!titulo){ toast('Escreva o que é'); return; }
+  const row={
+    user_id: USER.id,
+    titulo,
+    data: ($('agData')&&$('agData').value)||ymd(new Date()),
+    hora: (($('agHora')&&$('agHora').value)||null) || null,
+    nota: (($('agNota')&&$('agNota').value)||'').trim() || null,
+    avisar: !!($('agAvisar')&&$('agAvisar').checked)
+  };
+  let r;
+  if(id){ r=await dbUpdate('agenda', row, 'id', id); }
+  else  { r=await dbInsert('agenda', [row]); }
+  if(!r.ok) return;
+  closeSheet(); vibra();
+  _agSel=row.data;
+  const d=new Date(row.data+'T00:00:00'); _agMes=new Date(d.getFullYear(),d.getMonth(),1);
+  await renderAgenda();
+  toast(id?'Compromisso atualizado':'Compromisso marcado 📅');
+}
+async function agToggle(id){
+  const a=_AGENDA.find(x=>x.id===id); if(!a) return;
+  a.feito=!a.feito;
+  renderAgenda();  // otimista
+  vibra();
+  await dbUpdate('agenda', {feito:a.feito}, 'id', id);
+}
+async function agExcluir(id){
+  if(!confirm('Excluir este compromisso?')) return;
+  const r=await dbDelete('agenda','id',id);
+  if(!r.ok) return;
+  _AGENDA=_AGENDA.filter(x=>x.id!==id);
+  renderAgenda(); vibra(); toast('Excluído');
 }
 
 // ---- LANÇAMENTO ----

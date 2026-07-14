@@ -571,7 +571,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.04"; /* z4 */
+const APP_VER = "8.05"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5080,9 +5080,9 @@ async function carregarAgenda(){
 async function renderAgenda(){
   const st=await carregarAgenda();
   if(st==='faltaTabela'){
-    setHTML('view',`<div class="card"><h3 style="margin:0 0 8px">📅 Agenda</h3>
+    $('content').innerHTML=`<div class="card"><h3 style="margin:0 0 8px">📅 Agenda</h3>
       <p style="color:var(--muted);font-size:13.5px;line-height:1.55">A agenda ainda não foi criada no banco.<br>
-      Rode o SQL que o Claude te passou e volte aqui.</p></div>`);
+      Rode o SQL da agenda no Supabase e volte aqui.</p></div>`;
     return;
   }
   const ano=_agMes.getFullYear(), mes=_agMes.getMonth();
@@ -5171,7 +5171,7 @@ async function renderAgenda(){
     });
     h+=`</div>`;
   }
-  setHTML('view',h);
+  $('content').innerHTML=h;
 }
 function agMes(n){ _agMes=new Date(_agMes.getFullYear(), _agMes.getMonth()+n, 1); _agSel=ymd(new Date(_agMes.getFullYear(),_agMes.getMonth(),1)); renderAgenda(); }
 function agSel(k){ _agSel=k; renderAgenda(); }

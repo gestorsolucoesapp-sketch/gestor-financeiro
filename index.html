@@ -109,19 +109,19 @@ body.modal-open .fab{display:none !important}
 #app{min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;width:100%;max-width:100%}
 .topbar{position:sticky;top:0;z-index:30;background:var(--emerald);color:#fff;
   padding:calc(env(safe-area-inset-top) + 14px) 16px 14px}
-.topbar .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.topbar .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .topbar .hi{font-size:13px;opacity:.8}
 .topbar .hi b{display:block;font-size:16px;font-weight:700;opacity:1}
-.iconbtn{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);color:#fff;
+.iconbtn{width:37px;height:37px;border-radius:11px;background:rgba(255,255,255,.10);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:18px}
 .seg{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:3px;gap:3px;margin-top:6px}
 .segcap{display:none}
 .seg-sec{background:rgba(255,255,255,.07)}
 .seg-sec button{font-size:13px;padding:5px}
-.seg button{flex:1;padding:6px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
+.seg button{flex:1;padding:5px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
-.content{flex:1;padding:16px;padding-bottom:210px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
+.content{flex:1;padding:16px;padding-bottom:172px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
 /* cards */
@@ -284,7 +284,7 @@ body.scrolling .fab{opacity:.25}
 .sortable-item{position:relative}
 .sortable-item.dragging{opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.4);border-radius:var(--radius)}
 .sortable-placeholder{border:2px dashed var(--line-2);border-radius:var(--radius);margin-bottom:14px;box-sizing:border-box}
-.drag-handle{position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;z-index:6;font-size:18px;letter-spacing:1px;line-height:1;cursor:grab;border-radius:8px}
+.drag-handle{position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;z-index:6;font-size:18px;letter-spacing:1px;line-height:1;opacity:.38;cursor:grab;border-radius:8px}
 .drag-handle:active{background:var(--input-bg)}
 .quick{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:9px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--ink)}
 .quick .qi{font-size:22px;margin-bottom:2px}
@@ -577,7 +577,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.10"; /* z4 */
+const APP_VER = "8.11"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2055,7 +2055,7 @@ function renderAssistente(){
   if(window._aiPropExclusao){
     const l=window._aiPropExclusao;
     const cat=catById(l.categoria_id); const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
-    html+=`<div class="card" style="border:1.5px solid var(--coral);margin:0">
+    html+=`<div class="card" style="border:1px solid color-mix(in srgb, var(--coral) 40%, transparent);margin:0">
       <b>Excluir: ${esc(l.descricao)}</b>
       <div class="note">${brl(Number(l.valor))} · ${l.data} · ${esc(cat?cat.nome:'')}${conta?' · '+esc(conta.nome):''}</div>
       <div style="display:flex;gap:10px;margin-top:8px">
@@ -2954,7 +2954,7 @@ function renderHome(){
   let _alertaHtml='';
   if(tarefas.length){
     const totT=tarefas.reduce((a,l)=>a+Number(l.valor),0);
-    let bh=`<div class="card" style="border:1.5px solid var(--coral);margin-bottom:0;padding:13px 15px">
+    let bh=`<div class="card" style="border:1px solid color-mix(in srgb, var(--coral) 40%, transparent);margin-bottom:0;padding:13px 15px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <b style="font-size:14.5px">⚠️ Contas pra pagar</b>
         <span class="note"><b style="color:var(--coral)">${brl(totT)}</b></span></div>`;

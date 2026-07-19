@@ -481,7 +481,7 @@ body.scrolling .fab{opacity:.25}
         <div class="field" style="flex:1"><label>Cidade</label><input id="suCidade" type="text" autocomplete="address-level2" placeholder="Sua cidade"></div>
         <div class="field" style="width:88px"><label>UF</label><input id="suUF" type="text" maxlength="2" autocapitalize="characters" placeholder="SP" style="text-transform:uppercase"></div>
       </div>
-      <div class="field"><label>E-mail</label><input id="suEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email" placeholder="voce@email.com"></div>
+      <div class="field"><label>E-mail</label><input id="suEmail" type="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email" placeholder="voce@email.com" oninput="checkEmailHint()"><div id="suEmailHint" class="note" style="display:none;color:var(--coral)"></div></div>
       <div class="field"><label>Senha</label><div class="pwWrap"><input id="suPass" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"><button type="button" class="pwEye" onclick="verSenha('suPass',this)" aria-label="Ver senha">👁️</button></div></div>
       <label class="savepass-row" style="align-items:flex-start;margin:4px 0 14px"><input type="checkbox" id="suAceite" style="margin-top:3px"> <span style="font-size:12.5px;line-height:1.5">Li e concordo com os <a href="termos.html" target="_blank" style="color:var(--nav-on);font-weight:700">Termos de Uso</a> e a <a href="privacidade.html" target="_blank" style="color:var(--nav-on);font-weight:700">Política de Privacidade</a>.</span></label>
       <button class="btn coral" onclick="doSignup()">Criar conta</button>
@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.13"; /* z4 */
+const APP_VER = "8.14"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1266,10 +1266,20 @@ function aplicarPreset(nome){_temaWork=Object.assign({},TEMA_PRESETS[nome]);setT
 function resetTema(){_temaWork=Object.assign({},TEMA_DEFAULT);setTema(_temaScope,_temaWork);applyTema(_temaScope);renderTema();toast('Padrão restaurado');}
 function authOk(m){$('authMsg').innerHTML='<div class="msg ok">'+esc(m)+'</div>';}
 
+function checkEmailHint(){
+  const inp=$('suEmail'), h=$('suEmailHint'); if(!inp||!h) return;
+  const v=inp.value.trim(); let msg='';
+  if(v.length>2){
+    if(!v.includes('@')) msg='⚠️ Faltou o @ (ex: nome@gmail.com)';
+    else if(!/\.[a-z]{2,}$/i.test(v)) msg='⚠️ Faltou o final do e-mail (ex: .com, .com.br)';
+  }
+  h.textContent=msg; h.style.display=msg?'block':'none';
+}
 async function doSignup(){
   const nome=$('suNome').value.trim(), email=$('suEmail').value.trim(), pass=$('suPass').value;
   const fone=$('suFone')?$('suFone').value.trim():'', cidade=$('suCidade')?$('suCidade').value.trim():'', uf=$('suUF')?$('suUF').value.trim().toUpperCase():'';
   if(!nome||!email||pass.length<6){authErr('Preencha nome, e-mail e senha (mín. 6 caracteres).');return;}
+  if(!/^\S+@\S+\.\S+$/.test(email)){authErr('O e-mail parece incompleto — confira o @ e o ponto (ex: nome@gmail.com). Às vezes o teclado do celular engole esses símbolos.');return;}
   if(!fone){authErr('Informe seu WhatsApp/celular.');return;}
   if(!cidade||!uf){authErr('Informe sua cidade e estado (UF).');return;}
   if($('suAceite') && !$('suAceite').checked){authErr('Para criar a conta, você precisa aceitar os Termos de Uso e a Política de Privacidade.');return;}

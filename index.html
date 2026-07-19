@@ -252,6 +252,10 @@ body.scrolling .fab{opacity:.25}
 .seg2{display:flex;background:var(--input-bg);border:1.5px solid var(--line-2);border-radius:13px;padding:3px;gap:4px}
 .seg2 button{flex:1;padding:11px 8px;border-radius:10px;font-weight:700;font-size:13.5px;color:var(--muted)}
 .seg2 button.on{background:var(--emerald);color:#fff}
+.mopc{margin:0 0 14px;border-top:1px solid var(--line);padding-top:8px}
+.mopc>summary{list-style:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--muted);padding:6px 2px}
+.mopc>summary::-webkit-details-marker{display:none}
+.mopc>summary::before{content:'\2699\fe0f  '}
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .chip{padding:8px 13px;border-radius:20px;background:var(--input-bg);border:1.5px solid var(--line-2);font-size:13px;font-weight:600;color:var(--muted)}
 .chip.on{background:var(--emerald);color:#fff;border-color:var(--emerald)}
@@ -576,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.12"; /* z4 */
+const APP_VER = "8.13"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1305,11 +1309,11 @@ function obChecks(){
   const desp=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='despesa').length;
   const rec=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='receita').length;
   return [
-    {k:'conta',   n:1, titulo:'Cadastre suas contas',      sub:'Banco, carteira e dinheiro — com o saldo atual de cada uma', ok:minhasContas>=1, acao:'openConta()',  btn:'Adicionar conta', skip:false},
-    {k:'cartao',  n:2, titulo:'Cadastre seus cartões',     sub:'Informe o dia de fechamento e de vencimento da fatura', ok:meusCartoes>=1,  acao:'openCartao()', btn:'Adicionar cartão', skip:true},
-    {k:'receita', n:3, titulo:'Registre sua receita',      sub:'Seu salário ou outra entrada de dinheiro do mês', ok:rec>=1, acao:"openLanc(null,'receita')", btn:'Registrar receita', skip:false},
-    {k:'despesas',n:4, titulo:'Registre 2 despesas',       sub:'Uma no débito e uma no cartão, para conhecer o fluxo', ok:desp>=2, prog:Math.min(desp,2)+'/2', acao:"openLanc(null,'despesa')", btn:'Registrar despesa', skip:false},
-    {k:'casal',   n:5, titulo:'Conecte com seu cônjuge',   sub:'Cada um usa a própria conta e vocês acompanham tudo em conjunto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
+    {k:'conta',   n:1, essencial:true,  titulo:'Adicione sua conta',       sub:'Onde voc\u00ea guarda dinheiro, com o saldo de hoje', ok:minhasContas>=1, acao:'openConta()',  btn:'Adicionar conta', skip:false},
+    {k:'despesas',n:2, essencial:true,  titulo:'Lance seu primeiro gasto', sub:'Qualquer compra recente \u2014 \u00e9 aqui que a m\u00e1gica come\u00e7a', ok:desp>=1, acao:"openLanc(null,'despesa')", btn:'Lan\u00e7ar um gasto', skip:false},
+    {k:'receita', n:3, essencial:false, titulo:'Registre seu sal\u00e1rio',     sub:'Pro app projetar seu m\u00eas inteiro', ok:rec>=1, acao:"openLanc(null,'receita')", btn:'Registrar receita', skip:true},
+    {k:'cartao',  n:4, essencial:false, titulo:'Cadastre um cart\u00e3o',       sub:'Dia de fechamento e vencimento da fatura', ok:meusCartoes>=1, acao:'openCartao()', btn:'Adicionar cart\u00e3o', skip:true},
+    {k:'casal',   n:5, essencial:false, titulo:'Conecte com seu c\u00f4njuge',  sub:'Cada um na sua conta, acompanhando tudo junto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
   ];
 }
 // ===== WALKTHROUGH GUIADO estilo Mobills =====
@@ -1423,41 +1427,43 @@ async function recarregarTudo(){
 }
 function renderTutorial(){
   const steps=obChecks();
-  const feitos=steps.filter(s=>s.ok||(s.skip&&obSkip(s.k))).length;
-  const pct=Math.round(feitos/steps.length*100);
-  let html=`<div class="page-title">👋 Primeiros passos</div>
-  <div class="card" style="background:linear-gradient(120deg,#7c5cff,#a855ff);color:#fff;border:none">
-    <b style="font-size:16px">Vamos configurar em 5 minutinhos</b>
-    <div style="font-size:13.5px;opacity:.95;margin-top:6px;line-height:1.55">É só seguir a lista abaixo, na ordem. <b>Toque no botão de cada passo</b> que eu abro a tela certa pra você. Sem isso, os números não fecham.</div>
-  </div>
-  <div class="card" style="padding:14px 16px">
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ink)"><b>Seu progresso</b><span style="color:var(--muted)">${feitos} de ${steps.length}</span></div>
-    <div class="prog"><div class="progfill" style="width:${pct}%;background:var(--mint)"></div></div>
-  </div>
-  <button class="btn" style="margin:2px 0 10px" onclick="iniciarWalkthrough()">✨ Me mostre onde toca (guia na tela)</button>
-  <button class="btn outline" style="margin:0 0 14px" onclick="addTudoRapido()">➕ Adicionar várias contas e cartões de uma vez</button>`;
-  steps.forEach(s=>{
-    const pulou=s.skip&&obSkip(s.k)&&!s.ok;
-    const done=s.ok||pulou;
-    html+=`<div class="card" style="display:flex;gap:12px;align-items:flex-start;${done?'opacity:.7':''}">
-      <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${done?'background:var(--mint);color:#fff':'background:var(--input-bg);color:var(--ink);border:1.5px solid var(--line-2)'}">${done?'✓':s.n}</div>
+  const ess=steps.filter(s=>s.essencial), opc=steps.filter(s=>!s.essencial);
+  const essFeitos=ess.filter(s=>s.ok).length, tudoEss=essFeitos>=ess.length;
+  const pct=Math.round(essFeitos/Math.max(1,ess.length)*100);
+  const card=(s)=>{
+    const pulou=s.skip&&obSkip(s.k)&&!s.ok, done=s.ok||pulou;
+    return `<div class="card" style="display:flex;gap:12px;align-items:flex-start;${done?'opacity:.6':''}">
+      <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${done?'background:var(--mint);color:#fff':'background:var(--input-bg);color:var(--ink);border:1.5px solid var(--line-2)'}">${done?'\u2713':s.n}</div>
       <div style="flex:1;min-width:0">
-        <b style="color:var(--ink)">${s.titulo}${s.prog&&!s.ok?` <span class="pill" style="background:#e8eefc;color:#3b5bdb">${s.prog}</span>`:''}${pulou?' <span class="pill">pulado</span>':''}</b>
+        <b style="color:var(--ink)">${s.titulo}${pulou?' <span class="pill">depois</span>':''}</b>
         <div class="s" style="margin:2px 0 10px">${s.sub}</div>
         ${done?'':`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn" style="margin:0;flex:1;min-width:170px;padding:12px 16px;font-size:14px" onclick="${s.acao}">${s.btn} →</button>
-          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Não uso isso</button>`:''}
+          <button class="btn" style="margin:0;flex:1;min-width:170px;padding:12px 16px;font-size:14px" onclick="${s.acao}">${s.btn} \u2192</button>
+          ${s.skip?`<button class="btn sm ghost" style="margin:0" onclick="obSetSkip('${s.k}')">Agora n\u00e3o</button>`:''}
         </div>`}
       </div>
     </div>`;
-  });
-  html+=`<button class="btn" onclick="concluirTutorial()">Concluir e ver meus relatórios</button>
-  <button class="btn ghost" onclick="dispensarTutorial()">Não mostrar mais</button>`;
-  $('content').innerHTML=html;
-  // primeira vez sem nenhum passo feito: dispara o tutorial guiado automaticamente
-  if(!wtDone() && !_demoNovo && obChecks().filter(s=>s.ok).length===0 && !document.getElementById('wtOverlay')){
-    setTimeout(iniciarWalkthrough, 500);
+  };
+  let html=`<div class="page-title">\ud83d\udc4b Bem-vindo!</div>
+  <div class="card" style="background:linear-gradient(120deg,#7c5cff,#a855ff);color:#fff;border:none">
+    <b style="font-size:16px">${tudoEss?'\ud83c\udf89 O b\u00e1sico j\u00e1 est\u00e1 pronto!':'Comece em 1 minutinho'}</b>
+    <div style="font-size:13.5px;opacity:.95;margin-top:6px;line-height:1.55">${tudoEss?'J\u00e1 d\u00e1 pra explorar tudo. Sal\u00e1rio, cart\u00e3o e c\u00f4njuge voc\u00ea adiciona quando quiser, sem pressa.':'S\u00e3o s\u00f3 2 passos e voc\u00ea j\u00e1 v\u00ea seus n\u00fameros. O resto fica pra depois \u2014 sem pressa.'}</div>
+  </div>`;
+  if(!tudoEss){
+    html+=`<div class="card" style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ink)"><b>Come\u00e7ando</b><span style="color:var(--muted)">${essFeitos} de ${ess.length}</span></div>
+      <div class="prog"><div class="progfill" style="width:${pct}%;background:var(--mint)"></div></div>
+    </div>`;
   }
+  ess.forEach(s=>{ html+=card(s); });
+  if(tudoEss){
+    html+=`<button class="btn" style="font-size:15px;padding:14px" onclick="concluirTutorial()">Ver meu resumo \u2192</button>`;
+  }
+  html+=`<div class="page-title" style="font-size:14.5px;margin:20px 0 4px;color:var(--muted)">Quando quiser (opcional)</div>`;
+  opc.forEach(s=>{ html+=card(s); });
+  html+=`<button class="btn ghost" style="margin-top:10px" onclick="iniciarWalkthrough()">\u2728 Prefere um tour guiado na tela?</button>
+  <button class="btn ghost" onclick="dispensarTutorial()">N\u00e3o mostrar mais</button>`;
+  $('content').innerHTML=html;
 }
 function dispensarTutorial(){
   if(!confirm('Ocultar o guia de primeiros passos? Você poderá reabri-lo depois em Mais.'))return;
@@ -1473,7 +1479,7 @@ function addTudoRapido(){
     <button class="btn ghost" onclick="window._addLoop=null;closeSheet()">Concluído</button>`);
 }
 function concluirTutorial(){
-  const faltam=obChecks().filter(s=>!s.ok && !(s.skip&&obSkip(s.k)));
+  const faltam=obChecks().filter(s=>s.essencial && !s.ok);
   if(faltam.length){
     vibra(60);
     toast('Ainda faltam etapas: '+faltam.map(s=>s.n+'. '+s.titulo).join(' · '));
@@ -1482,7 +1488,7 @@ function concluirTutorial(){
   localStorage.setItem(obKey(),'1');
   vibra(); toast('Configuração concluída ✅');
   updateIaFab();
-  go('relatorios');
+  go('home');
 }
 
 // ============ LICENÇA / ASSINATURA ============
@@ -6063,6 +6069,7 @@ function openConta(id){
       <button id="cTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._contaTipo='negocio';$('cTipoN').classList.add('on');$('cTipoP').classList.remove('on')">Negócio</button>
     </div></div>
     <div class="field"><label>Saldo inicial (R$)</label><input id="cSaldo" type="number" inputmode="decimal" step="0.01" value="${e.saldo_inicial!=null?e.saldo_inicial:''}" placeholder="0,00"><div class="note">Quanto há nesta conta hoje. O app calcula o saldo atual a partir daqui.</div></div>
+    <details class="mopc" ${id?'open':''}><summary>Mais op\u00e7\u00f5es (opcional)</summary>
     <div class="field"><label>Limite / cheque especial (R$)</label><input id="cLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite!=null&&e.limite!=0?e.limite:''}" placeholder="0,00"><div class="note">Opcional. Quanto a conta pode ficar negativa. Aparece na aba Contas como limite e limite usado.</div></div>
     <div class="field"><label>Titular / quem usa</label><input id="cTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularList">
       <datalist id="titularList">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
@@ -6076,6 +6083,7 @@ function openConta(id){
         <button id="cInv0" class="${e.eh_investimento?'':'on'}" onclick="window._cInv=false;$('cInv0').classList.add('on');$('cInv1').classList.remove('on')">Não (normal)</button>
         <button id="cInv1" class="${e.eh_investimento?'on':''}" onclick="window._cInv=true;$('cInv1').classList.add('on');$('cInv0').classList.remove('on')">Sim, investimento</button>
       </div><div class="note">Investimento fica <b>fora do saldo</b> do dia a dia e soma no <b>patrimônio</b>. Você transfere dinheiro pra ela pra investir.</div></div>
+    </details>
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
     ${id?`<button class="btn outline" onclick="reajustarConta('${id}')">Reajustar saldo</button>`:''}
     ${id?`<button class="btn ghost" onclick="arquivarConta('${id}')"><span class="danger">Arquivar conta</span></button>`:''}

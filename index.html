@@ -269,6 +269,12 @@ body.scrolling .fab{opacity:.25}
 .monthnav{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:14px;padding:3px 6px;box-shadow:var(--shadow);margin-bottom:10px}
 .monthnav button{width:30px;height:30px;border-radius:10px;font-size:17px;color:var(--mint)}
 .monthnav .m{font-weight:700;font-size:14px;color:var(--ink)}
+.proxmes{background:var(--card);border-radius:14px;padding:10px 14px;box-shadow:var(--shadow);margin-bottom:12px}
+.proxmes .pm-lbl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
+.proxmes .pm-vals{display:flex;gap:10px}
+.proxmes .pm-item{flex:1;background:rgba(128,128,128,.12);border-radius:10px;padding:7px 10px;display:flex;flex-direction:column;gap:2px}
+.proxmes .pm-item span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.proxmes .pm-item b{font-size:15px;font-weight:800}
 .facard{background:linear-gradient(155deg,#2a2440,#3d3460);color:#fff}
 
 /* atalhos rápidos */
@@ -571,7 +577,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.07"; /* z4 */
+const APP_VER = "8.08"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2895,6 +2901,14 @@ function renderHome(){
   }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
 
   let html=monthNav('home');
+  // ── Próximo mês: balanço + saldo projetados (logo abaixo do seletor de mês) ──
+  const _prox=new Date(viewMonth.getFullYear(), viewMonth.getMonth()+1, 1);
+  const _bP=balancoMes(_prox), _sdP=saidasMes(_prox), _gcP=gastoCartaoMes(_prox);
+  const _gcRestP=Math.max(0,_gcP-(_sdP.pagFatura||0));
+  const _baseFP=_bP.rec-(_sdP.aPagar+_gcRestP+(_sdP.conjuge||0));
+  const _balProx=_baseFP-descontarInvest(_sdP.invest,_baseFP);
+  const _saldoProx=saldoProjetado(_prox);
+  html+=`<div class="proxmes"><div class="pm-lbl">🔮 Próximo mês · ${mesNome(_prox)}</div><div class="pm-vals"><div class="pm-item"><span>Balanço</span><b style="color:${_balProx>=0?'var(--green)':'var(--coral)'}">${brl(_balProx)}</b></div><div class="pm-item"><span>Saldo previsto</span><b style="color:${_saldoProx>=0?'var(--green)':'var(--coral)'}">${brl(_saldoProx)}</b></div></div></div>`;
   // última transação lançada (logo abaixo do mês)
   if(recents.length){
     const u=recents[0];

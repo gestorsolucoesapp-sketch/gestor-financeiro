@@ -577,7 +577,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.08"; /* z4 */
+const APP_VER = "8.09"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2887,6 +2887,7 @@ function renderHome(){
   const recents=DATA.lancamentos.filter(l=>{
     if(!srcOk(l.user_id)) return false;
     if(l.data>_hjRec) return false;
+    if(l.status!=='pago') return false; // só transações efetivadas (exclui contas programadas/pendentes)
     if(l.cartao_id){
       const cart=cartaoById(l.cartao_id);
       if(scope!=='tudo' && (!cart||cart.tipo!==scope)) return false;

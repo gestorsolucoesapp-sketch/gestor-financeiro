@@ -2,35 +2,39 @@ name: Supabase Keep-Alive
 
 # Mantém os projetos Supabase (Financeiro + 3D + LAB Open Finance) acordados,
 # evitando a pausa automática por inatividade do plano free.
+# Cada passo FALHA (vermelho) se o ping não voltar 2xx — keepalive quebrado não passa mais batido.
 
 on:
   schedule:
     - cron: '17 6 * * *'   # todo dia ~06:17 UTC (03:17 BRT)
-  workflow_dispatch: {}     # permite rodar manualmente pelo botão "Run workflow"
+  workflow_dispatch: {}
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Gestor Financeiro
+        if: ${{ always() }}
         run: |
-          curl -sS -X POST "https://cppuceykhffjdcmwpfpk.supabase.co/rest/v1/rpc/keepalive" \
+          curl -sS --fail-with-body -X POST "https://cppuceykhffjdcmwpfpk.supabase.co/rest/v1/rpc/keepalive" \
             -H "apikey: ${{ secrets.SUPABASE_FIN_ANON }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_FIN_ANON }}" \
             -H "Content-Type: application/json" -d '{}' \
             -w "\nFINANCEIRO -> HTTP %{http_code}\n"
 
       - name: Ping Gestor 3D
+        if: ${{ always() }}
         run: |
-          curl -sS -X POST "https://bzeuyahlxtnxfniftqdy.supabase.co/rest/v1/rpc/keepalive" \
+          curl -sS --fail-with-body -X POST "https://bzeuyahlxtnxfniftqdy.supabase.co/rest/v1/rpc/keepalive" \
             -H "apikey: ${{ secrets.UPABASE_3D_ANON }}" \
             -H "Authorization: Bearer ${{ secrets.UPABASE_3D_ANON }}" \
             -H "Content-Type: application/json" -d '{}' \
             -w "\n3D -> HTTP %{http_code}\n"
 
       - name: Ping Gestor LAB (Open Finance)
+        if: ${{ always() }}
         run: |
-          curl -sS -X POST "https://api.supabase.com/v1/projects/dkwjedoyosaufusvudgm/database/query" \
+          curl -sS --fail-with-body -X POST "https://api.supabase.com/v1/projects/dkwjedoyosaufusvudgm/database/query" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"query":"create table if not exists public.keepalive_ping(id int primary key, ts timestamptz); insert into public.keepalive_ping(id,ts) values(1,now()) on conflict(id) do update set ts=now();"}' \

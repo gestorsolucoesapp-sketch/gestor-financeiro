@@ -1,0 +1,14 @@
+name: Test pluggy-webhook
+on:
+  workflow_dispatch: {}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping webhook (sem auth, como a Pluggy faria)
+        run: |
+          echo "== sem header nenhum (igual Pluggy) =="
+          curl -sS -X POST "https://dkwjedoyosaufusvudgm.supabase.co/functions/v1/pluggy-webhook" \
+            -H "Content-Type: application/json" \
+            -d '{"event":"TEST_CI_SEM_AUTH","itemId":"ci-123"}' \
+            -w "\n--> HTTP %{http_code}\n" || true

@@ -106,7 +106,7 @@ body.modal-open .fab{display:none !important}
 .msg.ok{background:#e7f6ee;color:#1a7a4f}
 
 /* ---------- APP SHELL ---------- */
-#app{min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;width:100%;max-width:100%}
+#app{height:100dvh;display:flex;flex-direction:column;overflow:hidden;width:100%;max-width:100%}
 .topbar{position:sticky;top:0;z-index:30;background:var(--emerald);color:#fff;
   padding:calc(env(safe-area-inset-top) + 14px) 16px 14px}
 .topbar .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -121,7 +121,7 @@ body.modal-open .fab{display:none !important}
 .seg button{flex:1;padding:5px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
-.content{flex:1;padding:16px;padding-bottom:172px;max-width:560px;width:100%;margin:0 auto;overflow-x:hidden}
+.content{flex:1;min-height:0;padding:16px;padding-bottom:172px;max-width:560px;width:100%;margin:0 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
 /* cards */
@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.20"; /* z4 */
+const APP_VER = "8.21"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1898,7 +1898,7 @@ const _EYE_ON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" strok
 const _EYE_OFF='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 function atualizarOlho(){ const b=$('eyeBtn'); if(b){ b.innerHTML = HIDEVAL?_EYE_OFF:_EYE_ON; b.style.opacity = HIDEVAL?'1':'.75'; } }
 function toggleHideVal(){ HIDEVAL=!HIDEVAL; localStorage.setItem('gf_hide_val',HIDEVAL?'1':'0'); atualizarOlho(); render(); toast(HIDEVAL?'Valores ocultos 👁️':'Valores visíveis'); }
-function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$('content').scrollTo&&window.scrollTo(0,0);render();updateIaFab();}
+function go(t){tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));const _c=$('content');if(_c&&_c.scrollTo)_c.scrollTo(0,0);window.scrollTo(0,0);render();updateIaFab();}
 let _lastRender=0, _renderPending=null;
 function render(){
   const agora=Date.now();
@@ -2755,7 +2755,7 @@ function makeSortable(containerId,storageKey){
         if(next && next.parentNode) next.parentNode.insertBefore(placeholder,next);
         else if(placeholder.parentNode) placeholder.parentNode.appendChild(placeholder);
         // autoscroll perto das bordas da tela
-        const margin=70, sc=document.scrollingElement||document.documentElement;
+        const margin=70, sc=$('content')||document.scrollingElement||document.documentElement;
         if(ev.clientY<margin) sc.scrollTop-=14;
         else if(ev.clientY>window.innerHeight-margin) sc.scrollTop+=14;
       }

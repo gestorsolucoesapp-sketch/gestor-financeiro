@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.18"; /* z4 */
+const APP_VER = "8.19"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3185,7 +3185,7 @@ function renderHome(){
       ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${!projInvest()?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">Não contado no balanço (é patrimônio). Ligue em Mais pra descontar.</div>`:''}${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
       ${b.recPend>0?`<div class="srow tap" onclick="verTrans('receita')"><span>Receitas a receber</span><b style="color:var(--hero-green)">${brl(b.recPend)}</b></div>`:''}
       <div class="srow tap" onclick="verTrans('despesa')"><span>Contas pagas</span><b>${brl(sd.pagas)}</b></div>
-      <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar</span><b>${sd.nAPagar>0?`<span style="opacity:.45;font-weight:600;font-size:.8em;margin-right:6px">${sd.nAPagar}×</span>`:''}${brl(sd.aPagar)}</b></div>
+      <div class="srow tap" onclick="verTrans('pendente')"><span>Contas a pagar${sd.nAPagar>0?` <span style="opacity:.45;font-weight:600;font-size:.82em">${sd.nAPagar}×</span>`:''}</span><b>${brl(sd.aPagar)}</b></div>
       ${gc>0?`<div class="srow tap" onclick="go('cartoes')"><span>Gastos no cartão</span><b>${brl(gc)}</b></div>`:''}
       ${(MYPARTNERS.length>0 && (source==='eu'||source==='casal'))?(()=>{
         const nome=MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge';

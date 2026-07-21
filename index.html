@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.16"; /* z4 */
+const APP_VER = "8.17"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1817,7 +1817,7 @@ function abrirNotificacoes(){
       const amt = ehParc?brl(g._total):(brl(Number(l.valor)));
       h+=`<div class="lrow" ${ehHoje?'style="border:1.5px solid #ff8a1a;border-radius:14px;padding:10px 12px;margin:4px 0"':''}><div class="dot" style="background:${tintBg(vis.color)};color:${vis.color};position:relative">${ICON(vis.icon,18)}${isNew?'<span style="position:absolute;top:-2px;right:-2px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--card)"></span>':''}</div>
         <div class="mid"><div class="t">${esc(apelidoDe(l.user_id))} · ${esc(l.descricao)}${selo}</div><div class="s">${sub}${dt}${hr}${cat?' · '+esc(cat.nome):''}</div></div>
-        <div class="amt ${cls}"${l.status!=='pendente'?' style="text-decoration:line-through;text-decoration-thickness:2px;opacity:.5"':''} title="${l.status!=='pendente'?'Já lançado — só informativo, não é conta a pagar':'Pendente'}">${sinal}${amt}</div></div>`;
+        <div class="amt ${cls}"${ehLancQuitacao(l)?' style="text-decoration:line-through;text-decoration-thickness:2px;opacity:.5" title="Pagamento de fatura já quitado — só informativo, não é conta a pagar"':''}>${sinal}${amt}</div></div>`;
     });
     h+=`</div>`;
   }

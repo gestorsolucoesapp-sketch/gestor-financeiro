@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.23"; /* z4 */
+const APP_VER = "8.24"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4667,8 +4667,10 @@ function openImportBanco(){
       📸 Tire print da fatura do cartão. No iPhone, abra a foto → segure no texto → <b>Selecionar Tudo → Copiar</b> → volte aqui e cole no campo acima.<br>
       Ou toque abaixo para enviar a imagem e transcrever o texto:
     </p>
-    <input type="file" id="impFoto" accept="image/*" style="display:none" onchange="lerFotoFatura(event)">
-    <button class="btn-sec" onclick="document.getElementById('impFoto').click()">🖼️ Enviar foto da fatura</button>`);
+    <input type="file" id="impFotoCam" accept="image/*" capture="environment" style="display:none" onchange="scanFatura(event)">
+    <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
+    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoCam').click()">📸 Escanear fatura (foto)</button>
+    <button class="btn-sec" style="margin-top:8px" onclick="document.getElementById('impFotoGal').click()">🖼️ Escolher da galeria</button>`);
   setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
 }
 function analisarImport(){
@@ -4813,6 +4815,74 @@ function parseFatura(txt){
     });
   });
   return itens;
+}
+
+// ===== SCANNER DE FATURA COM IA =====
+async function scanFatura(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if(ev.target) ev.target.value='';
+  if(!file) return;
+  openSheet(`<div style="text-align:center;padding:30px 10px">
+    <div style="font-size:44px;margin-bottom:12px">📸</div>
+    <h2 style="margin:0 0 6px">Lendo sua fatura…</h2>
+    <p style="color:var(--muted);font-size:13.5px">A IA está identificando as compras. Uns segundinhos ⏳</p>
+    <div class="spin" style="margin:18px auto 0"></div></div>`);
+  try{
+    // comprime a imagem pra não estourar (fatura grande)
+    const b64 = await _fileParaBase64Comprimido(file);
+    const {data:{session}} = await sb.auth.getSession();
+    const r = await fetch(SUPABASE_URL+'/functions/v1/ler-fatura',{
+      method:'POST',
+      headers:{ 'content-type':'application/json',
+        'authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),
+        'apikey':SUPABASE_KEY },
+      body: JSON.stringify({ imagem:b64, media_type:'image/jpeg' })
+    });
+    const data = await r.json();
+    if(data.error){
+      closeSheet();
+      if(r.status===403){ toast('Scanner não liberado nesta conta'); }
+      else if(r.status===429){ toast('Você atingiu o limite de leituras do mês'); }
+      else toast('Erro: '+data.error);
+      return;
+    }
+    const arr = Array.isArray(data.itens)?data.itens:[];
+    if(!arr.length){ closeSheet(); toast('Não achei compras na foto 🤔 tente uma imagem mais nítida'); return; }
+    // vira itens da prévia
+    const itens = arr.map(x=>{
+      const valor = Math.abs(Number(x.valor)||0);
+      const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
+      const desc = (x.desc||'Compra').toString().slice(0,60);
+      const dup = DATA.lancamentos.some(l=> Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2 && _normTxt(l.descricao)===_normTxt(desc));
+      return { tipo:'despesa', viaCartao:true, finalCart:null, desc, valor, data:data2,
+        parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
+        cartao_id:'', conta_id:'', categoria_id:'' };
+    }).filter(x=>x.valor>0);
+    window._impItens = itens;
+    renderPreviaImport();
+    toast(itens.length+' compra(s) lida(s) pela IA ✨');
+  }catch(e){
+    closeSheet(); toast('Falhou: '+(e.message||e));
+  }
+}
+// comprime a imagem no navegador (max ~1600px, JPEG) e devolve base64 puro
+function _fileParaBase64Comprimido(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const max=1600;
+      let {width:w,height:h}=img;
+      if(w>max||h>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=cv.toDataURL('image/jpeg',0.82);
+      resolve(dataUrl.split(',')[1]);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('Não consegui abrir a imagem')); };
+    img.src=url;
+  });
 }
 
 async function confirmarImport(){

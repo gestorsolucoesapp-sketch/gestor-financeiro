@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.24"; /* z4 */
+const APP_VER = "8.25"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3810,6 +3810,110 @@ function faturaTotal(cartaoId,mes){
     .reduce((a,l)=>a+valFatura(l),0);
 }
 function abrirFatura(cartaoId){faturaCartaoId=cartaoId;tab='fatura';document.querySelectorAll('.tabbar button').forEach(b=>b.classList.remove('on'));renderFatura();}
+// ===== ADIANTAR PAGAMENTO / LIBERAR LIMITE =====
+function adiantarPagamento(cartaoId){
+  const c=cartaoById(cartaoId);
+  const cs=DATA.contas.filter(x=>!x.arquivada && x.user_id===USER.id);
+  if(!cs.length){ toast('Crie uma conta primeiro'); return; }
+  const lim=Number(c.limite)||0;
+  const usadoTot=limiteUsadoTotal(cartaoId);
+  const disp=Math.max(0, lim-usadoTot);
+  window._adModo='parcial'; window._adCartaoAtual=cartaoId;
+  openSheet(`<h2 style="margin:0 0 4px">💰 Adiantar pagamento</h2>
+    <div class="note" style="line-height:1.5">
+      Cartão <b>${esc(c.nome)}</b>${lim>0?` · limite ${brl(lim)} · <span style="color:var(--mint)">disponível ${brl(disp)}</span>`:''}.<br>
+      Pague adiantado para <b>liberar limite na hora</b>. Sai o dinheiro da conta e a fatura reduz.
+    </div>
+    <div class="typetabs" style="margin-top:14px">
+      <button id="adP" class="on" onclick="adSetModo('parcial')">Valor da fatura</button>
+      <button id="adX" onclick="adSetModo('proxima')">Próxima fatura</button>
+      <button id="adC" onclick="adSetModo('credito')">Crédito no cartão</button>
+    </div>
+    <div class="note hidden" id="adHint" style="margin-top:8px"></div>
+    <div class="field" style="margin-top:10px"><label id="adValLab">Quanto quer adiantar (R$)</label>
+      <input id="adValor" type="text" inputmode="decimal" placeholder="0,00"></div>
+    ${opChips ? opChips('adValor') : ''}
+    <div class="field"><label>Sai da conta</label>
+      <select id="adConta">${cs.map(x=>`<option value="${x.id}">${esc(x.nome)} — ${brl(saldoConta(x.id))}</option>`).join('')}</select></div>
+    <button class="btn" onclick="confirmAdiantar('${cartaoId}')">Confirmar adiantamento</button>`);
+  adSetModo('parcial');
+}
+function adSetModo(m){
+  window._adModo=m;
+  ['adP','adX','adC'].forEach(id=>{ const b=$(id); if(b) b.className=''; });
+  const on={parcial:'adP',proxima:'adX',credito:'adC'}[m];
+  if($(on)) $(on).className='on';
+  const c=cartaoById(window._adCartaoAtual);
+  const hint=$('adHint'), lab=$('adValLab');
+  if(hint) hint.classList.remove('hidden');
+  if(m==='parcial'){
+    if(lab) lab.textContent='Quanto quer adiantar (R$)';
+    if(hint) hint.innerHTML='Reduz a <b>fatura atual</b> e libera esse limite agora. Pode pagar só uma parte.';
+  }else if(m==='proxima'){
+    if(lab) lab.textContent='Quanto adiantar da próxima fatura (R$)';
+    if(hint) hint.innerHTML='Abate compras que cairiam na <b>próxima fatura</b> (ainda aberta), liberando limite antes.';
+  }else{
+    if(lab) lab.textContent='Quanto de crédito colocar (R$)';
+    if(hint) hint.innerHTML='Deixa um <b>saldo a favor</b> no cartão. Abate as próximas compras automaticamente.';
+  }
+}
+async function confirmAdiantar(cartaoId){
+  const c=cartaoById(cartaoId);
+  const valor=calcVal($('adValor').value);
+  const contaId=$('adConta').value;
+  const modo=window._adModo||'parcial';
+  if(!(valor>0)){ toast('Informe um valor válido'); return; }
+  const saldo=saldoConta(contaId);
+  if(valor>saldo+0.001 && !confirm('O valor é maior que o saldo da conta. Continuar mesmo assim?')) return;
+
+  // competência: fatura ATUAL (parcial) ou PRÓXIMA (proxima/credito)
+  const off=cardDueOffset(c);
+  let compBase;
+  if(modo==='parcial'){
+    compBase=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
+  }else{
+    // próxima fatura em aberto = mês seguinte ao faturaMonth
+    compBase=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()+1-off, 1);
+  }
+  const comp=ymd(firstOfMonth(compBase));
+  const descCartao = modo==='credito' ? 'Crédito adiantado' : 'Adiantamento de fatura';
+
+  // 2 lançamentos: receita no cartão (abate fatura/libera limite) + despesa na conta (sai o dinheiro)
+  const rows=[
+    {user_id:USER.id,tipo:'receita',descricao:descCartao,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp},
+    {user_id:USER.id,tipo:'despesa',descricao:'Adiantamento '+c.nome,valor,data:ymd(new Date()),status:'pago',conta_id:contaId}
+  ];
+  const r=await dbInsert('lancamentos',rows);
+  if(r&&r.error){ toast('Erro: '+r.error.message); return; }
+  closeSheet();
+  try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
+  vibra();
+  const lim=Number(c.limite)||0;
+  const dispNovo=Math.max(0, lim-limiteUsadoTotal(cartaoId));
+  toast(lim>0 ? `Adiantado ✅ Limite disponível: ${brl(dispNovo)}` : 'Adiantamento registrado ✅');
+  renderFatura();
+  if(!(r&&r.queued)) bgSync();
+}
+// limite usado = soma de TODAS as faturas em aberto do cartão (atual + futuras não pagas)
+function limiteUsadoTotal(cartaoId){
+  const c=cartaoById(cartaoId);
+  const hojeYm=ymd(new Date()).slice(0,7);
+  let usado=0;
+  const porFatura={};
+  DATA.lancamentos.filter(l=>l.cartao_id===cartaoId && l.competencia).forEach(l=>{
+    const fy=faturaYm(l.competencia,c);
+    porFatura[fy]=(porFatura[fy]||0)+valFatura(l);
+  });
+  Object.keys(porFatura).forEach(fy=>{
+    // conta faturas do mês atual em diante que NÃO foram pagas
+    if(fy>=hojeYm && !faturaPagaYm(cartaoId,fy)) usado+=Math.max(0,porFatura[fy]);
+  });
+  return usado;
+}
+function faturaPagaYm(cartaoId,ym){
+  try{ const d=new Date(ym+'-01T00:00:00'); return faturaPaga(cartaoId,d); }catch(e){ return false; }
+}
+
 function renderFatura(){
   const c=cartaoById(faturaCartaoId); if(!c){go('cartoes');return;}
   const m=firstOfMonth(faturaMonth);
@@ -3826,6 +3930,7 @@ function renderFatura(){
     if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div></div>`;
     else html+=`<button class="btn" onclick="pagarFatura('${c.id}')" style="margin-bottom:12px">💳 Registrar pagamento da fatura</button>`;
   }
+  if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="adiantarPagamento('${c.id}')" style="margin-bottom:12px">💰 Adiantar pagamento / liberar limite</button>`;
   if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="ajustarFatura('${c.id}')" style="margin-bottom:12px">➕ Ajustar fatura (lançar algo que faltou)</button>`;
   html+=`<div class="card">`;
   if(!itens.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Sem lançamentos nesta fatura.</p></div>`;

@@ -430,6 +430,36 @@ body.scrolling .fab{opacity:.25}
 .saved-acc .sa-x{color:rgba(255,255,255,.5);font-size:20px;width:28px;flex-shrink:0}
 .savepass-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:2px 0 14px;cursor:pointer}
 .savepass-row input{width:18px;height:18px}
+
+/* ===== ASSISTENTE DE CONFIGURACAO (tela cheia) ===== */
+.as-scrim{position:fixed;inset:0;z-index:300;background:rgba(4,3,12,.84);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px}
+.as-card{position:relative;width:100%;max-width:400px;background:linear-gradient(180deg,#1f1a3d,#171331);border:1px solid #2a2550;border-radius:26px;padding:26px 22px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6);color:#f3f1ff;animation:asPop .4s cubic-bezier(.22,1,.36,1);max-height:92vh;overflow-y:auto}
+@keyframes asPop{from{transform:scale(.9) translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.as-steps{display:flex;gap:7px;justify-content:center;margin-bottom:22px}
+.as-dot{width:9px;height:9px;border-radius:50%;background:#2a2550;transition:.3s}
+.as-dot.on{background:#7c5cff;width:26px;border-radius:5px}
+.as-dot.done{background:#22c55e}
+.as-ico{width:76px;height:76px;border-radius:22px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:38px;background:linear-gradient(135deg,#7c5cff,#5b3fd6);box-shadow:0 10px 30px rgba(124,92,255,.4)}
+.as-card h2{font-size:22px;text-align:center;margin:0 0 8px;font-weight:800;color:#f3f1ff}
+.as-sub{text-align:center;color:#9a94c4;font-size:14.5px;line-height:1.55;margin:0 0 22px;padding:0 6px}
+.as-chip{display:inline-block;background:rgba(124,92,255,.18);color:#c3b4ff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;margin-bottom:14px}
+.as-lista{background:#221d42;border-radius:16px;padding:4px 14px;margin-bottom:20px}
+.as-li{display:flex;align-items:center;gap:12px;padding:13px 0}
+.as-li .c{width:28px;height:28px;border-radius:9px;border:2px solid #2a2550;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+.as-li.ok .c{background:#22c55e;border-color:#22c55e}
+.as-li .t{font-size:14.5px;font-weight:600}
+.as-li.ok .t{opacity:.5;text-decoration:line-through}
+.as-li .n{font-size:12px;color:#9a94c4}
+.as-btn{width:100%;border:0;border-radius:15px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#7c5cff,#5b3fd6);color:#fff;box-shadow:0 8px 24px rgba(124,92,255,.35)}
+.as-btn:active{transform:scale(.97)}
+.as-btn.sec{background:transparent;color:#9a94c4;box-shadow:none;font-weight:600;padding:12px;margin-top:6px}
+.as-pular{position:absolute;top:16px;right:18px;color:#9a94c4;font-size:13px;background:none;border:0;cursor:pointer}
+.as-dica{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);color:#7ee2a8;font-size:12.5px;line-height:1.5;padding:11px 13px;border-radius:12px;margin-bottom:16px}
+.as-aponta{text-align:center;color:#c3b4ff;font-size:12.5px;font-weight:700;margin-bottom:6px;animation:asBob 1.2s ease-in-out infinite}
+@keyframes asBob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.as-ring{position:fixed;z-index:301;pointer-events:none;border-radius:22px;box-shadow:0 0 0 3px #7c5cff,0 0 26px 8px rgba(124,92,255,.6);animation:asPulsa 1.5s ease-in-out infinite}
+@keyframes asPulsa{0%,100%{box-shadow:0 0 0 3px #7c5cff,0 0 20px 5px rgba(124,92,255,.5)}50%{box-shadow:0 0 0 5px #7c5cff,0 0 34px 12px rgba(124,92,255,.9)}}
+.as-legenda{position:fixed;z-index:301;text-align:right;color:#d8ccff;font-size:13.5px;font-weight:800;line-height:1.5;text-shadow:0 2px 12px #000;animation:asBob 1.4s ease-in-out infinite;pointer-events:none}
 </style>
 </head>
 <body>
@@ -580,7 +610,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.25"; /* z4 */
+const APP_VER = "8.26"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1326,6 +1356,146 @@ function obChecks(){
     {k:'casal',   n:5, essencial:false, titulo:'Conecte com seu c\u00f4njuge',  sub:'Cada um na sua conta, acompanhando tudo junto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
   ];
 }
+
+// ============ ASSISTENTE DE CONFIGURACAO (tela cheia) ============
+let _asPasso=0, _asWatch=null;
+const AS_TELAS=[
+  { ico:'\u{1F44B}', chip:'BEM-VINDO', h:'Vamos configurar seu app',
+    sub:'Em 4 passos r\u00e1pidos seu controle financeiro fica pronto. \u00c9 s\u00f3 seguir \u2014 eu te guio em cada etapa.',
+    btn:'Come\u00e7ar agora' },
+  { k:'conta', ico:'\u{1F3E6}', chip:'PASSO 1 DE 4', h:'Adicione suas contas',
+    sub:'Onde voc\u00ea guarda dinheiro: banco, carteira, dinheiro vivo. Pode incluir uma agora e <b>adicionar mais quando quiser</b>.',
+    btn:'\u2795 Adicionar conta', sec:'Fazer depois',
+    li:{t:'Conta / carteira', n:'com o saldo de hoje'},
+    dica:'N\u00e3o precisa cadastrar todas agora \u2014 d\u00e1 pra adicionar outras contas a qualquer momento no app.',
+    acao:function(){ openConta(); } },
+  { k:'cartao', ico:'\u{1F4B3}', chip:'PASSO 2 DE 4', h:'Cadastre seus cart\u00f5es',
+    sub:'Informe o dia que a fatura fecha e vence (est\u00e1 no app do banco). <b>Pode adicionar mais cart\u00f5es depois.</b>',
+    btn:'\u2795 Adicionar cart\u00e3o', sec:'N\u00e3o uso cart\u00e3o, pular',
+    li:{t:'Cart\u00e3o de cr\u00e9dito', n:'fechamento e vencimento'},
+    dica:'Tem mais de um cart\u00e3o? Adicione um agora e inclua os outros quando quiser.',
+    acao:function(){ openCartao(); } },
+  { k:'receita', ico:'\u{1F4B0}', chip:'PASSO 3 DE 4', h:'Registre sua renda',
+    sub:'Lance seu sal\u00e1rio ou entrada do m\u00eas. Assim o app projeta seu m\u00eas inteiro.',
+    btn:'\u2795 Lan\u00e7ar renda', sec:'Fazer depois',
+    li:{t:'Sal\u00e1rio / renda', n:'quanto entra por m\u00eas'},
+    dica:'Tem outras rendas (extra, aluguel)? Voc\u00ea adiciona todas depois, sem pressa.',
+    acao:function(){ openLanc(null,'receita'); } },
+  { k:'despesas', ico:'\u{1F6D2}', chip:'PASSO 4 DE 4', h:'Lance seu primeiro gasto',
+    sub:'Registre qualquer compra recente. \u00c9 aqui que a m\u00e1gica come\u00e7a!',
+    btn:'\u2795 Lan\u00e7ar um gasto', sec:'Fazer depois',
+    li:{t:'Primeira despesa', n:'compra do dia a dia'},
+    dica:'Daqui pra frente \u00e9 s\u00f3 ir lan\u00e7ando seus gastos no dia a dia \u2014 pelo +, por voz ou foto.',
+    acao:function(){ openLanc(null,'despesa'); } },
+  { fim:true, ico:'\u{1F389}', chip:'TUDO PRONTO', h:'Seu app est\u00e1 configurado!',
+    sub:'Agora \u00e9 s\u00f3 usar no dia a dia.', btn:'Ir para o app' }
+];
+
+function asOk(k){ try{ const c=obChecks().find(x=>x.k===k); return !!(c&&c.ok); }catch(e){ return false; } }
+function asDeveMostrar(){
+  try{ if(obDone()) return false; if(!USER) return false; return !(asOk('conta') && asOk('despesas')); }catch(e){ return false; }
+}
+function asWrap(){
+  let el=document.getElementById('asWrap');
+  if(!el){ el=document.createElement('div'); el.id='asWrap'; document.body.appendChild(el); }
+  return el;
+}
+function asAbrir(){ if(!asDeveMostrar()) return; _asPasso=0; asRender(); }
+function asFechar(){ asLimpaFab(); const w=document.getElementById('asWrap'); if(w) w.innerHTML=''; }
+
+function asBolinhas(){
+  let h='<div class="as-steps">';
+  for(let i=1;i<=4;i++){ let c='as-dot'; if(_asPasso>i) c+=' done'; else if(_asPasso===i) c+=' on'; h+='<div class="'+c+'"></div>'; }
+  return h+'</div>';
+}
+function asRender(){
+  const t=AS_TELAS[_asPasso]; if(!t) return;
+  let h='<div class="as-scrim"><div class="as-card">';
+  if(_asPasso>0 && !t.fim) h+='<button class="as-pular" onclick="asPular()">Pular \u2715</button>';
+  if(_asPasso>=1 && !t.fim) h+=asBolinhas();
+  h+='<div class="as-ico">'+t.ico+'</div>';
+  h+='<div style="text-align:center"><span class="as-chip">'+t.chip+'</span></div>';
+  h+='<h2>'+t.h+'</h2><p class="as-sub">'+t.sub+'</p>';
+  if(t.li){
+    const feito=asOk(t.k);
+    h+='<div class="as-lista"><div class="as-li '+(feito?'ok':'')+'"><div class="c">'+(feito?'\u2713':'')+'</div>'+
+       '<div style="flex:1"><div class="t">'+t.li.t+'</div><div class="n">'+t.li.n+'</div></div></div></div>';
+  }
+  if(t.fim){
+    h+='<div class="as-lista"><div class="as-li"><div class="c">\u2795</div>'+
+       '<div style="flex:1"><div class="t">\u00c9 por aqui que voc\u00ea adiciona</div>'+
+       '<div class="n">contas, cart\u00f5es, gastos e receitas</div></div></div></div>';
+  }
+  if(t.dica) h+='<div class="as-dica">\u{1F4A1} '+t.dica+'</div>';
+  if(t.btn && t.btn.indexOf('\u2795')>-1) h+='<div class="as-aponta">\u{1F447} toque aqui</div>';
+  h+='<button class="as-btn" onclick="asAcao()">'+t.btn+'</button>';
+  if(t.sec) h+='<button class="as-btn sec" onclick="asProximo(true)">'+t.sec+'</button>';
+  h+='</div></div>';
+  asWrap().innerHTML=h;
+  if(t.fim) setTimeout(asDestacaFab,320); else asLimpaFab();
+}
+function asAcao(){
+  const t=AS_TELAS[_asPasso];
+  if(t.fim){ asFinalizar(); return; }
+  if(_asPasso===0){ _asPasso=1; asPularFeitos(); asRender(); return; }
+  asWrap().innerHTML='';                 // sai da frente pro formul\u00e1rio real
+  try{ t.acao(); }catch(e){ asRender(); return; }
+  asObservar(t.k);
+}
+function asObservar(k){
+  clearInterval(_asWatch);
+  _asWatch=setInterval(function(){
+    if(asOk(k)){ clearInterval(_asWatch); _asWatch=null; setTimeout(function(){ asProximo(false); },350); return; }
+    const mr=document.getElementById('modalRoot');
+    if(mr && mr.innerHTML===''){ clearInterval(_asWatch); _asWatch=null; asRender(); }  // cancelou
+  },600);
+}
+function asPularFeitos(){
+  while(_asPasso>=1 && _asPasso<=4 && asOk(AS_TELAS[_asPasso].k)) _asPasso++;
+}
+function asProximo(){
+  clearInterval(_asWatch); _asWatch=null;
+  _asPasso++; asPularFeitos();
+  if(_asPasso>4) _asPasso=5;
+  asRender();
+}
+function asPular(){
+  clearInterval(_asWatch); _asWatch=null;
+  try{ localStorage.setItem(obKey(),'1'); }catch(e){}
+  asFechar();
+  try{ toast('Pode configurar depois em Mais \u203a Primeiros passos'); }catch(e){}
+}
+function asFinalizar(){
+  clearInterval(_asWatch); _asWatch=null;
+  try{ localStorage.setItem(obKey(),'1'); }catch(e){}
+  asFechar();
+  try{ go('home'); }catch(e){}
+}
+function asDestacaFab(){
+  asLimpaFab();
+  const fab=document.getElementById('fab'); if(!fab) return;
+  const r=fab.getBoundingClientRect(); if(!r.width) return;
+  fab.dataset.asZ=fab.style.zIndex||'';
+  fab.style.zIndex='302';
+  const pad=6;
+  const ring=document.createElement('div');
+  ring.className='as-ring'; ring.id='asRing';
+  ring.style.top=(r.top-pad)+'px'; ring.style.left=(r.left-pad)+'px';
+  ring.style.width=(r.width+pad*2)+'px'; ring.style.height=(r.height+pad*2)+'px';
+  ring.style.borderRadius=(r.width/2+pad)+'px';
+  document.body.appendChild(ring);
+  const leg=document.createElement('div');
+  leg.className='as-legenda'; leg.id='asLegenda';
+  leg.innerHTML='Toque no <b>+</b> sempre que<br>precisar adicionar algo \u{1F447}';
+  leg.style.right=(window.innerWidth-r.right)+'px';
+  leg.style.top=(r.top-64)+'px';
+  document.body.appendChild(leg);
+}
+function asLimpaFab(){
+  const fab=document.getElementById('fab');
+  if(fab && fab.dataset.asZ!==undefined){ fab.style.zIndex=fab.dataset.asZ; delete fab.dataset.asZ; }
+  ['asRing','asLegenda'].forEach(function(id){ const e=document.getElementById(id); if(e) e.remove(); });
+}
 // ===== WALKTHROUGH GUIADO estilo Mobills =====
 let _wtSteps=[], _wtIdx=0, _wtWatch=null;
 function wtKey(){ return 'gf_wt_done_'+(USER?USER.id:'x'); }
@@ -1619,7 +1789,8 @@ async function afterLogin(userArg){
   try{ updateAgBadge(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
   try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
-  go(obDone()?'home':'tutorial');
+  go('home');
+  if(!obDone()){ setTimeout(function(){ try{ if(asDeveMostrar()) asAbrir(); else go('tutorial'); }catch(e){ go('tutorial'); } }, 500); }
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
   setTimeout(()=>{ try{ checarVersaoNova(true); }catch(e){} }, 4000);

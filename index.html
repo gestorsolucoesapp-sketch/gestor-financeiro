@@ -621,7 +621,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.33"; /* z4 */
+const APP_VER = "8.34"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3103,6 +3103,12 @@ function renderHome(){
   }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
 
   let html=monthNav('home');
+  // atalhos fixos, logo abaixo do seletor de mes
+  html+=`<div class="quickrow" style="margin-bottom:14px">
+    <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
+    <div class="quick" onclick="go('planejamento')"><div class="qi">${ICON('target',22)}</div><div>Planejar</div></div>
+    <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
+  </div>`;
   // ── Próximo mês: balanço + saldo projetados (logo abaixo do seletor de mês) ──
   const _prox=new Date(viewMonth.getFullYear(), viewMonth.getMonth()+1, 1);
   const _bP=balancoMes(_prox), _sdP=saidasMes(_prox), _gcP=gastoCartaoMes(_prox);
@@ -3396,12 +3402,6 @@ function renderHome(){
     <div class="quick" style="flex:1;padding:8px 4px" onclick="verTrans('transferencia')"><div class="qi" style="color:var(--blue)">${ICON('swap',20)}</div><div style="font-size:12px">Transfer.</div></div>
   </div>`;
 
-  // bloco: atalhos rápidos
-  blocos.quicknav=`<div class="quickrow" style="margin-bottom:0">
-    <div class="quick" onclick="go('relatorios')"><div class="qi">${ICON('chart',22)}</div><div>Relatórios</div></div>
-    <div class="quick" onclick="go('planejamento')"><div class="qi">${ICON('target',22)}</div><div>Planejar</div></div>
-    <div class="quick" onclick="go('cartoes')"><div class="qi">${ICON('card',22)}</div><div>Cartões</div></div>
-  </div>`;
 
   // bloco: melhor cartão pra comprar hoje (mais prazo até a cobrança)
   const mc=melhorCartaoCompra();
@@ -3446,16 +3446,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['quicknav','melhorcartao','alerta','lancrapido','saldo','projecao','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos));
-  // migracao unica: sobe os atalhos (Relatorios/Planejar/Cartoes) pro topo, logo abaixo do mes
-  try{
-    if(localStorage.getItem('gf_mig_quicknav_top')!=='1'){
-      const iq=ordem.indexOf('quicknav');
-      if(iq>0){ ordem.splice(iq,1); ordem.unshift('quicknav'); }
-      localStorage.setItem('gf_order_home',JSON.stringify(ordem));
-      localStorage.setItem('gf_mig_quicknav_top','1');
-    }
-  }catch(e){}
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','saldo','projecao','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

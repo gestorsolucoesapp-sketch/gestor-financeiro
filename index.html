@@ -460,6 +460,13 @@ body.scrolling .fab{opacity:.25}
 .as-ring{position:fixed;z-index:301;pointer-events:none;border-radius:22px;box-shadow:0 0 0 3px #7c5cff,0 0 26px 8px rgba(124,92,255,.6);animation:asPulsa 1.5s ease-in-out infinite}
 @keyframes asPulsa{0%,100%{box-shadow:0 0 0 3px #7c5cff,0 0 20px 5px rgba(124,92,255,.5)}50%{box-shadow:0 0 0 5px #7c5cff,0 0 34px 12px rgba(124,92,255,.9)}}
 .as-legenda{position:fixed;z-index:301;text-align:right;color:#d8ccff;font-size:13.5px;font-weight:800;line-height:1.5;text-shadow:0 2px 12px #000;animation:asBob 1.4s ease-in-out infinite;pointer-events:none}
+
+/* seta apontando pro botao Compartilhar do Safari */
+#setaShare{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 4px);z-index:70;display:none;text-align:center;pointer-events:none}
+#setaShare.on{display:block}
+#setaShare .bal{display:inline-block;background:#7c5cff;color:#fff;font-size:13.5px;font-weight:800;padding:10px 16px;border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.55);max-width:82vw;line-height:1.4}
+#setaShare .pt{font-size:30px;line-height:1;margin-top:2px;animation:shBob 1s ease-in-out infinite}
+@keyframes shBob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
 </style>
 </head>
 <body>
@@ -610,7 +617,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.26"; /* z4 */
+const APP_VER = "8.27"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6999,7 +7006,58 @@ function maybeShowInstall(){
   if(installDismissed()) return;
   const b=$('installBanner'); if(b) b.classList.remove('hidden');
 }
+function isInApp(){
+  const u=navigator.userAgent||'';
+  return /FBAN|FBAV|Instagram|Line\/|Twitter|WhatsApp|TikTok|Messenger|LinkedInApp|Pinterest/i.test(u);
+}
+function copiarLink(){
+  const url=location.href;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url); }
+    else { const t=document.createElement('textarea'); t.value=url; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    toast('Link copiado \u2713 Agora cole no Safari');
+  }catch(e){ toast('Copie o endereco da barra do navegador'); }
+}
+function mostrarSetaShare(){
+  if(!isIOS() || isInApp()) return;
+  let s=document.getElementById('setaShare');
+  if(!s){
+    s=document.createElement('div'); s.id='setaShare';
+    s.innerHTML='<div class="bal">O bot\u00e3o <b>Compartilhar</b> fica aqui embaixo</div><div class="pt">\u{1F447}</div>';
+    document.body.appendChild(s);
+  }
+  s.classList.add('on');
+  clearTimeout(window._shTo);
+  window._shTo=setTimeout(esconderSetaShare,15000);
+  const mr=document.getElementById('modalRoot');
+  if(mr && window.MutationObserver){
+    if(window._shObs) window._shObs.disconnect();
+    window._shObs=new MutationObserver(function(){ if(mr.innerHTML===''){ esconderSetaShare(); } });
+    window._shObs.observe(mr,{childList:true,subtree:true});
+  }
+}
+function esconderSetaShare(){
+  const s=document.getElementById('setaShare'); if(s) s.classList.remove('on');
+  if(window._shObs){ window._shObs.disconnect(); window._shObs=null; }
+  clearTimeout(window._shTo);
+}
 async function openInstallSheet(){
+  // navegador dentro de Instagram/WhatsApp/Facebook: nao da pra instalar
+  if(isInApp()){
+    const nav = isIOS() ? 'Safari' : 'Chrome';
+    openSheet(`
+      <h2>Abra no ${nav} primeiro</h2>
+      <div class="note">Voc\u00ea est\u00e1 no navegador interno do aplicativo em que clicou no link. Por aqui o Android/iPhone n\u00e3o deixa instalar o app.</div>
+      <div class="card" style="margin-top:12px">
+        <div class="istep"><div class="n">1</div><div class="st">Toque em <b>Copiar link</b> abaixo.</div></div>
+        <div class="istep"><div class="n">2</div><div class="st">Abra o <b>${nav}</b> e cole o link na barra de endere\u00e7o.</div></div>
+        <div class="istep"><div class="n">3</div><div class="st">L\u00e1 dentro, toque de novo em <b>Instalar app</b>.</div></div>
+      </div>
+      <button class="btn" onclick="copiarLink()">\u{1F517} Copiar link</button>
+      <button class="btn ghost" onclick="closeSheet()">Agora n\u00e3o</button>
+    `);
+    return;
+  }
   // Android/desktop com prompt nativo
   if(_deferredPrompt){
     _deferredPrompt.prompt();
@@ -7022,6 +7080,7 @@ async function openInstallSheet(){
     <div class="card" style="margin-top:12px">${passos}</div>
     <button class="btn" onclick="closeSheet();dismissInstall()">Entendi</button>
   `);
+  setTimeout(mostrarSetaShare,350);
 }
 
 // ============ PUSH (notificação na tela bloqueada) ============

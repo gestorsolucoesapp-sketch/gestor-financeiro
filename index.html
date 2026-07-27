@@ -621,7 +621,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.31"; /* z4 */
+const APP_VER = "8.32"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4495,27 +4495,49 @@ async function doWipeValores(){
 }
 function wipeTudo(){ pedirSenha('Começar do zero', doWipeTudo); }
 function excluirConta(){
-  if(!confirm('Isto vai apagar PERMANENTEMENTE sua conta e todos os seus dados. Não dá pra desfazer. Continuar?')) return;
+  if(!confirm('Isto vai apagar PERMANENTEMENTE sua conta, seus dados e seu acesso. Nao da pra desfazer. Continuar?')) return;
   pedirSenha('Excluir minha conta', async ()=>{
+    toast('Apagando sua conta\u2026');
+    let apagouTudo=false;
     try{
-      await sb.from('lancamentos').delete().eq('user_id',USER.id);
-      await sb.from('orcamentos').delete().eq('user_id',USER.id);
-      await sb.from('investimentos').delete().eq('user_id',USER.id);
-      await sb.from('cartoes').delete().eq('user_id',USER.id);
-      await sb.from('contas').delete().eq('user_id',USER.id);
-      await sb.from('categorias').delete().eq('user_id',USER.id);
-      try{ await sb.from('compartilhamentos').delete().eq('owner_id',USER.id); }catch(e){}
-      try{ await sb.from('licencas').delete().eq('user_id',USER.id); }catch(e){}
-    }catch(e){ toast('Erro ao apagar dados: '+(e.message||e)); return; }
+      const {data:{session}} = await sb.auth.getSession();
+      const r = await fetch(SUPABASE_URL+'/functions/v1/excluir-conta',{
+        method:'POST',
+        headers:{ 'content-type':'application/json',
+          'authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),
+          'apikey':SUPABASE_KEY },
+        body: JSON.stringify({ confirmar:'EXCLUIR' })
+      });
+      const data = await r.json().catch(()=>({}));
+      apagouTudo = !!(data && data.ok);
+      if(!apagouTudo) console.warn('excluir-conta:', data);
+    }catch(e){ console.warn('excluir-conta falhou', e); }
+
+    if(!apagouTudo){
+      // plano B: apaga os dados pelo proprio usuario (o login pode sobrar)
+      try{
+        await sb.from('lancamentos').delete().eq('user_id',USER.id);
+        await sb.from('orcamentos').delete().eq('user_id',USER.id);
+        await sb.from('investimentos').delete().eq('user_id',USER.id);
+        await sb.from('cartoes').delete().eq('user_id',USER.id);
+        await sb.from('contas').delete().eq('user_id',USER.id);
+        await sb.from('categorias').delete().eq('user_id',USER.id);
+        try{ await sb.from('agenda').delete().eq('user_id',USER.id); }catch(e){}
+        try{ await sb.from('push_subs').delete().eq('user_id',USER.id); }catch(e){}
+        try{ await sb.from('compartilhamentos').delete().eq('owner_id',USER.id); }catch(e){}
+        try{ await sb.from('licencas').delete().eq('user_id',USER.id); }catch(e){}
+      }catch(e){ toast('Erro ao apagar dados: '+(e.message||e)); return; }
+    }
+
     try{
-      // limpa só o essencial da sessão/cache — preserva temas/cores/ordem de outras contas
       ['gf_cache','gf_outbox','gf_lic','gf_partners'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});
       try{ if(USER&&USER.email) localStorage.removeItem('savedPass:'+USER.email); }catch(e){}
     }catch(e){}
-    toast('Conta excluída. Até logo.');
-    setTimeout(()=>doLogout(),1200);
+    toast(apagouTudo ? 'Conta exclu\u00edda. At\u00e9 logo.' : 'Dados apagados. At\u00e9 logo.');
+    setTimeout(()=>doLogout(),1400);
   });
 }
+
 async function doWipeTudo(){
   toast('Zerando…');
   for(const t of ['lancamentos','orcamentos','cartoes','contas','categorias']){

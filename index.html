@@ -621,7 +621,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.29"; /* z4 */
+const APP_VER = "8.30"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1427,11 +1427,6 @@ function asRender(){
   h+='<div class="as-ico">'+t.ico+'</div>';
   h+='<div style="text-align:center"><span class="as-chip">'+t.chip+'</span></div>';
   h+='<h2>'+t.h+'</h2><p class="as-sub">'+t.sub+'</p>';
-  if(t.li){
-    const feito=asOk(t.k);
-    h+='<div class="as-lista"><div class="as-li click '+(feito?'ok':'')+'" onclick="asAcao()"><div class="c">'+(feito?'\u2713':'+')+'</div>'+
-       '<div style="flex:1"><div class="t">'+t.li.t+'</div><div class="n">'+t.li.n+'</div></div></div></div>';
-  }
   if(t.fim){
     h+='<div class="as-lista"><div class="as-li"><div class="c">\u2795</div>'+
        '<div style="flex:1"><div class="t">\u00c9 por aqui que voc\u00ea adiciona</div>'+

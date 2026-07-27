@@ -621,7 +621,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.30"; /* z4 */
+const APP_VER = "8.31"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1450,12 +1450,20 @@ function asAcao(){
 }
 function asObservar(k){
   clearInterval(_asWatch);
+  let fechou=0, ciclos=0;
   _asWatch=setInterval(function(){
-    if(asOk(k)){ clearInterval(_asWatch); _asWatch=null; setTimeout(function(){ asProximo(false); },350); return; }
+    ciclos++;
+    if(asOk(k)){ clearInterval(_asWatch); _asWatch=null; setTimeout(function(){ asProximo(); },350); return; }
     const mr=document.getElementById('modalRoot');
-    if(mr && mr.innerHTML===''){ clearInterval(_asWatch); _asWatch=null; asRender(); }  // cancelou
-  },600);
+    if(mr && mr.innerHTML===''){
+      fechou++;
+      // carencia: o DATA pode demorar a atualizar depois do salvamento
+      if(fechou>=7){ clearInterval(_asWatch); _asWatch=null; asRender(); return; }
+    } else { fechou=0; }
+    if(ciclos>200){ clearInterval(_asWatch); _asWatch=null; asRender(); }
+  },400);
 }
+
 function asPularFeitos(){
   while(_asPasso>=1 && _asPasso<=4 && asOk(AS_TELAS[_asPasso].k)) _asPasso++;
 }

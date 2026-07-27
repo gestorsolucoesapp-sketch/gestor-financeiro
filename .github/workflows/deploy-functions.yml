@@ -19,3 +19,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy ler-fatura --project-ref cppuceykhffjdcmwpfpk
+      - name: Deploy excluir-conta
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy excluir-conta --project-ref cppuceykhffjdcmwpfpk

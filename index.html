@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.32"; /* z4 */
+const APP_VER = "8.33"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3467,7 +3467,7 @@ async function toggleLancPago(id){
   openSheet(`
     <h2>Confirmar lançamento</h2>
     <div class="note">${esc(l.descricao||'')} · ${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR')}</div>
-    <div class="field"><label>Valor (R$) — aceita conta, ex: 120+35,90</label>
+    <div class="field"><label>Valor (R$)</label>
       <input id="cfValor" type="text" inputmode="decimal" value="${String(l.valor).replace('.',',')}"></div>
     ${opChips('cfValor')}
     <div class="field"><label>${l.tipo==='transferencia'?'Conta de origem':'Conta'}</label>
@@ -4306,7 +4306,7 @@ function abrirConectar(){
     <h2>Conectar a outra conta</h2>
     
     <div class="field" style="margin-top:14px"><label>Código</label><input id="connCode" style="text-transform:uppercase;letter-spacing:3px;font-weight:700" maxlength="6" placeholder="ABC123"></div>
-    <div class="field"><label>Apelido (como vai aparecer)</label><input id="connApelido" placeholder=""></div>
+    <div class="field"><label>Apelido</label><input id="connApelido" placeholder=""></div>
     <button class="btn" onclick="conectarCodigo()">Conectar</button>
     ${lista}
   `);
@@ -5650,7 +5650,7 @@ function openLanc(id, preset){
     <div class="sheet-back" onclick="closeSheet()">‹ Voltar</div>
     <h2>${editing?'Editar':'Nova'} transação</h2>
     <div class="bigval" onclick="abrirCalc()">
-      <div class="bv-lab">Valor — toque pra digitar/calcular 🧮</div>
+      <div class="bv-lab">Valor</div>
       <div class="bv-num" id="lValDisplay">R$ 0,00</div>
     </div>
     <input type="hidden" id="lValor" value="${e.valor||''}">
@@ -5665,7 +5665,7 @@ function openLanc(id, preset){
     <div class="field"><label>Data</label>
       <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
     </div>
-    <div id="lancStatusWrap" class="field"><label>Status (toque pra confirmar)</label>
+    <div id="lancStatusWrap" class="field"><label>Status</label>
       <div class="seg2"><button id="stPago" class="${e.status==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
       <button id="stPend" class="${e.status==='pendente'?'on':''}" onclick="setStatus('pendente')">Pendente</button></div>
     </div>

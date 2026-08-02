@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.33"; /* z4 */
+const APP_VER = "8.34"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5836,7 +5836,7 @@ function renderLancDynamic(e){
           <option value="${USER.id}">Minha conta</option>
           ${MYPARTNERS.map(p=>`<option value="${p.owner_id}">Conta de ${esc(p.apelido)}</option>`).join('')}
         </select></div>` : '';
-    h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
+    h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${e.conta_id?'':'<option value="">Selecione a conta…</option>'}${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
       ${ownerSel}
       <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
@@ -5878,7 +5878,8 @@ function updateDestContas(e){
   const sel=$('lContaDest'); if(!sel) return;
   const ownerId = $('lDestOwner') ? $('lDestOwner').value : USER.id;
   const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
-  sel.innerHTML = list.length ? list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('') : `<option value="">(sem contas)</option>`;
+  const ph = (e&&e.conta_destino_id) ? '' : `<option value="">Selecione a conta…</option>`;
+  sel.innerHTML = list.length ? (ph+list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')) : `<option value="">(sem contas)</option>`;
 }
 function setMeio(m){window._meio=m;['Debito','Conta','Cartao','Recebido','Areceber'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
 function renderMeio(e){
@@ -6182,6 +6183,7 @@ async function saveLanc(id){
   if(lancType==='transferencia'){
     const o=$('lContaOrig').value, d=$('lContaDest').value;
     const destOwner = $('lDestOwner') ? $('lDestOwner').value : USER.id;
+    if(!o){flashErr('Selecione a conta de origem','lContaOrig');return;}
     if(!d){flashErr('Selecione a conta de destino','lContaDest');return;}
     if(destOwner!==USER.id){
       if(!navigator.onLine){ toast('Transferência para parceiro precisa de internet.'); return; }

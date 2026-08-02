@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.35"; /* z4 */
+const APP_VER = "8.36"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3553,7 +3553,7 @@ function efetivarPendencias(){
     <p class="note" style="text-align:center;font-size:14px"><b>${ids.length}</b> lançamento(s) serão <b>confirmados</b> e lançados nas contas.</p>
     <div class="field"><label>Confirmar em qual conta?</label>
       <select id="efetivConta">
-        ${contas.map(c=>`<option value="${c.id}" ${c.id===sugerida?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
+        ${contas.map(c=>`<option value="${c.id}" ${c.id===sugerida?'selected':''}>🏦 ${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
         <option value="" ${!sugerida?'selected':''}>Manter a conta de cada lançamento</option>
       </select>
       </div>
@@ -4086,6 +4086,62 @@ function renderContas(){
 }
 
 // ============ MAIS (HUB) ============
+function _dupKey(l){ return (l.tipo||'')+'|'+normDesc(l.descricao)+'|'+(Number(l.valor)||0).toFixed(2); }
+function auditoriaDuplicados(){
+  const meus=DATA.lancamentos.filter(l=> l.user_id===USER.id && l.tipo!=='transferencia' && !(Number(l.parcelas)>1) && !l.grupo_id && !ehLancQuitacao(l));
+  const m={};
+  meus.forEach(l=>{ const k=_dupKey(l); (m[k]=m[k]||[]).push(l); });
+  const grupos=[];
+  Object.values(m).forEach(arr=>{
+    if(arr.length<2) return;
+    arr.sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+    // agrupa por proximidade de data (até 2 dias)
+    let atual=[arr[0]];
+    for(let i=1;i<arr.length;i++){
+      const d1=new Date(atual[atual.length-1].data+'T00:00:00'), d2=new Date(arr[i].data+'T00:00:00');
+      if(Math.abs((d2-d1)/86400000)<=2) atual.push(arr[i]);
+      else { if(atual.length>1) grupos.push(atual); atual=[arr[i]]; }
+    }
+    if(atual.length>1) grupos.push(atual);
+  });
+  grupos.sort((a,b)=> String(b[0].data||'').localeCompare(String(a[0].data||'')));
+  return grupos;
+}
+function abrirAuditoriaDup(){
+  const grupos=auditoriaDuplicados();
+  let h=`<h2>🔍 Possíveis duplicados</h2>`;
+  if(!grupos.length){
+    h+=`<div class="empty"><div class="ico">✅</div><p>Nenhum lançamento repetido encontrado.</p></div>`;
+  }else{
+    h+=`<div class="note" style="margin-bottom:10px">${grupos.length} caso(s). Confira cada um — apague só o que realmente sobrou.</div>`;
+    grupos.forEach(g=>{
+      h+=`<div class="card" style="margin:0 0 10px">
+        <div style="font-weight:700;margin-bottom:6px">${esc(g[0].descricao||'(sem descrição)')} · ${brl(Number(g[0].valor)||0)}</div>`;
+      g.forEach(l=>{
+        const cart=l.cartao_id?cartaoById(l.cartao_id):null;
+        const cta=l.conta_id?contaById(l.conta_id):null;
+        const onde=cart?('💳 '+esc(cart.nome)):(cta?('🏦 '+esc(cta.nome)):'sem conta');
+        const hora=l.criado_em?new Date(l.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
+        h+=`<div class="lrow">
+          <div class="mid"><div class="t">${fmtBrData(l.data)} · ${onde}</div>
+          <div class="s">lançado ${hora}${l.status==='pendente'?' · pendente':''}</div></div>
+          <button class="btn ghost sm" style="color:var(--red);flex:0 0 auto" onclick="excluirDup('${l.id}')">Apagar</button>
+        </div>`;
+      });
+      h+=`</div>`;
+    });
+  }
+  h+=`<button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Fechar</button>`;
+  openSheet(h);
+}
+async function excluirDup(id){
+  const l=DATA.lancamentos.find(x=>x.id===id); if(!l) return;
+  if(!confirm(`Apagar "${l.descricao}" de ${brl(Number(l.valor)||0)} em ${fmtBrData(l.data)}?`)) return;
+  const {error}=await sb.from('lancamentos').delete().eq('id',id);
+  if(error){ toast('Erro: '+error.message); return; }
+  DATA.lancamentos=DATA.lancamentos.filter(x=>x.id!==id);
+  toast('Apagado ✅'); abrirAuditoriaDup(); render();
+}
 function renderConfig(){
   let html=`<div class="page-title">Mais</div>`;
   html+=`<div class="card">
@@ -4096,6 +4152,7 @@ function renderConfig(){
     ${hubItem('card','Cartões','Faturas e limites',"go('cartoes')",'#7c5cff')}
     ${hubItem('download','Importar do banco','Cole as notificações do banco e lance automático',"openImportBanco()",'#e0a020')}
     ${hubItem('calendar','📅 Agenda','Compromissos e feriados — com aviso no celular',"go('agenda')",'#7c5cff')}
+    ${hubItem('search','🔍 Possíveis duplicados','Lançamentos repetidos que podem estar bagunçando o saldo',"abrirAuditoriaDup()",'#e0a020')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Aparência</div><div class="card">
     ${temaRow('claro','Modo claro','Tema claro sempre',ICON('sun',20),'#e0a020')}
@@ -4834,11 +4891,11 @@ function analisarImport(){
 }
 function _optsCartoes(sel){
   const cs=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
-  return `<option value="">— escolher cartão —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${c.nome}</option>`).join('');
+  return `<option value="">— escolher cartão —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>💳 ${c.nome}</option>`).join('');
 }
 function _optsContas(sel){
   const cs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
-  return cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${c.nome}</option>`).join('');
+  return cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>💳 ${c.nome}</option>`).join('');
 }
 function _optsCats(tipo,sel){
   const cs=DATA.categorias.filter(c=>c.user_id===USER.id&&(c.tipo===tipo||!c.tipo));
@@ -5312,10 +5369,10 @@ function vozTrocaMeio(){
   const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
   const accs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
   if(meio==='cartao'){
-    wrap.innerHTML=`<label>Cartão</label><select id="vzOnde">${cards.map(c=>`<option value="${c.id}" ${p.cartaoId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>`;
+    wrap.innerHTML=`<label>Cartão</label><select id="vzOnde">${cards.map(c=>`<option value="${c.id}" ${p.cartaoId===c.id?'selected':''}>💳 ${esc(c.nome)}</option>`).join('')}</select>`;
     const pw=$('vzParc'); if(pw) pw.parentElement.style.display='block';
   }else{
-    wrap.innerHTML=`<label>Conta</label><select id="vzOnde">${accs.map(c=>`<option value="${c.id}" ${p.contaId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>`;
+    wrap.innerHTML=`<label>Conta</label><select id="vzOnde">${accs.map(c=>`<option value="${c.id}" ${p.contaId===c.id?'selected':''}>🏦 ${esc(c.nome)}</option>`).join('')}</select>`;
     const pw=$('vzParc'); if(pw) pw.parentElement.style.display='none';
   }
 }
@@ -5837,7 +5894,7 @@ function renderLancDynamic(e){
           <option value="${USER.id}">Minha conta</option>
           ${MYPARTNERS.map(p=>`<option value="${p.owner_id}">Conta de ${esc(p.apelido)}</option>`).join('')}
         </select></div>` : '';
-    h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${e.conta_id?'':'<option value="">Selecione a conta…</option>'}${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></div>
+    h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${e.conta_id?'':'<option value="">Selecione a conta…</option>'}${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>🏦 ${esc(c.nome)}</option>`).join('')}</select></div>
       ${ownerSel}
       <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
@@ -5880,7 +5937,7 @@ function updateDestContas(e){
   const ownerId = $('lDestOwner') ? $('lDestOwner').value : USER.id;
   const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
   const ph = (e&&e.conta_destino_id) ? '' : `<option value="">Selecione a conta…</option>`;
-  sel.innerHTML = list.length ? (ph+list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')) : `<option value="">(sem contas)</option>`;
+  sel.innerHTML = list.length ? (ph+list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>🏦 ${esc(c.nome)}</option>`).join('')) : `<option value="">(sem contas)</option>`;
 }
 function setMeio(m){window._meio=m;['Debito','Conta','Cartao','Recebido','Areceber'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
 function renderMeio(e){
@@ -5896,7 +5953,7 @@ function renderMeio(e){
   if(window._meio==='cartao'){
     if(!cartoes.length){h=`<div class="note">Nenhum cartão. <b style="color:var(--emerald);cursor:pointer" onclick="closeSheet();openCartao()">Adicionar cartão</b></div>`;}
     else{
-      h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
+      h+=`<div class="field"><label>Cartão</label><select id="lCartao" onchange="updateFaturaNote()"><option value="" ${!e.cartao_id?'selected':''} disabled hidden>Selecione o cartão…</option>${cartoes.map(c=>`<option value="${c.id}" ${e.cartao_id===c.id?'selected':''}>💳 ${esc(c.nome)}</option>`).join('')}</select><div class="note" id="faturaNote" style="margin-top:6px"></div></div>`;
       // à vista é o padrão; desmarque pra parcelar
       const _avista = !(e.recorrente || (e.parcelas>1));
       h+=`<div class="field"><label>Parcelas</label>
@@ -5914,7 +5971,7 @@ function renderMeio(e){
     // cartão não usa status pago/pendente (vira fatura)
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
   }else{
-    h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
+    h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>🏦 ${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
     if(!window._lancEdit){
       if(lancType==='receita'){
         h+=`<div class="field"><label>Tipo de receita</label><div class="seg2">

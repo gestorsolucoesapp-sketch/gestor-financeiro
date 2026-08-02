@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.34"; /* z4 */
+const APP_VER = "8.35"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3682,6 +3682,7 @@ function fixoSet(){
 }
 function isFixo(l){
   if(l.tipo==='transferencia'||(l.parcelas&&l.parcelas>1))return false;
+  if(normDesc(l.descricao).startsWith('reajuste de saldo'))return false; // ajuste de conta não é conta fixa
   if(l.grupo_id)return true;
   if(l.cartao_id)return false; // compra de cartão repetida (mercado, padaria) não é conta fixa
   return fixoSet().has(l.tipo+'|'+normDesc(l.descricao));

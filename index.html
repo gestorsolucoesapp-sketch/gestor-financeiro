@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.27"; /* z4 */
+const APP_VER = "8.28"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1241,7 +1241,7 @@ function renderTema(){
       <input type="color" value="${val||'#ffffff'}" oninput="setTemaCor('${key}',this.value)" class="cor-in"></div>`;
   };
   let html=`<div class="page-title">Cores do app</div>`;
-  html+=`<div class="note" style="margin:0 2px 8px">Escolha o contexto e personalize as cores dele separado. O app troca de cor sozinho quando você muda o contexto lá em cima.</div>`;
+  html+=``;
   html+=`<div class="ctxrow">`+ctx.map(([k,l])=>`<button class="${_temaScope===k?'on':''}" onclick="editarTemaScope('${k}')">${l}</button>`).join('')+`</div>`;
   html+=`<div class="card"><div class="note" style="margin-bottom:8px">Temas prontos pra <b>${ctx.find(c=>c[0]===_temaScope)[1]}</b></div><div class="tema-presets">`;
   Object.keys(TEMA_PRESETS).forEach(nome=>{const p=TEMA_PRESETS[nome];
@@ -1252,7 +1252,7 @@ function renderTema(){
     ${row('green','Receita')}${row('red','Despesa')}${row('paper','Fundo do app')}${row('card','Cartões / caixas')}
     ${row('ink','Texto principal')}${row('muted','Texto fraco')}${row('line','Linhas / bordas')}
     <div class="note" style="margin:14px 2px 6px;font-weight:700;color:var(--ink)">Card de saldo (topo)</div>
-    <div class="note" style="margin:0 2px 8px">Deixe no automático pra o app garantir contraste, ou escolha a cor você mesmo.</div>
+    
     ${rowAuto('heroText','Texto do saldo')}${rowAuto('heroGreen','Valor receita')}${rowAuto('heroRed','Valor despesa')}${rowAuto('heroBox','Fundo do detalhamento')}</div>`;
   html+=`<button class="btn ghost" onclick="resetTema()">Restaurar padrão deste contexto</button>`;
   $('content').innerHTML=html;
@@ -3277,6 +3277,32 @@ function toggleRecents(){
   localStorage.setItem('gf_hideRecents', cur?'0':'1');
   render(); salvarPrefs();
 }
+function verReceberConta(contaId){
+  const c=(DATA.contas||[]).find(x=>x.id===contaId); if(!c) return;
+  let itens=[];
+  try{
+    itens=DATA.lancamentos.filter(l=> l.tipo==='receita' && l.status==='pendente' && l.conta_id===contaId && inMonthRep(l,viewMonth))
+      .sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+  }catch(e){}
+  const tot=itens.reduce((s,l)=>s+(Number(l.valor)||0),0);
+  const hoje=ymd(new Date());
+  const linhas=itens.map(l=>{
+    let quando='';
+    try{
+      const d=Math.round((new Date(l.data+'T00:00:00')-new Date(hoje+'T00:00:00'))/86400000);
+      quando = d<0?`<span style="color:var(--red)">${-d}d atrasado</span>` : d===0?'cai hoje' : d===1?'cai amanhã' : 'em '+d+' dias';
+    }catch(e){}
+    const cat=(DATA.categorias||[]).find(k=>k.id===l.categoria_id);
+    return `<div class="lrow" style="cursor:pointer" onclick="closeSheet();openLanc('${l.id}')">
+      <div class="mid"><div class="t wrap">${esc(l.descricao||'Receita')}</div>
+      <div class="s">${fmtBrData(l.data)} · ${quando}${cat?' · '+esc(cat.nome):''}</div></div>
+      <div class="amt" style="color:var(--green)">${brl(Number(l.valor)||0)}</div></div>`;
+  }).join('');
+  openSheet(`<h2>A receber · ${esc(c.nome)}</h2>
+    <div class="note" style="margin-bottom:8px">${itens.length} lançamento${itens.length===1?'':'s'} · Total ${brl(tot)}</div>
+    ${linhas||'<div class="note">Nada a receber neste mês.</div>'}
+    <button class="btn ghost" style="margin-top:14px" onclick="closeSheet()">Fechar</button>`);
+}
 function rowConta(c){
   const s=saldoConta(c.id); const cv=contaVisual(c);
   const lim=Number(c.limite)||0;
@@ -3311,7 +3337,7 @@ function rowConta(c){
       <div class="mid"><div class="t wrap">${esc(c.nome)}</div><div class="s">Saldo atual · <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span></div></div>
       <div style="text-align:right">
         <div class="amt ${s<0?'r':''}" style="padding:0">${brl(s)}</div>
-        ${recPrev>0?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;white-space:nowrap">+${brl(recPrev)} a receber</div>${recPrevLbl?`<div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap">🗓️ ${recPrevLbl}</div>`:''}`:''}
+        ${recPrev>0?`<div onclick="event.stopPropagation();verReceberConta('${c.id}')" style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">+${brl(recPrev)} a receber ›</div>${recPrevLbl?`<div onclick="event.stopPropagation();verReceberConta('${c.id}')" style="font-size:9px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap;cursor:pointer">🗓️ ${recPrevLbl}</div>`:''}`:''}
       </div>
     </div>
     ${lim>0?`<div style="padding:0 2px 12px 52px;margin-top:-4px">
@@ -4034,7 +4060,7 @@ function renderContas(){
       const totalInvTudo = invest.reduce((a,c)=>a+saldoConta(c.id),0) + totalInvestido();
       html+=`<div class="page-title" style="margin-top:18px">Investimentos <span style="font-weight:700;color:var(--mint)">${brl(totalInvTudo)}</span></div>`;
       html+=`<div class="card">`+(invest.length?invest.map(rowConta).join(''):'')+`</div>`;
-      html+=`<div class="note" style="margin:6px 2px">Inclui contas de investimento e a aba Investir. Esse dinheiro fica separado do saldo do dia a dia e entra no seu patrimônio.</div>`;
+      html+=``;
     }
   }
   html+=`<button class="btn outline" onclick="openConta()">+ Adicionar conta</button>`;
@@ -4611,7 +4637,7 @@ function openInvest(id){
       <div class="field"><label>Taxa por mês (%)</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder="ex: 0,5"></div>
     </div>
     <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
-    <div class="note">O valor atual é calculado com juros compostos pela taxa mensal, desde a data da aplicação. Deixe a taxa em branco/0 se quiser controlar o valor na mão.</div>
+    
     <div class="field" style="margin-top:12px"><label>Somar no patrimônio?</label>
       <div class="seg2">
         <button id="iInc1" class="${inclui?'on':''}" onclick="window._invInc=true;$('iInc1').classList.add('on');$('iInc0').classList.remove('on')">Sim, somar</button>
@@ -6375,21 +6401,21 @@ function openConta(id){
         <button class="btn outline sm" onclick="pickLogo('c')">Escolher imagem</button>
         <button class="btn outline sm" onclick="clearLogo('c')">Usar cor</button>
       </div>
-      <div class="note">O logo do banco aparece sozinho ao digitar o nome. Você também pode subir sua imagem ou deixar a cor.</div></div>
+      </div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="cTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._contaTipo='pessoal';$('cTipoP').classList.add('on');$('cTipoN').classList.remove('on')">Pessoal</button>
       <button id="cTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._contaTipo='negocio';$('cTipoN').classList.add('on');$('cTipoP').classList.remove('on')">Negócio</button>
     </div></div>
-    <div class="field"><label>Saldo inicial (R$)</label><input id="cSaldo" type="number" inputmode="decimal" step="0.01" value="${e.saldo_inicial!=null?e.saldo_inicial:''}" placeholder="0,00"><div class="note">Quanto há nesta conta hoje. O app calcula o saldo atual a partir daqui.</div></div>
+    <div class="field"><label>Saldo inicial (R$)</label><input id="cSaldo" type="number" inputmode="decimal" step="0.01" value="${e.saldo_inicial!=null?e.saldo_inicial:''}" placeholder="0,00"></div>
     <details class="mopc" ${id?'open':''}><summary>Mais op\u00e7\u00f5es (opcional)</summary>
-    <div class="field"><label>Limite / cheque especial (R$)</label><input id="cLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite!=null&&e.limite!=0?e.limite:''}" placeholder="0,00"><div class="note">Opcional. Quanto a conta pode ficar negativa. Aparece na aba Contas como limite e limite usado.</div></div>
+    <div class="field"><label>Limite / cheque especial (R$)</label><input id="cLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite!=null&&e.limite!=0?e.limite:''}" placeholder="0,00"></div>
     <div class="field"><label>Titular / quem usa</label><input id="cTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularList">
       <datalist id="titularList">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
     <div class="field"><label>Somar no saldo principal?</label>
       <div class="seg2">
         <button id="cInc1" class="${e.incluir_principal!==false?'on':''}" onclick="window._cInc=true;$('cInc1').classList.add('on');$('cInc0').classList.remove('on')">Sim, somar</button>
         <button id="cInc0" class="${e.incluir_principal===false?'on':''}" onclick="window._cInc=false;$('cInc0').classList.add('on');$('cInc1').classList.remove('on')">Separado (familiar)</button>
-      </div><div class="note">"Separado" controla a conta sem misturar no seu saldo principal.</div></div>
+      </div></div>
     <div class="field"><label>É conta de investimento?</label>
       <div class="seg2">
         <button id="cInv0" class="${e.eh_investimento?'':'on'}" onclick="window._cInv=false;$('cInv0').classList.add('on');$('cInv1').classList.remove('on')">Não (normal)</button>
@@ -6574,7 +6600,7 @@ function openCartao(id){
         <button class="btn outline sm" onclick="pickLogo('k')">Escolher imagem</button>
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>
       </div>
-      <div class="note">"Buscar logo" acha pelo nome. Ou suba sua imagem. Ou deixe a cor.</div></div>
+      </div>
     <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…" oninput="logoAutoDebounced('k')"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="kTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._cartaoTipo='pessoal';$('kTipoP').classList.add('on');$('kTipoN').classList.remove('on')">Pessoal</button>
@@ -6585,7 +6611,7 @@ function openCartao(id){
       <div class="field"><label>Dia de fechamento</label><input id="kFecha" type="number" min="1" max="31" value="${e.dia_fechamento||''}" placeholder="ex: 28"></div>
       <div class="field"><label>Dia de vencimento</label><input id="kVence" type="number" min="1" max="31" value="${e.dia_vencimento||''}" placeholder="ex: 5"></div>
     </div>
-    <div class="note">Compras feitas até o dia de fechamento entram na fatura do mês; depois dele, vão para a próxima.</div>
+    
     <div class="field" style="margin-top:12px"><label>Titular / quem usa</label><input id="kTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularListK">
       <datalist id="titularListK">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
     <div class="field"><label>É um cartão de familiar?</label>

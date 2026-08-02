@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.39"; /* z4 */
+const APP_VER = "8.40"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -906,7 +906,13 @@ function srcOk(uid){
 function apelidoDe(uid){const p=MYPARTNERS.find(p=>p.owner_id===uid);return p?p.apelido:'Parceiro';}
 function souDono(uid){return uid===USER.id;}
 // Quitação (pagamento de fatura / repasse ao cônjuge) NÃO é gasto novo — só quita algo já contado. Usar em TODA agregação de despesas.
-function ehLancQuitacao(l){ const d=(l.descricao||'').toLowerCase(); return d.startsWith('pagamento fatura') || d.startsWith('pagamento a '); }
+function ehLancQuitacao(l){
+  const d=(l.descricao||'').toLowerCase();
+  if(d.startsWith('pagamento fatura') || d.startsWith('pagamento a ')) return true;
+  // receita lançada NO CARTÃO = crédito/adiantamento de fatura, nunca é renda
+  if(l.tipo==='receita' && l.cartao_id) return true;
+  return false;
+}
 function ehFamiliarConta(c){return !!(c && c.incluir_principal===false);}
 function lancFamiliar(l){
   const c = l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
@@ -2366,7 +2372,8 @@ function evolucaoMeses(n,allSources){
       if(l.tipo==='transferencia') continue;
       if(!inMonthRep(l,d)) continue;
       if(allSources){ if(!noScopeAll(l)) continue; } else { if(!noScope(l)) continue; }
-      if(l.tipo==='receita') rec+=Number(l.valor)||0; else { if(!ehLancQuitacao(l)) desp+=Number(l.valor)||0; }
+      if(ehLancQuitacao(l)) continue;
+      if(l.tipo==='receita') rec+=Number(l.valor)||0; else desp+=Number(l.valor)||0;
     }
     out.push({mes:d,rec,desp});
   }
@@ -2384,7 +2391,8 @@ function evolucao24HTML(){
       if(l.tipo==='transferencia') continue;
       if(!inMonthRep(l,d)) continue;
       if(!noScope(l)) continue;
-      if(l.tipo==='receita') rec+=Number(l.valor)||0; else { if(!ehLancQuitacao(l)) desp+=Number(l.valor)||0; }
+      if(ehLancQuitacao(l)) continue;
+      if(l.tipo==='receita') rec+=Number(l.valor)||0; else desp+=Number(l.valor)||0;
     }
     all.push({mes:d,rec,desp});
   }
@@ -3925,7 +3933,7 @@ async function confirmAdiantar(cartaoId){
   // 2 lançamentos: receita no cartão (abate fatura/libera limite) + despesa na conta (sai o dinheiro)
   const rows=[
     {user_id:USER.id,tipo:'receita',descricao:descCartao,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp},
-    {user_id:USER.id,tipo:'despesa',descricao:'Adiantamento '+c.nome,valor,data:ymd(new Date()),status:'pago',conta_id:contaId}
+    {user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome+' (adiantamento)',valor,data:ymd(new Date()),status:'pago',conta_id:contaId}
   ];
   const r=await dbInsert('lancamentos',rows);
   if(r&&r.error){ toast('Erro: '+r.error.message); return; }

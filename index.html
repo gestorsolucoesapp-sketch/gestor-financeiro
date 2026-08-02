@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.38"; /* z4 */
+const APP_VER = "8.39"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5756,18 +5756,43 @@ function fmtBRLnum(n){ return 'R$ '+(Number(n)||0).toLocaleString('pt-BR',{minim
 function setLancValor(n){ const v=Math.round((Number(n)||0)*100)/100; if($('lValor'))$('lValor').value=v||''; if($('lValDisplay'))$('lValDisplay').textContent=fmtBRLnum(v); try{updateParcNote();updateFaturaNote();}catch(e){} }
 function abrirCalc(){
   const cur = $('lValor')&&parseFloat($('lValor').value);
-  window._calcExpr = (cur>0)? String(cur).replace('.',',') : '';
+  // começa em modo centavos: guarda só os dígitos (15,50 -> "1550")
+  window._calcExpr = (cur>0)? String(Math.round(cur*100)) : '';
   renderCalc(); $('calcPad').classList.add('show');
 }
+// modo centavos = só dígitos, cada tecla empurra os centavos (1550 -> 15,50)
+function _ehCentavos(x){ return /^\d*$/.test(x||''); }
+function _centParaNum(x){ return (parseInt(x||'0',10)||0)/100; }
+function _centParaTexto(x){ return _centParaNum(x).toFixed(2).replace('.',','); }
+function _centFormatado(x){ return _centParaNum(x).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fecharCalc(){ $('calcPad').classList.remove('show'); }
-function renderCalc(){ const d=$('calcDisplay'); if(d) d.textContent=(window._calcExpr||'0').replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−'); }
+function renderCalc(){
+  const d=$('calcDisplay'); if(!d) return;
+  const ex=window._calcExpr||'';
+  if(_ehCentavos(ex)){ d.textContent=_centFormatado(ex); return; }
+  d.textContent=ex.replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−');
+}
 function calcPress(ch){
-  if(ch==='back'){ window._calcExpr=(window._calcExpr||'').slice(0,-1); }
-  else if(ch==='='){ const v=evalValor(window._calcExpr); if(!isNaN(v)) window._calcExpr=String(v).replace('.',','); }
-  else { window._calcExpr=(window._calcExpr||'')+ch; }
+  const ex=window._calcExpr||'';
+  const cent=_ehCentavos(ex);
+  if(ch==='back'){ window._calcExpr=ex.slice(0,-1); }
+  else if(ch==='='){
+    const v = cent ? _centParaNum(ex) : evalValor(ex);
+    if(!isNaN(v)) window._calcExpr=String(v).replace('.',',');
+  }
+  else if(/^[0-9]$/.test(ch)){ window._calcExpr=ex+ch; }
+  else {
+    // operador ou vírgula: sai do modo centavos e vira expressão normal
+    window._calcExpr=(cent ? _centParaTexto(ex) : ex)+ch;
+  }
   renderCalc();
 }
-function calcPronto(){ const v=evalValor(window._calcExpr||'0'); if(isNaN(v)){toast('Conta inválida');return;} setLancValor(v); fecharCalc(); }
+function calcPronto(){
+  const ex=window._calcExpr||'';
+  const v = _ehCentavos(ex) ? _centParaNum(ex) : evalValor(ex||'0');
+  if(isNaN(v)){toast('Conta inválida');return;}
+  setLancValor(v); fecharCalc();
+}
 function setData(off){ const d=new Date(); d.setDate(d.getDate()+off); if($('lData'))$('lData').value=ymd(d); marcaDataChip(); }
 function abrirDataPicker(){ const el=$('lData'); if(!el)return; if(el.showPicker){try{el.showPicker();}catch(e){el.focus();}} else el.focus(); }
 function marcaDataChip(){

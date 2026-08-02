@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.28"; /* z4 */
+const APP_VER = "8.29"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1483,7 +1483,7 @@ function dispensarTutorial(){
 }
 function addTudoRapido(){
   openSheet(`<h2>Adicionar em sequência</h2>
-    <div class="note" style="margin-bottom:14px">Cadastre tudo de uma vez, sem sair daqui. Ao salvar cada item, o formulário volta para você adicionar o próximo.</div>
+    
     <button class="btn" onclick="window._addLoop='conta';openConta()">➕ Adicionar contas em sequência</button>
     <button class="btn" onclick="window._addLoop='cartao';openCartao()">➕ Adicionar cartões em sequência</button>
     <button class="btn ghost" onclick="window._addLoop=null;closeSheet()">Concluído</button>`);
@@ -2050,7 +2050,7 @@ function renderAssistente(){
   html+=`<div id="aiChat" class="card" style="${temMsg?'min-height:300px;':''}display:flex;flex-direction:column;gap:10px;padding:14px">`;
   if(!_aiMsgs.length){
     const pnome=MYPARTNERS.length?esc(MYPARTNERS[0].apelido):'';
-    html+=`<div class="note">Pergunte sobre suas finanças (${pnome?`"quanto ${pnome} gastou esse mês?", `:''}"quanto gastei com mercado esse mês?"), peça um lançamento ("lança 50 de padaria no Nubank hoje")${iaPodeExcluir()?' ou peça para excluir ("apaga o lançamento da padaria de hoje")':''}.</div>`;
+    html+=``;
   }
   for(const m of _aiMsgs){
     const mine=m.role==='user';
@@ -2536,7 +2536,7 @@ function anualChartHTML(vals,titulo,nota){
 }
 function pctChartHTML(vals,titulo){
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>
-  <div class="note" style="margin-bottom:8px">Quanto o mês gastou a mais (vermelho) ou a menos (verde) que o mês anterior.</div>
+  
   <div class="daybars" style="height:150px">`;
   vals.forEach((v,i)=>{
     if(i===0 || vals[i-1]<=0){
@@ -3097,7 +3097,7 @@ function renderHome(){
       alertas.sort((a,b)=>b.pct-a.pct);
       let ah=`<div class="card" style="margin-bottom:0;border:1.5px solid #e0a020">
         <h3 style="margin:0 0 4px;font-size:15px">📈 Gastos fora do padrão</h3>
-        <div class="note" style="margin-bottom:8px">Este mês vs sua média dos meses anteriores.</div>`;
+        `;
       alertas.slice(0,3).forEach(a=>{
         const c=catById(a.cid);
         ah+=`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-2);font-size:13px">
@@ -3182,7 +3182,7 @@ function renderHome(){
       <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
     <div class="saidas">
-      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${!projInvest()?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">Não contado no balanço (é patrimônio). Ligue em Mais pra descontar.</div>`:''}${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
+      ${sd.invest>0?`<div class="srow inv"><span>Investimentos</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${!projInvest()?``:''}${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
       ${b.recPend>0?`<div class="srow tap" onclick="verTrans('receita')"><span>Receitas a receber</span><b style="color:var(--hero-green)">${brl(b.recPend)}</b></div>`:''}
       <div class="srow tap" onclick="verTrans('despesa')"><span>Contas pagas</span><b>${brl(sd.pagas)}</b></div>
       <div class="srow tap" onclick="go('pendencias')"><span>Contas a pagar${sd.nAPagar>0?` <span style="opacity:.45;font-weight:600;font-size:.82em">${sd.nAPagar}×</span>`:''}</span><b>${brl(sd.aPagar)}</b></div>
@@ -3236,7 +3236,7 @@ function renderHome(){
   const np=pendDueList().length;
   if(np){ blocos.pendalert=`<div class="card pend-alert" onclick="go('pendencias')" style="margin-bottom:0">
     <div class="dot" style="background:#fdecec;color:var(--coral)">${ICON('receipt',20)}</div>
-    <div style="flex:1"><div style="font-weight:700">${np} conta${np>1?'s':''} a pagar</div><div class="note">Vencem até o fim do mês · toque pra dar baixa</div></div>
+    <div style="flex:1"><div style="font-weight:700">${np} conta${np>1?'s':''} a pagar</div></div>
     <span style="color:var(--muted);font-size:20px">›</span></div>`; }
 
   // bloco: minhas contas
@@ -3382,7 +3382,7 @@ function renderPendencias(){
     $('content').innerHTML=html; return;
   }
   const allSel=list.every(l=>window._pendSel.has(l.id));
-  html+=`<div class="note" style="margin-bottom:8px">Toque na conta pra <b>editar</b> (trocar valor/conta). Marque o <b>✓</b> do que já pagou e toque em <b>Dar baixa</b> — o valor sai do saldo.</div>`;
+  html+=``;
   html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
     <div><b>${window._pendSel.size}</b> selecionada(s)</div>
     <button class="lnk" onclick="pendSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
@@ -3539,7 +3539,7 @@ function efetivarPendencias(){
         ${contas.map(c=>`<option value="${c.id}" ${c.id===sugerida?'selected':''}>${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}
         <option value="" ${!sugerida?'selected':''}>Manter a conta de cada lançamento</option>
       </select>
-      <div class="note">${sugerida?`Sugerimos <b>${esc(nomeSug)}</b> (a conta do lançamento). Troque só se entrou/saiu de outra.`:'Contas diferentes selecionadas — deixe "Manter" ou escolha uma para todos.'}</div></div>
+      </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Não</button>
       <button class="btn coral" style="flex:1" onclick="efetivarConfirma()">Sim, confirmar</button></div>`);
@@ -3596,7 +3596,7 @@ function renderTrans(){
       $('content').innerHTML=html; return;
     }
     const allSel=list.every(l=>window._pendSel.has(l.id));
-    html+=`<div class="note" style="margin-bottom:8px">Marque o que já entrou/saiu e toque em <b>Efetivar</b>. Pode misturar contas diferentes.</div>`;
+    html+=``;
     html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
       <div><b>${window._pendSel.size}</b> selecionada(s)</div>
       <button class="lnk" onclick="transSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
@@ -4257,7 +4257,7 @@ async function abrirCompartilhar(){
   }
   openSheet(`
     <h2>Compartilhar minhas finanças</h2>
-    <div class="note">Gere um código e passe pra pessoa (sua esposa). No app dela, ela usa "Conectar a outra conta" e digita o código. Aí ela passa a ver as suas finanças — só leitura, ela não altera nada seu.</div>
+    
     <button class="btn" style="margin-top:14px" onclick="novoCodigo()">Gerar novo código</button>
     ${lista}
   `);
@@ -4287,7 +4287,7 @@ function abrirConectar(){
   }
   openSheet(`
     <h2>Conectar a outra conta</h2>
-    <div class="note">Digite o código que a outra pessoa gerou no app dela. Você vai poder ver as finanças dela aqui, na aba que aparece no topo (Eu / Nome / Casal).</div>
+    
     <div class="field" style="margin-top:14px"><label>Código</label><input id="connCode" style="text-transform:uppercase;letter-spacing:3px;font-weight:700" maxlength="6" placeholder="ABC123"></div>
     <div class="field"><label>Apelido (como vai aparecer)</label><input id="connApelido" placeholder="Ex: Carol"></div>
     <button class="btn" onclick="conectarCodigo()">Conectar</button>
@@ -4312,7 +4312,7 @@ async function desconectar(shareId){
 function pedirSenha(titulo, onok){
   openSheet(`
     <h2>${titulo}</h2>
-    <div class="note">Por segurança, confirme sua senha para continuar.</div>
+    
     <div class="field" style="margin-top:12px"><label>Sua senha</label><div class="pwWrap"><input id="pwConfirm" type="password" autocomplete="current-password" placeholder="••••••••"><button type="button" class="pwEye" onclick="verSenha('pwConfirm',this)" aria-label="Ver senha">👁️</button></div></div>
     <button class="btn" onclick="verificarSenha()">Confirmar</button>
     <button class="btn ghost" onclick="closeSheet()">Cancelar</button>
@@ -5901,21 +5901,21 @@ function renderMeio(e){
         h+=`<div class="field"><label>Tipo de receita</label><div class="seg2">
           <button id="recFixo" onclick="setRecTipo('fixo')" class="${window._recTipo==='fixo'?'on':''}">Fixa (salário)</button>
           <button id="recVar" onclick="setRecTipo('variavel')" class="${window._recTipo!=='fixo'?'on':''}">Variável</button>
-        </div><div class="note" id="recTipoNote">${window._recTipo==='fixo'?'Vou repetir essa entrada pelos próximos 12 meses automaticamente.':'Entrada avulsa, só neste mês (você pode repetir abaixo se quiser).'}</div></div>`;
+        </div></div>`;
       }
       h+=`<div class="field"><label>Repetir mensalmente</label>
         <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12" ${window._recTipo==='fixo'?'selected':''}>Por 12 meses</option><option value="24">Por 24 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
         <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
-        <div class="note" id="recorrNote">${lancType==='receita'?'Repete essa entrada nos próximos meses (salário, aluguel recebido, mesada…).':'Cria a conta repetida nos próximos meses (água, luz, internet, escola, aluguel…). Cada mês entra como <b>pendente</b> e aparece em "Contas a pagar" na sua vez.'}</div></div>`;
+        </div>`;
     }
     if(lancType==='despesa'){
       if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
       setStatus(window._meio==='debito'?'pago':'pendente');
-      h+=`<div class="note" style="padding:4px 2px 0">${window._meio==='debito'?'Sai da conta <b>na hora</b> — já entra como efetivado.':'Fica <b>pendente</b> até você confirmar (vira conta a pagar).'}</div>`;
+      h+=``;
     } else if(lancType==='receita'){
       if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
       setStatus(window._meio==='recebido'?'pago':'pendente');
-      h+=`<div class="note" style="padding:4px 2px 0">${window._meio==='recebido'?'Entra na conta <b>na hora</b> — já efetivado.':'Fica <b>a receber</b> (pendente) até você confirmar.'}</div>`;
+      h+=``;
     } else {
       if($('lancStatusWrap'))$('lancStatusWrap').classList.remove('hidden');
     }
@@ -6420,7 +6420,7 @@ function openConta(id){
       <div class="seg2">
         <button id="cInv0" class="${e.eh_investimento?'':'on'}" onclick="window._cInv=false;$('cInv0').classList.add('on');$('cInv1').classList.remove('on')">Não (normal)</button>
         <button id="cInv1" class="${e.eh_investimento?'on':''}" onclick="window._cInv=true;$('cInv1').classList.add('on');$('cInv0').classList.remove('on')">Sim, investimento</button>
-      </div><div class="note">Investimento fica <b>fora do saldo</b> do dia a dia e soma no <b>patrimônio</b>. Você transfere dinheiro pra ela pra investir.</div></div>
+      </div></div>
     </details>
     <button class="btn" onclick="saveConta(${id?`'${id}'`:'null'})">${id?'Salvar':'Criar conta'}</button>
     ${id?`<button class="btn outline" onclick="reajustarConta('${id}')">Reajustar saldo</button>`:''}
@@ -6557,7 +6557,7 @@ function reajustarConta(id){
     <h2>Reajustar saldo</h2>
     <p class="note" style="font-size:14px">Saldo calculado hoje em <b>${esc(c.nome)}</b>: <b>${brl(atual)}</b>.<br>Informe quanto você <b>realmente</b> tem agora nessa conta. O app cria um lançamento com a diferença na categoria <b>"Reajuste em contas"</b> pra deixar o saldo batendo.</p>
     <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="text" autocomplete="off" placeholder="ex: 1550  (ou faça conta: 1000+500+50)"></div>
-    <div class="note" style="margin:-6px 2px 8px">Digite o total que você tem de verdade. Pode fazer conta: <b>+  −  ×  ÷</b>.</div>
+    
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Cancelar</button>
       <button class="btn coral" style="flex:1" onclick="reajustarConfirma('${id}')">Reajustar</button></div>
@@ -6785,7 +6785,7 @@ async function handleMobillsFile(ev){
       <div class="lrow"><div class="dot" style="background:#fdeceb">⬇️</div><div class="mid"><div class="t">Despesas</div><div class="s">${nContas} contas</div></div><div class="amt r">${brl(desp)}</div></div>
     </div>
     <div class="note"><b>Contas que serão criadas:</b> ${novas.length?novas.map(esc).join(', '):'(nenhuma nova — todas já existem)'}</div>
-    <div class="note" style="margin-top:8px">As transações entram como <b>pagas</b>, na conta e categoria certas. Compras parceladas mostram o "x/y". Categorias e contas novas são criadas sozinhas.</div>
+    
     <div class="note" style="margin-top:8px;color:#a9701a">⚠️ O saldo de cada conta vai refletir só o que foi importado. Depois, em <b>Contas</b>, você ajusta o "saldo inicial" de cada uma pro valor real.</div>
     <button class="btn" style="margin-top:14px" onclick="commitImport()">Importar ${nLanc} transações</button>
     <button class="btn ghost" onclick="closeSheet()">Cancelar</button>
@@ -6905,7 +6905,7 @@ async function openInstallSheet(){
   `;
   openSheet(`
     <h2>Instalar na tela de início</h2>
-    <div class="note">Assim o app abre em tela cheia, com o ícone do Gestor — e libera as notificações na tela bloqueada.</div>
+    
     <div class="card" style="margin-top:12px">${passos}</div>
     <button class="btn" onclick="closeSheet();dismissInstall()">Entendi</button>
   `);

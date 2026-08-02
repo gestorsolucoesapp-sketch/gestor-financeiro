@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.30"; /* z4 */
+const APP_VER = "8.31"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2632,26 +2632,54 @@ function abrirDiaDetalhe(dia,ownerFiltro){
   openSheet(h);
 }
 // Compras pelo DIA REAL da compra (soma tudo, inclusive todas as parcelas no dia em que comprou)
+// Mapa grupo_id -> data da PRIMEIRA parcela (= data real da compra) e total da compra
+function _mapaCompraGrupo(){
+  const m={};
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa' || !l.grupo_id || !l.data) continue;
+    const g=m[l.grupo_id];
+    if(!g){ m[l.grupo_id]={data:l.data,total:Number(l.valor)||0}; }
+    else { g.total+=Number(l.valor)||0; if(l.data<g.data) g.data=l.data; }
+  }
+  return m;
+}
+function dataCompraDe(l,mapa){
+  if(l.grupo_id){ const g=(mapa||_mapaCompraGrupo())[l.grupo_id]; if(g) return g.data; }
+  return l.data;
+}
 function comprasPorDiaCompra(d,ownerId){
   const diasNoMes=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
   const arr=Array.from({length:diasNoMes},(_,i)=>({dia:i+1,valor:0}));
+  const mapa=_mapaCompraGrupo();
+  const ini=ymd(new Date(d.getFullYear(),d.getMonth(),1));
+  const fim=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+  const feitos=new Set();
   for(const l of DATA.lancamentos){
     if(l.tipo!=='despesa') continue;
     if(ehLancQuitacao(l)) continue;
     if(l.user_id!==ownerId) continue;
-    if(!l.data || !inMonth(l,d)) continue;
-    const dia=new Date(l.data+'T00:00:00').getDate();
-    if(arr[dia-1]) arr[dia-1].valor+=Number(l.valor)||0;
+    if(!l.data) continue;
+    const dc=dataCompraDe(l,mapa);
+    if(!dc || dc<ini || dc>fim) continue;
+    let val=Number(l.valor)||0;
+    if(l.grupo_id){
+      if(feitos.has(l.grupo_id)) continue;   // a compra inteira entra uma vez só
+      feitos.add(l.grupo_id);
+      val=(mapa[l.grupo_id]||{}).total||val; // valor total da compra, não da parcela
+    }
+    const dia=new Date(dc+'T00:00:00').getDate();
+    if(arr[dia-1]) arr[dia-1].valor+=val;
   }
   return arr;
 }
 // Detalhe do dia PELA DATA DA COMPRA — mostra hora e se foi parcelado
 function abrirDiaCompraDetalhe(dia,ownerFiltro){
   const dataStr=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),dia));
+  const _mp=_mapaCompraGrupo();
   const itens=DATA.lancamentos.filter(l=>{
     if(l.tipo!=='despesa') return false;
     if(ehLancQuitacao(l)) return false;
-    if(l.data!==dataStr) return false;
+    if(dataCompraDe(l,_mp)!==dataStr) return false;
     if(ownerFiltro) return l.user_id===ownerFiltro;
     return l.user_id===USER.id || MYPARTNERS.some(p=>p.owner_id===l.user_id);
   }).sort((a,b)=> (b.criado_em||'')<(a.criado_em||'')?-1:1);

@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.26"; /* z4 */
+const APP_VER = "8.27"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6221,12 +6221,31 @@ async function saveLanc(id){
     conta_id:contaId,categoria_id:window._catSel||null};
   // se é edição de uma despesa/receita normal (não cartão), oferece aplicar nos próximos meses
   const orig = id ? DATA.lancamentos.find(l=>l.id===id) : null;
-  if(id && orig && orig.tipo!=='transferencia' && !orig.cartao_id && !window._escopoEdicao){
+  if(id && orig && orig.tipo!=='transferencia' && !orig.cartao_id && !window._escopoEdicao && precisaPerguntarEscopo(row,orig)){
     perguntarEscopoEdicao(id, row, orig);
     return;
   }
   await upsertLanc(id,row);
   window._escopoEdicao=null;
+}
+function precisaPerguntarEscopo(row, orig){
+  const eq=(a,b)=> String(a==null?'':a).trim()===String(b==null?'':b).trim();
+  const mudouDesc  = (row.descricao||'').toLowerCase().trim()!==(orig.descricao||'').toLowerCase().trim();
+  const mudouValor = Number(row.valor||0)!==Number(orig.valor||0);
+  const mudouCat   = !eq(row.categoria_id, orig.categoria_id);
+  const mudouConta = !eq(row.conta_id, orig.conta_id);
+  const mudouData  = !eq(row.data, orig.data);
+  const mudouSt    = !eq(row.status, orig.status);
+  // nada mudou de verdade: salva direto, sem perguntar nada
+  if(!(mudouDesc||mudouValor||mudouCat||mudouConta||mudouData||mudouSt)) return false;
+  // já é recorrente (grupo ou mesma descricao em meses futuros): o escopo importa de verdade
+  const mesmoNome=(l)=> l.user_id===USER.id && l.tipo===orig.tipo && !l.cartao_id && l.id!==orig.id &&
+    (l.descricao||'').toLowerCase().trim()===(orig.descricao||'').toLowerCase().trim();
+  const temRec = !!orig.grupo_id || DATA.lancamentos.some(l=> mesmoNome(l) && (l.data||'')>(orig.data||''));
+  if(temRec) return true;
+  // lançamento único: só oferece repetir se mudou valor ou descricao.
+  // trocar conta, categoria, data ou status salva direto.
+  return mudouDesc || mudouValor;
 }
 function perguntarEscopoEdicao(id, row, orig){
   // detecta se já é recorrente: tem grupo OU existem outras despesas iguais em outros meses

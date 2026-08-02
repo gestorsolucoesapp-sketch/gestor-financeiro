@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.29"; /* z4 */
+const APP_VER = "8.30"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3484,12 +3484,12 @@ function alocarAporte(valor){
       <option value="__novo__">＋ Criar novo investimento</option>
     </select></div>`:''}
     <div id="apNovoWrap" class="${invs.length?'hidden':''}">
-      <div class="field"><label>Nome</label><input id="apNome" placeholder="Ex: CDB C6, Poupança Caixa…"></div>
+      <div class="field"><label>Nome</label><input id="apNome" placeholder=""></div>
       <div class="field"><label>Tipo</label><div class="seg2">
         <button id="apT0" onclick="window._apTipo='poupanca';apTsel()">Poupança</button>
         <button id="apT1" class="on" onclick="window._apTipo='renda_fixa';apTsel()">Renda fixa</button>
         <button id="apT2" onclick="window._apTipo='outro';apTsel()">Outro</button></div></div>
-      <div class="field"><label>Taxa por mês (%)</label><input id="apTaxa" type="number" inputmode="decimal" step="0.01" placeholder="ex: 0,9"></div>
+      <div class="field"><label>Taxa por mês (%)</label><input id="apTaxa" type="number" inputmode="decimal" step="0.01" placeholder=""></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Depois</button>
@@ -3976,8 +3976,8 @@ function ajustarFatura(cartaoId){
       <button id="ajC" onclick="window._ajTipo='receita';$('ajC').className='on rec';$('ajD').className='';$('ajT').className='';ajModo()">Estorno / crédito</button>
       <button id="ajT" onclick="window._ajTipo='total';$('ajT').className='on';$('ajD').className='';$('ajC').className='';ajModo()">Acertar total</button>
     </div>
-    <div class="field" id="ajDescWrap"><label>Descrição</label><input id="ajDesc" placeholder="Ex: compra esquecida, estorno…"></div>
-    <div class="field"><label id="ajValLab">Valor (R$)</label><input id="ajValor" type="text" inputmode="decimal" placeholder="0,00 — aceita conta: 12+30,5"></div>
+    <div class="field" id="ajDescWrap"><label>Descrição</label><input id="ajDesc" placeholder=""></div>
+    <div class="field"><label id="ajValLab">Valor (R$)</label><input id="ajValor" type="text" inputmode="decimal" placeholder="0,00"></div>
     ${opChips('ajValor')}
     <div class="note hidden" id="ajTotNote">Total atual: <b>${brl(totAtual)}</b>. Digite o total correto da fatura e eu lanço a diferença automaticamente.</div>
     <button class="btn" onclick="saveAjusteFatura('${cartaoId}')">Adicionar à fatura</button>
@@ -4289,7 +4289,7 @@ function abrirConectar(){
     <h2>Conectar a outra conta</h2>
     
     <div class="field" style="margin-top:14px"><label>Código</label><input id="connCode" style="text-transform:uppercase;letter-spacing:3px;font-weight:700" maxlength="6" placeholder="ABC123"></div>
-    <div class="field"><label>Apelido (como vai aparecer)</label><input id="connApelido" placeholder="Ex: Carol"></div>
+    <div class="field"><label>Apelido (como vai aparecer)</label><input id="connApelido" placeholder=""></div>
     <button class="btn" onclick="conectarCodigo()">Conectar</button>
     ${lista}
   `);
@@ -4625,7 +4625,7 @@ function openInvest(id){
   const inclui=e.incluir_patrimonio!==false;
   openSheet(`
     <h2>${id?'Editar':'Novo'} investimento</h2>
-    <div class="field"><label>Nome</label><input id="iNome" value="${esc(e.nome||'')}" placeholder="Ex: Poupança Caixa, CDB Nubank…"></div>
+    <div class="field"><label>Nome</label><input id="iNome" value="${esc(e.nome||'')}" placeholder=""></div>
     <div class="field"><label>Tipo</label>
       <div class="seg2">
         <button id="iT0" class="${tipo==='poupanca'?'on':''}" onclick="setInvTipo('poupanca')">Poupança</button>
@@ -4634,7 +4634,7 @@ function openInvest(id){
       </div></div>
     <div class="row2">
       <div class="field"><label>Valor aplicado (R$)</label><input id="iValor" type="number" inputmode="decimal" step="0.01" value="${e.valor_aplicado!=null?e.valor_aplicado:''}" placeholder="0,00"></div>
-      <div class="field"><label>Taxa por mês (%)</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder="ex: 0,5"></div>
+      <div class="field"><label>Taxa por mês (%)</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder=""></div>
     </div>
     <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
     
@@ -4785,7 +4785,7 @@ function openImportBanco(){
       Copie as notificações do banco (segure a notificação → copiar, ou copie do app/extrato) e <b>cole aqui</b>.
       Pode colar várias de uma vez. Eu identifico valor, data e estabelecimento — e você confirma antes de importar.
     </p>
-    <textarea id="impTxt" rows="9" placeholder="Cole aqui as mensagens do banco…&#10;&#10;Ex.: Sua compra no cartão final 3969 no valor de R$ 138,50, dia 10/07/2026 às 22:23, em SandraMara, foi aprovada."
+    <textarea id="impTxt" rows="9" placeholder="Cole aqui as mensagens do banco…"
       style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.4"></textarea>
     <button class="btn-sec" style="margin-top:10px" onclick="colarClipboard()">📋 Colar da área de transferência</button>
     <button class="btn" style="margin-top:8px" onclick="analisarImport()">Analisar mensagens</button>
@@ -5523,7 +5523,7 @@ function agIrPara(k){ const d=new Date(k+'T00:00:00'); _agMes=new Date(d.getFull
 function agNovo(data, id){
   const e = id ? (_AGENDA.find(x=>x.id===id)||{}) : {};
   openSheet(`<h2 style="margin:0 0 12px">${id?'Editar':'Novo'} compromisso</h2>
-    <div class="field"><label>O que é</label><input id="agTit" value="${esc(e.titulo||'')}" placeholder="Ex: Dentista, Reunião, Pagar IPVA"></div>
+    <div class="field"><label>O que é</label><input id="agTit" value="${esc(e.titulo||'')}" placeholder=""></div>
     <div class="field"><label>Data</label><input id="agData" type="date" value="${e.data||data}"></div>
     <div class="field"><label>Hora (opcional)</label><input id="agHora" type="time" value="${e.hora?String(e.hora).slice(0,5):''}"></div>
     <div class="field"><label>Observação (opcional)</label><input id="agNota" value="${esc(e.nota||'')}" placeholder="Detalhes"></div>
@@ -5642,7 +5642,7 @@ function openLanc(id, preset){
       <button id="ttDesp" class="${lancType==='despesa'?'on desp':''}" onclick="setLancType('despesa')">Despesa</button>
       <button id="ttTransf" class="${lancType==='transferencia'?'on transf':''}" onclick="setLancType('transferencia')">Transfer.</button>
     </div>
-    <div class="field acWrap"><label>Descrição</label><input id="lDesc" autocomplete="off" value="${esc(e.descricao||'')}" placeholder="Ex: Mercado, Salário…" oninput="autoDesc();sugerirCategoria()" onfocus="autoDesc()" onblur="setTimeout(fecharAutoDesc,180);sugerirCategoria()"><div id="acList"></div><div class="note" id="catSugNote" style="display:none"></div></div>
+    <div class="field acWrap"><label>Descrição</label><input id="lDesc" autocomplete="off" value="${esc(e.descricao||'')}" placeholder="" oninput="autoDesc();sugerirCategoria()" onfocus="autoDesc()" onblur="setTimeout(fecharAutoDesc,180);sugerirCategoria()"><div id="acList"></div><div class="note" id="catSugNote" style="display:none"></div></div>
     <div id="lancCatWrap"></div>
     <div id="lancDynamic"></div>
     <div class="field"><label>Data</label>
@@ -5888,7 +5888,7 @@ function renderMeio(e){
         </label>
         <div id="parcSelWrap" style="display:${_avista?'none':'block'};margin-top:8px">
           <select id="lParcelas" onchange="onParcelasChange()"><option value="" ${(!e.parcelas&&!e.recorrente)?'selected':''} disabled hidden>Selecione…</option><option value="rec" ${e.recorrente?'selected':''}>🔁 Recorrente (todo mês)</option><option value="1" ${!e.recorrente&&e.parcelas===1?'selected':''}>1x (à vista)</option>${Array.from({length:23},(_,i)=>i+2).map(n=>`<option value="${n}" ${!e.recorrente&&e.parcelas===n?'selected':''}>${n}x</option>`).join('')}<option value="custom" ${!e.recorrente&&e.parcelas>24?'selected':''}>✏️ Mais de 24x…</option></select>
-          <input id="lParcelasN" type="number" inputmode="numeric" min="2" placeholder="Quantas parcelas? (ex: 36)" value="${(e.parcelas>24)?e.parcelas:''}" style="margin-top:8px;display:${(e.parcelas>24)?'block':'none'}" onchange="updateFaturaNote()">
+          <input id="lParcelasN" type="number" inputmode="numeric" min="2" placeholder="Quantas parcelas?" value="${(e.parcelas>24)?e.parcelas:''}" style="margin-top:8px;display:${(e.parcelas>24)?'block':'none'}" onchange="updateFaturaNote()">
         </div>
         <div class="note" id="parcNote"></div></div>`;
     }
@@ -5905,7 +5905,7 @@ function renderMeio(e){
       }
       h+=`<div class="field"><label>Repetir mensalmente</label>
         <select id="lRecorr" onchange="onRecorrChange()"><option value="0">Não repetir</option><option value="3">Por 3 meses</option><option value="6">Por 6 meses</option><option value="12" ${window._recTipo==='fixo'?'selected':''}>Por 12 meses</option><option value="24">Por 24 meses</option><option value="custom">✏️ Personalizado (escolher meses)</option></select>
-        <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses? (ex: 10)" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
+        <input id="lRecorrN" type="number" inputmode="numeric" min="2" max="120" placeholder="Quantos meses?" style="margin-top:8px;display:none" oninput="updateRecorrNote()">
         </div>`;
     }
     if(lancType==='despesa'){
@@ -6393,7 +6393,7 @@ function openConta(id){
   const tipo=e.tipo||'pessoal';
   openSheet(`
     <h2>${id?'Editar':'Nova'} conta</h2>
-    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Carteira, Caixa…" oninput="logoAutoDebounced('c')"></div>
+    <div class="field"><label>Nome</label><input id="cNome" value="${esc(e.nome||'')}" placeholder="" oninput="logoAutoDebounced('c')"></div>
     <div class="field"><label>Ícone da conta</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="cLogoPrev" class="conta-logo" style="${e.logo_url?`background:#fff;background-image:url("${e.logo_url}");background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg(contaVisual(e).color)};color:${contaVisual(e).color}`}">${e.logo_url?'':ICON(contaVisual(e).icon,24)}</div>
@@ -6409,7 +6409,7 @@ function openConta(id){
     <div class="field"><label>Saldo inicial (R$)</label><input id="cSaldo" type="number" inputmode="decimal" step="0.01" value="${e.saldo_inicial!=null?e.saldo_inicial:''}" placeholder="0,00"></div>
     <details class="mopc" ${id?'open':''}><summary>Mais op\u00e7\u00f5es (opcional)</summary>
     <div class="field"><label>Limite / cheque especial (R$)</label><input id="cLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite!=null&&e.limite!=0?e.limite:''}" placeholder="0,00"></div>
-    <div class="field"><label>Titular / quem usa</label><input id="cTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularList">
+    <div class="field"><label>Titular / quem usa</label><input id="cTitular" value="${esc(e.titular||'')}" placeholder="" list="titularList">
       <datalist id="titularList">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
     <div class="field"><label>Somar no saldo principal?</label>
       <div class="seg2">
@@ -6556,7 +6556,7 @@ function reajustarConta(id){
   openSheet(`
     <h2>Reajustar saldo</h2>
     <p class="note" style="font-size:14px">Saldo calculado hoje em <b>${esc(c.nome)}</b>: <b>${brl(atual)}</b>.<br>Informe quanto você <b>realmente</b> tem agora nessa conta. O app cria um lançamento com a diferença na categoria <b>"Reajuste em contas"</b> pra deixar o saldo batendo.</p>
-    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="text" autocomplete="off" placeholder="ex: 1550  (ou faça conta: 1000+500+50)"></div>
+    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="text" autocomplete="off" placeholder=""></div>
     
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Cancelar</button>
@@ -6601,18 +6601,18 @@ function openCartao(id){
         <button class="btn ghost sm" onclick="clearLogo('k')">Usar cor</button>
       </div>
       </div>
-    <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="Ex: Nubank, Itaú…" oninput="logoAutoDebounced('k')"></div>
+    <div class="field"><label>Nome</label><input id="kNome" value="${esc(e.nome||'')}" placeholder="" oninput="logoAutoDebounced('k')"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="kTipoP" class="${tipo==='pessoal'?'on':''}" onclick="window._cartaoTipo='pessoal';$('kTipoP').classList.add('on');$('kTipoN').classList.remove('on')">Pessoal</button>
       <button id="kTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._cartaoTipo='negocio';$('kTipoN').classList.add('on');$('kTipoP').classList.remove('on')">Negócio</button>
     </div></div>
     <div class="field"><label>Limite (R$)</label><input id="kLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite||''}" placeholder="0,00"></div>
     <div class="row2">
-      <div class="field"><label>Dia de fechamento</label><input id="kFecha" type="number" min="1" max="31" value="${e.dia_fechamento||''}" placeholder="ex: 28"></div>
-      <div class="field"><label>Dia de vencimento</label><input id="kVence" type="number" min="1" max="31" value="${e.dia_vencimento||''}" placeholder="ex: 5"></div>
+      <div class="field"><label>Dia de fechamento</label><input id="kFecha" type="number" min="1" max="31" value="${e.dia_fechamento||''}" placeholder=""></div>
+      <div class="field"><label>Dia de vencimento</label><input id="kVence" type="number" min="1" max="31" value="${e.dia_vencimento||''}" placeholder=""></div>
     </div>
     
-    <div class="field" style="margin-top:12px"><label>Titular / quem usa</label><input id="kTitular" value="${esc(e.titular||'')}" placeholder="Ex: Eu, Mãe, Irmão…" list="titularListK">
+    <div class="field" style="margin-top:12px"><label>Titular / quem usa</label><input id="kTitular" value="${esc(e.titular||'')}" placeholder="" list="titularListK">
       <datalist id="titularListK">${titularesSugeridos().map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
     <div class="field"><label>É um cartão de familiar?</label>
       <div class="seg2">
@@ -6695,7 +6695,7 @@ function openCat(id){
   const tipo=e.tipo||'despesa';
   openSheet(`
     <h2>${id?'Editar':'Nova'} categoria</h2>
-    <div class="field"><label>Nome</label><input id="catNome" value="${esc(e.nome||'')}" placeholder="Ex: Alimentação"></div>
+    <div class="field"><label>Nome</label><input id="catNome" value="${esc(e.nome||'')}" placeholder=""></div>
     <div class="field"><label>Ícone (emoji)</label><input id="catIcone" value="${esc(e.icone||'')}" placeholder="🍔" maxlength="2"></div>
     <div class="field"><label>Tipo</label><div class="seg2">
       <button id="catTipoR" class="${tipo==='receita'?'on':''}" onclick="window._catTipo='receita';$('catTipoR').classList.add('on');$('catTipoD').classList.remove('on')">Receita</button>

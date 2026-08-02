@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.37"; /* z4 */
+const APP_VER = "8.38"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5983,7 +5983,18 @@ function renderMeio(e){
     // cartão não usa status pago/pendente (vira fatura)
     if($('lancStatusWrap'))$('lancStatusWrap').classList.add('hidden');
   }else{
-    h+=`<div class="field"><label>Conta</label><select id="lConta"><option value="" ${!e.conta_id?'selected':''} disabled hidden>Selecione a conta…</option>${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>🏦 ${esc(c.nome)} — ${brl(saldoConta(c.id))}</option>`).join('')}</select></div>`;
+    h+=`<div class="field"><label>Conta</label>
+      <input type="hidden" id="lConta" value="${e.conta_id||''}">
+      <div id="lContaBtn" onclick="toggleContaPicker()" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;cursor:pointer;background:var(--card-2,rgba(255,255,255,.03))">
+        ${contaPickerBotao(e.conta_id)}
+        <span style="margin-left:auto;color:var(--muted);font-size:15px">▾</span>
+      </div>
+      <div id="lContaList" class="hidden" style="margin-top:6px;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+        ${contas.map(c=>`<div onclick="escolherConta('${c.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--line)">
+          ${contaLogoHTML(c)}<span style="font-weight:600">${esc(c.nome)}</span>
+          <span style="margin-left:auto;font-size:12px;color:var(--muted)">${brl(saldoConta(c.id))}</span>
+        </div>`).join('')}
+      </div></div>`;
     if(!window._lancEdit){
       if(lancType==='receita'){
         h+=`<div class="field"><label>Tipo de receita</label><div class="seg2">
@@ -6037,6 +6048,23 @@ function parcelasEfetivas(){
   if(sel.value==='custom'){ return Math.max(2, parseInt($('lParcelasN')?$('lParcelasN').value:'')||2); }
   if(sel.value==='rec') return 'rec';
   return parseInt(sel.value)||1;
+}
+function contaLogoHTML(c){
+  if(c && c.logo_url) return `<div class="dot" style="width:28px;height:28px;flex:0 0 28px;background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)"></div>`;
+  const vis=c?contaVisual(c):{color:'#1f9d8a',icon:'bank'};
+  return `<div class="dot" style="width:28px;height:28px;flex:0 0 28px;background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,16)}</div>`;
+}
+function contaPickerBotao(id){
+  const c=id?contaById(id):null;
+  if(!c) return `<span style="color:var(--muted)">Selecione a conta…</span>`;
+  return contaLogoHTML(c)+`<span style="font-weight:600">${esc(c.nome)}</span><span style="margin-left:8px;font-size:12px;color:var(--muted)">${brl(saldoConta(c.id))}</span>`;
+}
+function toggleContaPicker(){ const l=$('lContaList'); if(l) l.classList.toggle('hidden'); }
+function escolherConta(id){
+  const inp=$('lConta'); if(inp) inp.value=id;
+  const bt=$('lContaBtn');
+  if(bt) bt.innerHTML=contaPickerBotao(id)+`<span style="margin-left:auto;color:var(--muted);font-size:15px">▾</span>`;
+  const l=$('lContaList'); if(l) l.classList.add('hidden');
 }
 function cartaoLogoHTML(c){
   return c && c.logo_url

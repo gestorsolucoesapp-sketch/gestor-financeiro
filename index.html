@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.41"; /* z4 */
+const APP_VER = "8.42"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -945,6 +945,12 @@ function titularesSugeridos(){
 }
 function contaById(id){return DATA.contas.find(c=>c.id===id);}
 function cartaoById(id){return DATA.cartoes.find(c=>c.id===id);}
+// nome do cartão/conta mesmo se não estiver no cache local (ex.: cartão do parceiro)
+function nomeCartaoOuConta(l){
+  if(l.cartao_id){ const c=cartaoById(l.cartao_id); return c?c.nome:(DATA._nomesExtra&&DATA._nomesExtra[l.cartao_id])||null; }
+  if(l.conta_id){ const c=contaById(l.conta_id); return c?c.nome:(DATA._nomesExtra&&DATA._nomesExtra[l.conta_id])||null; }
+  return null;
+}
 function catById(id){return DATA.categorias.find(c=>c.id===id);}
 
 // saldo de uma conta = saldo_inicial + receitas pagas - despesas pagas + transf entrada - transf saida
@@ -3712,17 +3718,20 @@ function rowLanc(l){
     const o=contaById(l.conta_id),d=contaById(l.conta_destino_id);
     sub=`${o?esc(o.nome):'?'} → ${d?esc(d.nome):'?'}`;
   }else{
-    const conta=l.cartao_id?cartaoById(l.cartao_id):contaById(l.conta_id);
-    sub=(cat?esc(cat.nome):'Sem categoria')+(conta?' · '+esc(conta.nome):'');
+    const nomeFonte=nomeCartaoOuConta(l);
+    sub=(cat?esc(cat.nome):'Sem categoria')+(nomeFonte?' · '+esc(nomeFonte):'');
     // compra no cartão: mostra em QUAL FATURA vai cair
     if(l.cartao_id && l.competencia){
       try{
-        const ym=faturaYm(l.competencia, cartaoById(l.cartao_id));
-        const dF=new Date(ym+'-01T00:00:00');
-        const agora=new Date();
-        const mesmoAno = dF.getFullYear()===agora.getFullYear();
-        const lab=dF.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+(mesmoAno?'':'/'+String(dF.getFullYear()).slice(2));
-        sub+=` · <span style="color:#7c5cff;font-weight:600">fatura ${lab}</span>`;
+        const cartaoObj=cartaoById(l.cartao_id);
+        const ym=faturaYm(l.competencia, cartaoObj);   // funciona mesmo com cartão do parceiro
+        if(ym){
+          const dF=new Date(ym+'-01T00:00:00');
+          const agora=new Date();
+          const mesmoAno = dF.getFullYear()===agora.getFullYear();
+          const lab=dF.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+(mesmoAno?'':'/'+String(dF.getFullYear()).slice(2));
+          sub+=` · <span style="color:#7c5cff;font-weight:600">fatura ${lab}</span>`;
+        }
       }catch(e){}
     }
   }

@@ -1,5 +1,5 @@
 // Gestor Soluções · Service Worker (offline shell + push)
-const CACHE = 'gf-shell-v141';
+const CACHE = 'gf-shell-v142';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
@@ -53,7 +53,7 @@ self.addEventListener('fetch', e => {
   if (isDoc) {
     e.respondWith(
       fetch(req)
-        .then(res => { const cp = res.clone(); caches.open(CACHE).then(c => c.put('index.html', cp)); return res; })
+        .then(res => { if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put('index.html', cp)); } return res; })
         .catch(() => caches.match('index.html').then(r => r || caches.match('./')))
     );
     return;

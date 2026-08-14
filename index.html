@@ -430,6 +430,17 @@ body.scrolling .fab{opacity:.25}
 .saved-acc .sa-x{color:rgba(255,255,255,.5);font-size:20px;width:28px;flex-shrink:0}
 .savepass-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:2px 0 14px;cursor:pointer}
 .savepass-row input{width:18px;height:18px}
+
+/* balão de orçamento — aparece após lançar despesa, sem bloquear a tela */
+#orcBalao{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:9600;
+  background:rgba(30,20,55,.97);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:12px 14px;
+  box-shadow:0 12px 34px rgba(0,0,0,.45);color:#fff;opacity:0;transform:translateY(14px);pointer-events:none;
+  transition:opacity .28s ease,transform .28s ease;max-width:520px;margin:0 auto}
+#orcBalao.show{opacity:1;transform:translateY(0)}
+#orcBalao .ob-top{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+#orcBalao .ob-sub{font-size:12px;opacity:.8;margin-top:3px}
+#orcBalao .ob-bar{margin-top:9px;height:8px;border-radius:8px;background:rgba(255,255,255,.16);overflow:hidden}
+#orcBalao .ob-fill{height:100%;border-radius:8px;transition:width .5s ease}
 </style>
 </head>
 <body>
@@ -580,7 +591,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.49"; /* z4 */
+const APP_VER = "8.50"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -756,6 +767,38 @@ function contaVisual(c){
   return {icon:'bank',color:'#1f9d8a'};
 }
 const firstOfMonth=d=>new Date(d.getFullYear(),d.getMonth(),1);
+// balãozinho: depois de lançar uma despesa, mostra quanto ainda falta pro limite
+function mostrarBalaoOrc(row){
+  try{
+    if(!row || row.tipo!=='despesa') return;
+    const d=row.data?new Date(row.data+'T00:00:00'):new Date();
+    const am=ymd(firstOfMonth(d)).slice(0,7);
+    const meus=DATA.orcamentos.filter(o=>o.ano_mes===am && Number(o.limite)>0 && (o.user_id===USER.id||orcEspelho(o)));
+    if(!meus.length) return;
+    // prioridade: limite combinado > categoria da compra > cartão/contas > total
+    let o = meus.find(orcEspelho)
+         || (row.categoria_id?meus.find(x=>(x.alvo||'categoria')==='categoria' && x.categoria_id===row.categoria_id):null)
+         || meus.find(x=>x.alvo===(row.cartao_id?'cartao':'contas'))
+         || meus.find(x=>x.alvo==='total');
+    if(!o) return;
+    const lim=Number(o.limite)||0, g=gastoOrc(o,d);
+    const pct=orcPct(g,lim), cor=orcCor(pct,true);
+    const rt=orcRotulo(o); if(!rt) return;
+    const ic=pct>=ORC_VERMELHO?'🚨':(pct>=ORC_LARANJA?'⚠️':'✅');
+    let el=$('orcBalao');
+    if(!el){ el=document.createElement('div'); el.id='orcBalao'; document.body.appendChild(el); }
+    el.innerHTML=`<div class="ob-top"><span>${ic}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(rt.nome)}</span>
+        <b style="color:${cor}">${Math.round(pct)}%</b></div>
+      <div class="ob-sub"><b style="color:${cor}">${orcFaltaTxt(g,lim).replace(/^./,m=>m.toUpperCase())}</b> · ${brl(g)} de ${brl(lim)}</div>
+      <div class="ob-bar"><div class="ob-fill" style="width:0%;background:${cor}"></div></div>`;
+    requestAnimationFrame(()=>{
+      el.classList.add('show');
+      const f=el.querySelector('.ob-fill'); if(f) requestAnimationFrame(()=>{ f.style.width=Math.min(100,Math.max(pct>0?2:0,pct))+'%'; });
+    });
+    clearTimeout(el._t);
+    el._t=setTimeout(()=>{ el.classList.remove('show'); }, pct>=ORC_LARANJA?6000:4200);
+  }catch(e){}
+}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function flashErr(msg,fieldId){
   toast(msg);
@@ -2754,13 +2797,18 @@ function gastosDiarios(d,allSources){
 }
 
 // ============ ARRASTAR PRA REORDENAR (segura no ⠿ e arrasta) ============
-function ordemSalva(key,defaultOrder,disponiveis){
+function ordemSalva(key,defaultOrder,disponiveis,ancoras){
   let ord=null;
   try{ ord=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
   if(!Array.isArray(ord)) ord=defaultOrder;
   // mantém só chaves disponíveis agora, na ordem salva, depois acrescenta as novas que faltarem
   const out=ord.filter(k=>disponiveis.includes(k));
-  disponiveis.forEach(k=>{ if(!out.includes(k)) out.push(k); });
+  disponiveis.forEach(k=>{
+    if(out.includes(k)) return;
+    const anc=ancoras&&ancoras[k];
+    const i=anc?out.indexOf(anc):-1;
+    if(i>=0) out.splice(i+1,0,k); else out.push(k);
+  });
   return out;
 }
 function makeSortable(containerId,storageKey){
@@ -3208,21 +3256,45 @@ function renderHome(){
   })();
   if(_alertaHtml) blocos.alerta=_alertaHtml;
 
+  // bloco: LIMITE COMBINADO — o que o parceiro definiu sobre os MEUS gastos (só leitura)
+  (()=>{
+    try{
+      const _amL=ymd(firstOfMonth(viewMonth)).slice(0,7);
+      const _e=DATA.orcamentos.find(o=>o.ano_mes===_amL && Number(o.limite)>0 && orcEspelho(o));
+      if(!_e){ blocos.limitecombinado=''; return; }
+      const _lm=Number(_e.limite)||0, _g=gastoOrc(_e,viewMonth);
+      const _p=orcPct(_g,_lm), _c=orcCor(_p,true);
+      const _ic=_p>=ORC_VERMELHO?'🚨':(_p>=ORC_LARANJA?'⚠️':'✅');
+      blocos.limitecombinado=`<div class="card hero" style="margin-bottom:0">
+        <div class="lab">💜 Limite combinado · ${mesNome(viewMonth)}</div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <div class="big" style="font-size:24px;margin:0">${brl(_g)}</div>
+          <div style="font-size:14px;opacity:.75">de ${brl(_lm)}</div>
+          <div style="margin-left:auto;font-weight:800;font-size:15px;color:${_c}">${Math.round(_p)}%</div>
+        </div>
+        ${barraOrc(_g,_lm,true,12)}
+        <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_c};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
+          ${_ic} <b style="color:${_c}">${orcFaltaTxt(_g,_lm).replace(/^./,m=>m.toUpperCase())}</b>
+        </div>
+        <div class="note" style="color:rgba(255,255,255,.62);margin-top:7px;font-size:11.5px">Referente aos seus gastos no cartão neste mês.</div>
+      </div>`;
+    }catch(e){ blocos.limitecombinado=''; }
+  })();
+
   // bloco: ORÇAMENTO DO MÊS (acima do saldo) — barra total + categorias fixadas (📌)
   (()=>{
     try{
       const _amO=ymd(firstOfMonth(viewMonth)).slice(0,7);
-      const _orcs=DATA.orcamentos.filter(o=>o.ano_mes===_amO && Number(o.limite)>0 && (srcOk(o.user_id)||orcEspelho(o)));
-      const _esp=_orcs.filter(orcEspelho);
+      const _orcs=DATA.orcamentos.filter(o=>o.ano_mes===_amO && Number(o.limite)>0 && srcOk(o.user_id));
       if(!_orcs.length){ blocos.orcamento=''; return; }
       const _oT=_orcs.find(o=>o.alvo==='total');
       let _lim,_gas;
       if(_oT){ _lim=Number(_oT.limite)||0; _gas=gastoOrc(_oT,viewMonth); }
-      else{ const _sm=_orcs.filter(o=>!orcEspelho(o)); _lim=_sm.reduce((a,o)=>a+Number(o.limite||0),0); _gas=0; _sm.forEach(o=>_gas+=gastoOrc(o,viewMonth)); }
+      else{ _lim=_orcs.reduce((a,o)=>a+Number(o.limite||0),0); _gas=0; _orcs.forEach(o=>_gas+=gastoOrc(o,viewMonth)); }
       const _pct=orcPct(_gas,_lim);
       const _cor=orcCor(_pct,true);
       const _emoji=_pct>=ORC_VERMELHO?'🚨':(_pct>=ORC_LARANJA?'⚠️':'✅');
-      const _fix=_orcs.filter(o=>o.fixar_home||orcEspelho(o)).map(o=>{
+      const _fix=_orcs.filter(o=>o.fixar_home).map(o=>{
         const rt=orcRotulo(o); if(!rt) return null;
         const g=gastoOrc(o,viewMonth), lm=Number(o.limite)||0;
         return {nome:rt.nome, icone:rt.ico, g, lm, pct:orcPct(g,lm)};
@@ -3370,7 +3442,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','orcamento','saldo','projecao','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','orcamento','saldo','projecao','limitecombinado','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos),{limitecombinado:'projecao',orcamento:'quicknav'});
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
@@ -6731,7 +6803,7 @@ async function upsertLanc(id,row){
     if(r&&r.error){toast('Erro: '+r.error.message);return;}
     closeSheet();
     if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-    vibra(); toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); return;
+    vibra(); toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); setTimeout(()=>mostrarBalaoOrc(row),650); return;
   }
   if(!row.id) row.id=uuid();
   const r=await insertRows([row]);
@@ -6739,6 +6811,7 @@ async function upsertLanc(id,row){
   closeSheet();
   if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
   else { await loadAll(); toast('Transação adicionada'); render(); }
+  setTimeout(()=>mostrarBalaoOrc(row),650);
 }
 async function delLanc(id){
   const l=DATA.lancamentos.find(x=>x.id===id);

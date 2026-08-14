@@ -591,7 +591,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.51"; /* z4 */
+const APP_VER = "8.52"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4805,19 +4805,19 @@ function openOrcamento(id){
     <div id="oAviso"></div>
     <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:4px 0 10px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
-        <input id="oRep" type="checkbox" style="width:20px;height:20px;flex-shrink:0" onchange="document.getElementById('oRepBox').style.display=this.checked?'block':'none'">
+        <input id="oRep" type="checkbox" style="width:20px;height:20px;flex-shrink:0" onchange="toggleRepBox()">
         <span>Repetir este limite nos próximos meses</span></label>
-      <div id="oRepBox" style="display:none;margin-top:10px">
+      <div id="oRepBox" style="margin-top:10px;opacity:.45;transition:opacity .2s">
         <label style="font-size:12.5px;color:var(--muted)">Quantos meses à frente</label>
-        <input id="oRepN" type="number" inputmode="numeric" min="1" max="60" step="1" value="12" style="font-size:16px" oninput="previewEscada()">
+        <input id="oRepN" type="number" inputmode="numeric" min="1" max="60" step="1" value="12" style="font-size:16px" oninput="ligarRep()">
         <div style="display:flex;gap:8px;margin-top:10px">
           <div style="flex:1">
             <label style="font-size:12.5px;color:var(--muted)">Reduzir por mês (%)</label>
-            <input id="oRepPct" type="number" inputmode="decimal" min="0" max="50" step="0.5" value="0" placeholder="0" style="font-size:16px" oninput="previewEscada()">
+            <input id="oRepPct" type="number" inputmode="decimal" min="0" max="50" step="0.5" value="0" placeholder="0" style="font-size:16px" oninput="ligarRep()">
           </div>
           <div style="flex:1">
             <label style="font-size:12.5px;color:var(--muted)">Não baixar de (R$)</label>
-            <input id="oRepPiso" type="number" inputmode="decimal" step="0.01" placeholder="sem piso" style="font-size:16px" oninput="previewEscada()">
+            <input id="oRepPiso" type="number" inputmode="decimal" step="0.01" placeholder="sem piso" style="font-size:16px" oninput="ligarRep()">
           </div>
         </div>
         <div id="oPrev" class="note" style="margin-top:8px">Aplica a partir de ${mesNome(viewMonth)}. Depois você pode abrir um mês específico e mudar só ele.</div>
@@ -4847,9 +4847,20 @@ function lerEscada(){
   const piso=(pisoRaw>0)?pisoRaw:null;
   return {lim,n,pct,piso};
 }
+function toggleRepBox(){
+  const b=$('oRepBox'), c=$('oRep'); if(!b||!c) return;
+  b.style.opacity=c.checked?'1':'.45';
+  previewEscada();
+}
+function ligarRep(){
+  const c=$('oRep'); if(c && !c.checked){ c.checked=true; }
+  toggleRepBox();
+}
 function previewEscada(){
   const el=$('oPrev'); if(!el) return;
   const {lim,n,pct,piso}=lerEscada();
+  const marcado=$('oRep')&&$('oRep').checked;
+  if(!marcado){ el.innerHTML='Marque acima para aplicar deste mês em diante. Sem marcar, salva só <b>este</b> mês.'; return; }
   if(!(lim>0)||!n){ el.textContent='Aplica a partir do mês aberto. Depois você pode abrir um mês específico e mudar só ele.'; return; }
   if(!pct){ el.innerHTML=`Mesmo limite de <b>${brl(lim)}</b> nos próximos <b>${n}</b> ${n===1?'mês':'meses'}.`; return; }
   const base=firstOfMonth(viewMonth);

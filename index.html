@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.59"; /* z4 */
+const APP_VER = "8.60"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3576,6 +3576,27 @@ function rowConta(c){
       if(!recPrevData || l.data<recPrevData) recPrevData=l.data;
     });
   }catch(e){}
+  // saídas ainda não efetivadas nesta conta (aporte de investimento e contas programadas)
+  let saiPrev=0, saiData=null, saiInvest=0;
+  try{
+    DATA.lancamentos.forEach(l=>{
+      if(l.status!=='pendente' || l.conta_id!==c.id) return;
+      if(l.tipo!=='despesa' && l.tipo!=='transferencia') return;
+      if(l.cartao_id) return;
+      if(!inMonthRep(l, viewMonth)) return;
+      const v=Number(l.valor)||0;
+      saiPrev+=v;
+      const dest=l.conta_destino_id?contaById(l.conta_destino_id):null;
+      if(l.tipo==='transferencia' && dest && dest.eh_investimento) saiInvest+=v;
+      if(!saiData || l.data<saiData) saiData=l.data;
+    });
+  }catch(e){}
+  let saiLbl='';
+  if(saiData){
+    const _h2=ymd(new Date());
+    const _d2=Math.round((new Date(saiData+'T00:00:00')-new Date(_h2+'T00:00:00'))/86400000);
+    saiLbl = _d2<0?(-_d2)+'d atrasado' : _d2===0?'sai hoje' : _d2===1?'sai amanhã' : 'sai em '+_d2+' dias';
+  }
   // rótulo "recebe em X dias" (receita pendente mais próxima da conta)
   let recPrevLbl='';
   if(recPrevData){
@@ -3597,8 +3618,10 @@ function rowConta(c){
       <div style="text-align:right">
         <div class="amt ${s<0?'r':''}" style="padding:0">${brl(s)}</div>
         ${recPrev>0?`<div onclick="event.stopPropagation();verReceberConta('${c.id}')" style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">+${brl(recPrev)} a receber ›</div>${recPrevLbl?`<div onclick="event.stopPropagation();verReceberConta('${c.id}')" style="font-size:9px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap;cursor:pointer">🗓️ ${recPrevLbl}</div>`:''}`:''}
+        ${saiPrev>0?`<div style="font-size:10px;color:var(--coral);font-weight:700;margin-top:2px;white-space:nowrap">−${brl(saiPrev)} a sair${saiInvest>0?' 📈':''}</div>${saiLbl?`<div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap">🗓️ ${saiLbl}</div>`:''}`:''}
       </div>
     </div>
+    ${(recPrev>0||saiPrev>0)?`<div style="padding:0 2px 10px 52px;margin-top:-4px;font-size:11px;color:var(--muted)">Saldo previsto no fim do mês · <b style="color:${(s+recPrev-saiPrev)<0?'var(--red)':'var(--green)'}">${brl(s+recPrev-saiPrev)}</b></div>`:''}
     ${lim>0?`<div style="padding:0 2px 12px 52px;margin-top:-4px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px;white-space:nowrap">Limite ${brl(lim)} · usado <b style="color:${cor}">${brl(usado)}</b> · livre ${brl(livre)}</div>
       <div style="height:5px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>

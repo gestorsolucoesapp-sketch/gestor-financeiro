@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.46"; /* z4 */
+const APP_VER = "8.47"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2307,13 +2307,12 @@ function checarOrcamentos(){
     const orcs=DATA.orcamentos.filter(o=>o.user_id===USER.id && o.ano_mes===am && Number(o.limite)>0);
     if(!orcs.length) return;
     for(const o of orcs){
-      const gasto=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.tipo==='despesa' && l.categoria_id===o.categoria_id && inMonth(l,hoje))
-        .reduce((a,l)=>a+Number(l.valor||0),0);
+      const gasto=gastoOrc(o,hoje);
       const pct=gasto/Number(o.limite)*100;
-      const cat=catById(o.categoria_id); const nome=cat?cat.nome:'categoria';
+      const _rt=orcRotulo(o); const nome=_rt?_rt.nome:'categoria';
       for(const nivel of [ORC_VERMELHO,ORC_LARANJA]){
         if(pct>=nivel){
-          const k='gf_orc_'+o.categoria_id+'_'+am+'_'+nivel;
+          const k='gf_orc_'+orcChave(o)+'_'+am+'_'+nivel;
           if(localStorage.getItem(k)!=='1'){
             localStorage.setItem(k,'1');
             vibra(nivel===ORC_VERMELHO?70:40);
@@ -3215,15 +3214,17 @@ function renderHome(){
       const _amO=ymd(firstOfMonth(viewMonth)).slice(0,7);
       const _orcs=DATA.orcamentos.filter(o=>o.ano_mes===_amO && srcOk(o.user_id) && Number(o.limite)>0);
       if(!_orcs.length){ blocos.orcamento=''; return; }
-      const _lim=_orcs.reduce((a,o)=>a+Number(o.limite||0),0);
-      let _gas=0; _orcs.forEach(o=>_gas+=gastoCategoriaMes(o.categoria_id,viewMonth));
+      const _oT=_orcs.find(o=>o.alvo==='total');
+      let _lim,_gas;
+      if(_oT){ _lim=Number(_oT.limite)||0; _gas=gastoOrc(_oT,viewMonth); }
+      else{ _lim=_orcs.reduce((a,o)=>a+Number(o.limite||0),0); _gas=0; _orcs.forEach(o=>_gas+=gastoOrc(o,viewMonth)); }
       const _pct=orcPct(_gas,_lim);
       const _cor=orcCor(_pct,true);
       const _emoji=_pct>=ORC_VERMELHO?'🚨':(_pct>=ORC_LARANJA?'⚠️':'✅');
       const _fix=_orcs.filter(o=>o.fixar_home).map(o=>{
-        const c=catById(o.categoria_id); if(!c) return null;
-        const g=gastoCategoriaMes(o.categoria_id,viewMonth), lm=Number(o.limite)||0;
-        return {nome:c.nome, icone:c.icone||'🏷️', g, lm, pct:orcPct(g,lm)};
+        const rt=orcRotulo(o); if(!rt) return null;
+        const g=gastoOrc(o,viewMonth), lm=Number(o.limite)||0;
+        return {nome:rt.nome, icone:rt.ico, g, lm, pct:orcPct(g,lm)};
       }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
       const _quem = source==='eu' ? '' : (source==='casal' ? ' · Casal' : ' · '+esc(apelidoDe(source)));
       blocos.orcamento=`<div class="card hero" onclick="go('planejamento')" style="margin-bottom:0;cursor:pointer">
@@ -4673,8 +4674,13 @@ function renderPlanejamento(){
   html+=monthNav('trans');
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
   const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am && srcOk(o.user_id));
-  const totalLim=orcs.reduce((a,o)=>a+Number(o.limite||0),0);
-  let totalGasto=0; orcs.forEach(o=>totalGasto+=gastoCategoriaMes(o.categoria_id,viewMonth));
+  const _orcTotal=orcs.find(o=>o.alvo==='total');
+  let totalLim, totalGasto;
+  if(_orcTotal){ totalLim=Number(_orcTotal.limite)||0; totalGasto=gastoOrc(_orcTotal,viewMonth); }
+  else{
+    totalLim=orcs.reduce((a,o)=>a+Number(o.limite||0),0);
+    totalGasto=0; orcs.forEach(o=>totalGasto+=gastoOrc(o,viewMonth));
+  }
   const _pctT=orcPct(totalGasto,totalLim);
   html+=`<div class="card hero"><div class="lab">Orçamento de ${mesNome(viewMonth)}</div>
     <div class="big" style="font-size:26px">${brl(totalGasto)} <span style="font-size:15px;opacity:.7">/ ${brl(totalLim)}</span></div>
@@ -4684,16 +4690,16 @@ function renderPlanejamento(){
   if(!orcs.length){
     html+=`<div class="empty"><div class="ico">🎯</div><p>Defina quanto pode gastar em cada categoria neste mês.</p></div>`;
   }else{
-    orcs.sort((a,b)=>orcPct(gastoCategoriaMes(b.categoria_id,viewMonth),Number(b.limite)||0)-orcPct(gastoCategoriaMes(a.categoria_id,viewMonth),Number(a.limite)||0));
+    orcs.sort((a,b)=>orcPct(gastoOrc(b,viewMonth),Number(b.limite)||0)-orcPct(gastoOrc(a,viewMonth),Number(a.limite)||0));
     orcs.forEach(o=>{
-      const cat=catById(o.categoria_id); if(!cat) return;
-      const g=gastoCategoriaMes(o.categoria_id,viewMonth), lim=Number(o.limite)||0;
+      const rot=orcRotulo(o); if(!rot) return;
+      const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
       const pct=orcPct(g,lim); const cor=orcCor(pct,false);
       const dono = o.user_id!==USER.id ? ` <span style="opacity:.5;font-size:.82em">· ${esc(apelidoDe(o.user_id))}</span>` : '';
       html+=`<div class="lrow" style="display:block;cursor:pointer" onclick="openOrcamento('${o.id}')">
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="dot">${cat.icone||'🏷️'}</div>
-          <div class="mid"><div class="t">${o.fixar_home?'📌 ':''}${esc(cat.nome)}${dono}</div>
+          <div class="dot">${rot.ico}</div>
+          <div class="mid"><div class="t">${o.fixar_home?'📌 ':''}${esc(rot.nome)}${dono}</div>
             <div class="s" style="color:${cor}">${brl(g)} de ${brl(lim)} · ${orcFaltaTxt(g,lim)}</div></div>
           <div class="amt" style="color:${cor}">${Math.round(pct)}%</div>
         </div>
@@ -4707,13 +4713,19 @@ function renderPlanejamento(){
 function openOrcamento(id){
   const e=id?DATA.orcamentos.find(o=>o.id===id):null;
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
-  const usadas=new Set(DATA.orcamentos.filter(o=>o.user_id===USER.id && o.ano_mes===am && (!e||o.id!==e.id)).map(o=>o.categoria_id));
-  const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo==='despesa' && (!usadas.has(c.id)||(e&&e.categoria_id===c.id)));
+  const meus=DATA.orcamentos.filter(o=>o.user_id===USER.id && o.ano_mes===am && (!e||o.id!==e.id));
+  const usadas=new Set(meus.map(o=>orcChave(o)));
+  const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo==='despesa' && (!usadas.has('cat:'+c.id)||(e&&e.categoria_id===c.id)));
+  const alvos=orcAlvos().filter(a=>!usadas.has('alvo:'+a.k)||(e&&e.alvo===a.k));
+  const val=e?((e.alvo&&e.alvo!=='categoria')?('alvo:'+e.alvo):('cat:'+e.categoria_id)):'';
   openSheet(`
     <h2>${id?'Editar':'Definir'} orçamento</h2>
     <div class="note">Mês: ${mesNome(viewMonth)}</div>
-    <div class="field" style="margin-top:10px"><label>Categoria</label>
-      <select id="oCat" ${id?'disabled':''}>${cats.map(c=>`<option value="${c.id}" ${e&&e.categoria_id===c.id?'selected':''}>${c.icone||''} ${esc(c.nome)}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:10px"><label>O que você quer limitar</label>
+      <select id="oCat" ${id?'disabled':''}>
+        ${alvos.length?`<optgroup label="Totais da tela inicial">${alvos.map(a=>`<option value="alvo:${a.k}" ${val==='alvo:'+a.k?'selected':''}>${a.ico} ${esc(a.nome)}</option>`).join('')}</optgroup>`:''}
+        <optgroup label="Categorias">${cats.map(c=>`<option value="cat:${c.id}" ${val==='cat:'+c.id?'selected':''}>${c.icone||''} ${esc(c.nome)}</option>`).join('')}</optgroup>
+      </select></div>
     <div class="field"><label>Limite do mês (R$)</label><input id="oLim" type="number" inputmode="decimal" step="0.01" value="${e?e.limite:''}" placeholder="0,00"></div>
     <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:4px 0 10px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
@@ -4741,23 +4753,29 @@ async function saveOrcamento(id){
   const base=firstOfMonth(viewMonth);
   const am=ymd(base).slice(0,7);
   const e=id?DATA.orcamentos.find(o=>o.id===id):null;
-  const catId=id?(e?e.categoria_id:null):$('oCat').value;
-  if(!catId){flashErr('Selecione uma categoria','oCat');return;}
+  let catId=null, alvo='categoria';
+  if(id&&e){ alvo=e.alvo||'categoria'; catId=e.categoria_id||null; }
+  else{
+    const v=$('oCat').value||'';
+    if(!v){flashErr('Selecione o que limitar','oCat');return;}
+    if(v.startsWith('alvo:')){ alvo=v.slice(5); catId=null; }
+    else{ alvo='categoria'; catId=v.slice(4); }
+  }
   const fixar=$('oHome')?!!$('oHome').checked:false;
   const rep=$('oRep')&&$('oRep').checked;
   let nRep=0;
   if(rep){ nRep=parseInt($('oRepN').value||'12',10); if(!(nRep>=1)) nRep=12; nRep=Math.min(60,nRep); }
   let r;
   if(id){ r=await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',id); }
-  else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar}]); }
+  else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar,alvo:alvo}]); }
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   let nOk=0;
   for(let i=1;i<=nRep;i++){
     const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     const ym=ymd(d).slice(0,7);
-    const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.categoria_id===catId && o.ano_mes===ym);
+    const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.ano_mes===ym && orcChave(o)===(alvo==='categoria'?('cat:'+catId):('alvo:'+alvo)));
     const rr = ex ? await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',ex.id)
-                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:lim,fixar_home:fixar}]);
+                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:lim,fixar_home:fixar,alvo:alvo}]);
     if(!(rr&&rr.error)) nOk++;
   }
   closeSheet();
@@ -4807,6 +4825,38 @@ function barraOrc(g,lim,hero,alt){
   return `<div class="prog" style="margin-top:8px;height:${h}px;border-radius:${h}px;overflow:hidden;${hero?'background:rgba(255,255,255,.18)':'background:var(--line)'}">
     <div class="progfill" style="width:${w}%;height:100%;border-radius:${h}px;background:${orcCor(pct,hero)};transition:width .45s ease"></div></div>`;
 }
+// ===== ALVOS DE ORÇAMENTO — além das categorias, dá pra orçar agregados da tela inicial =====
+function nomeConjuge(){ return MYPARTNERS.length===1?MYPARTNERS[0].apelido:'cônjuge'; }
+function orcAlvos(){
+  const a=[
+    {k:'total',   ico:'📊', nome:'Total de gastos do mês'},
+    {k:'contas',  ico:'🧾', nome:'Contas do mês'},
+    {k:'cartao',  ico:'💳', nome:'Gastos no cartão'}
+  ];
+  if(MYPARTNERS.length>0) a.push({k:'conjuge', ico:'💜', nome:'Despesas de '+nomeConjuge()});
+  return a;
+}
+function orcAlvoInfo(k){ return orcAlvos().find(a=>a.k===k)||null; }
+// gasto do mês conforme o alvo do orçamento
+function gastoOrc(o,d){
+  const alvo=o.alvo||'categoria';
+  if(alvo==='categoria') return gastoCategoriaMes(o.categoria_id,d);
+  const s=saidasMes(d);
+  const contas=(s.pagas||0)+(s.aPagar||0);
+  if(alvo==='contas')  return contas;
+  if(alvo==='cartao')  return gastoCartaoMes(d);
+  if(alvo==='conjuge') return s.conjuge||0;
+  if(alvo==='total')   return contas+gastoCartaoMes(d)+(s.conjuge||0);
+  return 0;
+}
+function orcRotulo(o){
+  const alvo=o.alvo||'categoria';
+  if(alvo!=='categoria'){ const a=orcAlvoInfo(alvo); return a?{ico:a.ico,nome:a.nome}:{ico:'🎯',nome:'Orçamento'}; }
+  const c=catById(o.categoria_id);
+  return c?{ico:c.icone||'🏷️',nome:c.nome}:null;
+}
+// chave única por mês (impede dois orçamentos do mesmo alvo/categoria)
+function orcChave(o){ return (o.alvo||'categoria')==='categoria'?('cat:'+o.categoria_id):('alvo:'+o.alvo); }
 
 // ============ INVESTIMENTOS ============
 function renderInvestimentos(){

@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.53"; /* z4 */
+const APP_VER = "8.54"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3266,6 +3266,7 @@ function renderHome(){
         <div class="big" style="font-size:32px;margin:2px 0 0;color:${_c}">${brl(Math.abs(_falta))}</div>
         <div style="font-size:13.5px;opacity:.85;margin-top:4px">${_ic} ${_falta>=0?'falta para atingir a meta de orçamento':'acima da meta de orçamento'}</div>
         ${barraOrc(_g,_lm,true,10)}
+        <div style="margin-top:7px;font-size:11px;letter-spacing:.2px;color:rgba(255,255,255,.5)">meta do mês · ${brl(_lm)}</div>
       </div>`;
     }catch(e){ blocos.limitecombinado=''; }
   })();

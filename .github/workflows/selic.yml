@@ -1,0 +1,71 @@
+name: Selic diaria
+
+on:
+  schedule:
+    - cron: '20 11 * * 1-5'   # 08:20 no horario de Brasilia, dias uteis
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  atualiza:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Buscar Selic no Banco Central
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, datetime, os
+
+          BASE = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{}/dados/ultimos/1?formato=json"
+
+          def pega(serie):
+              try:
+                  req = urllib.request.Request(BASE.format(serie), headers={'User-Agent':'gestor-financeiro'})
+                  with urllib.request.urlopen(req, timeout=25) as r:
+                      d = json.load(r)
+                  if d:
+                      return d[-1]
+              except Exception as e:
+                  print("falhou serie", serie, e)
+              return None
+
+          # 432 = meta Selic (% a.a.) | 11 = Selic efetiva diaria (% ao dia)
+          meta = pega(432)
+          dia  = pega(11)
+
+          try:
+              antigo = json.load(open('selic.json'))
+          except Exception:
+              antigo = {}
+
+          out = dict(antigo)
+          if meta:
+              out['meta_aa'] = float(str(meta['valor']).replace(',', '.'))
+              out['data_meta'] = meta['data']
+          if dia:
+              out['efetiva_ad'] = float(str(dia['valor']).replace(',', '.'))
+              out['data_efetiva'] = dia['data']
+          out['atualizado_em'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+
+          if 'meta_aa' not in out:
+              print("nada novo e sem valor anterior — nao grava")
+              raise SystemExit(0)
+
+          json.dump(out, open('selic.json', 'w'), ensure_ascii=False)
+          print(json.dumps(out, ensure_ascii=False))
+          PY
+
+      - name: Commit se mudou
+        run: |
+          if git diff --quiet -- selic.json; then
+            echo "sem mudanca"
+          else
+            git config user.name  "selic-bot"
+            git config user.email "selic-bot@users.noreply.github.com"
+            git add selic.json
+            git commit -m "selic: atualizacao automatica"
+            git push
+          fi

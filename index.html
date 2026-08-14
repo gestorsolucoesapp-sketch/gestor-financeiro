@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.57"; /* z4 */
+const APP_VER = "8.58"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2347,8 +2347,22 @@ function mesesDesde(dataStr){
   if(b.getDate()<a.getDate()) m-=1;
   return Math.max(0,m);
 }
+// taxa mensal efetiva do investimento: fixa (% ao mês) ou atrelada ao CDI/Selic
+function taxaInvestMes(inv){
+  const t=Number(inv.taxa_mensal)||0;
+  const idx=inv.indexador||'mensal';
+  if(idx==='cdi'||idx==='selic') return taxaMensalDe(t,idx)*100;   // t = % do índice
+  return t;                                                        // t = % ao mês
+}
+function taxaInvestLabel(inv){
+  const t=Number(inv.taxa_mensal)||0;
+  const idx=inv.indexador||'mensal';
+  if(idx==='cdi')   return t+'% do CDI';
+  if(idx==='selic') return t+'% da Selic';
+  return String(t).replace('.',',')+'%/mês';
+}
 function valorAtualInvest(inv){
-  const taxa=Number(inv.taxa_mensal)||0;
+  const taxa=taxaInvestMes(inv);
   if(!inv.data_aplicacao) return Number(inv.valor_aplicado||0);
   const a=new Date(inv.data_aplicacao+'T00:00:00'), b=new Date();
   const dias=Math.max(0,(b-a)/86400000);
@@ -5243,7 +5257,7 @@ function renderInvestimentos(){
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">
         <div class="dot" style="background:#e9f3f1">${ic}</div>
         <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio===false?'<span class="pill neg">fora do patrimônio</span>':''}</div>
-          <div class="s">${tx>0?tx.toString().replace('.',',')+'%/mês · ':''}rend ${r>=0?'+':''}${brl(r)}</div></div>
+          <div class="s">${tx>0?taxaInvestLabel(i)+' · ':''}rend ${r>=0?'+':''}${brl(r)}</div></div>
         <div class="amt g">${brl(atual)}</div></div>`;
     });
   }
@@ -5266,7 +5280,15 @@ function openInvest(id){
       </div></div>
     <div class="row2">
       <div class="field"><label>Valor aplicado (R$)</label><input id="iValor" type="number" inputmode="decimal" step="0.01" value="${e.valor_aplicado!=null?e.valor_aplicado:''}" placeholder="0,00"></div>
-      <div class="field"><label>Taxa por mês (%)</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder=""></div>
+      <div class="field"><label id="iTaxaLab">${(e.indexador==='cdi'||e.indexador==='selic')?'% do índice':'Taxa por mês (%)'}</label><input id="iTaxa" type="number" inputmode="decimal" step="0.01" value="${e.taxa_mensal!=null?e.taxa_mensal:''}" placeholder=""></div>
+    </div>
+    <div class="field"><label>Como rende</label>
+      <select id="iIdx" onchange="setInvIdxLabel()">
+        <option value="mensal" ${(!e.indexador||e.indexador==='mensal')?'selected':''}>Taxa fixa por mês</option>
+        <option value="cdi" ${e.indexador==='cdi'?'selected':''}>% do CDI${cdiAA()?` (${cdiAA().toFixed(2).replace('.',',')}% a.a.)`:''}</option>
+        <option value="selic" ${e.indexador==='selic'?'selected':''}>% da Selic${SELIC.meta_aa?` (${String(SELIC.meta_aa).replace('.',',')}% a.a.)`:''}</option>
+      </select>
+      <div id="iIdxNota" class="note" style="margin-top:5px"></div>
     </div>
     <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
     
@@ -5283,12 +5305,28 @@ function openInvest(id){
 function setInvTipo(t){window._invTipo=t;[['iT0','poupanca'],['iT1','renda_fixa'],['iT2','outro']].forEach(([bid,tt])=>$(bid)&&$(bid).classList.toggle('on',tt===t));
   if(t==='poupanca' && $('iTaxa') && !$('iTaxa').value) $('iTaxa').value='0.5';
 }
+function setInvIdxLabel(){
+  const s=$('iIdx'), lab=$('iTaxaLab'), nota=$('iIdxNota'), inp=$('iTaxa');
+  if(!s) return;
+  const idx=s.value;
+  if(lab) lab.textContent = idx==='mensal' ? 'Taxa por mês (%)' : '% do índice';
+  if(inp && idx!=='mensal' && !inp.value) inp.value=100;
+  if(nota){
+    if(idx==='mensal'){ nota.textContent='Ex.: 0,9 significa 0,9% ao mês.'; }
+    else{
+      const t=parseFloat(inp&&inp.value)||100;
+      const mm=taxaMensalDe(t,idx)*100;
+      nota.innerHTML=`Ex.: <b>104</b> = 104% do índice. Hoje isso dá <b>${mm.toFixed(4).replace('.',',')}% ao mês</b>.`;
+    }
+  }
+}
 async function saveInvest(id){
   const nome=$('iNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const valor=parseFloat($('iValor').value)||0;
   const taxa=parseFloat($('iTaxa').value)||0;
   const data=$('iData').value||ymd(new Date());
-  const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false};
+  const idx=($('iIdx')&&$('iIdx').value)||'mensal';
+  const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false,indexador:idx};
   const r = id ? await dbUpdate('investimentos',row,'id',id) : await dbInsert('investimentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();

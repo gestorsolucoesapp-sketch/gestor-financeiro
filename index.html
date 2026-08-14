@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.45"; /* z4 */
+const APP_VER = "8.46"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2311,15 +2311,15 @@ function checarOrcamentos(){
         .reduce((a,l)=>a+Number(l.valor||0),0);
       const pct=gasto/Number(o.limite)*100;
       const cat=catById(o.categoria_id); const nome=cat?cat.nome:'categoria';
-      for(const nivel of [100,80]){
+      for(const nivel of [ORC_VERMELHO,ORC_LARANJA]){
         if(pct>=nivel){
           const k='gf_orc_'+o.categoria_id+'_'+am+'_'+nivel;
           if(localStorage.getItem(k)!=='1'){
             localStorage.setItem(k,'1');
-            vibra(nivel===100?70:40);
-            toast(nivel===100
+            vibra(nivel===ORC_VERMELHO?70:40);
+            toast(gasto>=Number(o.limite)
               ? '🚨 Orçamento de '+nome+' estourou: '+brl(gasto)+' de '+brl(Number(o.limite))
-              : '⚠️ '+nome+' já usou '+Math.round(pct)+'% do orçamento do mês');
+              : '⚠️ '+nome+': '+Math.round(pct)+'% usado · falta '+brl(Number(o.limite)-gasto)+' para o limite');
           }
           break; // avisa só o nível mais alto atingido
         }
@@ -3209,6 +3209,49 @@ function renderHome(){
   })();
   if(_alertaHtml) blocos.alerta=_alertaHtml;
 
+  // bloco: ORÇAMENTO DO MÊS (acima do saldo) — barra total + categorias fixadas (📌)
+  (()=>{
+    try{
+      const _amO=ymd(firstOfMonth(viewMonth)).slice(0,7);
+      const _orcs=DATA.orcamentos.filter(o=>o.ano_mes===_amO && srcOk(o.user_id) && Number(o.limite)>0);
+      if(!_orcs.length){ blocos.orcamento=''; return; }
+      const _lim=_orcs.reduce((a,o)=>a+Number(o.limite||0),0);
+      let _gas=0; _orcs.forEach(o=>_gas+=gastoCategoriaMes(o.categoria_id,viewMonth));
+      const _pct=orcPct(_gas,_lim);
+      const _cor=orcCor(_pct,true);
+      const _emoji=_pct>=ORC_VERMELHO?'🚨':(_pct>=ORC_LARANJA?'⚠️':'✅');
+      const _fix=_orcs.filter(o=>o.fixar_home).map(o=>{
+        const c=catById(o.categoria_id); if(!c) return null;
+        const g=gastoCategoriaMes(o.categoria_id,viewMonth), lm=Number(o.limite)||0;
+        return {nome:c.nome, icone:c.icone||'🏷️', g, lm, pct:orcPct(g,lm)};
+      }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
+      const _quem = source==='eu' ? '' : (source==='casal' ? ' · Casal' : ' · '+esc(apelidoDe(source)));
+      blocos.orcamento=`<div class="card hero" onclick="go('planejamento')" style="margin-bottom:0;cursor:pointer">
+        <div class="lab">Orçamento de ${mesNome(viewMonth)}${_quem}</div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <div class="big" style="font-size:24px;margin:0">${brl(_gas)}</div>
+          <div style="font-size:14px;opacity:.75">de ${brl(_lim)}</div>
+          <div style="margin-left:auto;font-weight:800;font-size:15px;color:${_cor}">${Math.round(_pct)}%</div>
+        </div>
+        ${barraOrc(_gas,_lim,true,12)}
+        <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_cor};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
+          ${_emoji} <b style="color:${_cor}">${orcFaltaTxt(_gas,_lim).replace(/^./,m=>m.toUpperCase())}</b>
+        </div>
+        ${_fix.length?`<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+          ${_fix.map(f=>`<div>
+            <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
+              <span>${f.icone}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.nome)}</span>
+              <span style="opacity:.8">${brl(f.g)} / ${brl(f.lm)}</span>
+              <b style="color:${orcCor(f.pct,true)}">${Math.round(f.pct)}%</b>
+            </div>
+            ${barraOrc(f.g,f.lm,true,7)}
+            <div class="note" style="color:rgba(255,255,255,.7);font-size:11px;margin-top:3px">${orcFaltaTxt(f.g,f.lm)}</div>
+          </div>`).join('')}
+        </div>`:''}
+      </div>`;
+    }catch(e){ blocos.orcamento=''; }
+  })();
+
   // bloco: saldo (hero)
   const _mesAntView=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1);
   const _hojeMA=new Date();
@@ -3325,7 +3368,7 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','saldo','projecao','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','orcamento','saldo','projecao','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos));
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
@@ -4629,28 +4672,32 @@ function renderPlanejamento(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Planejamento</b><span></span></div>`;
   html+=monthNav('trans');
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
-  const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am);
+  const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am && srcOk(o.user_id));
   const totalLim=orcs.reduce((a,o)=>a+Number(o.limite||0),0);
   let totalGasto=0; orcs.forEach(o=>totalGasto+=gastoCategoriaMes(o.categoria_id,viewMonth));
+  const _pctT=orcPct(totalGasto,totalLim);
   html+=`<div class="card hero"><div class="lab">Orçamento de ${mesNome(viewMonth)}</div>
     <div class="big" style="font-size:26px">${brl(totalGasto)} <span style="font-size:15px;opacity:.7">/ ${brl(totalLim)}</span></div>
-    ${barProg(totalGasto,totalLim,'#fff')}</div>`;
+    ${barraOrc(totalGasto,totalLim,true,12)}
+    ${totalLim>0?`<div class="note" style="color:rgba(255,255,255,.85);margin-top:8px">${Math.round(_pctT)}% usado · <b>${orcFaltaTxt(totalGasto,totalLim)}</b></div>`:''}</div>`;
   html+=`<div class="card">`;
   if(!orcs.length){
     html+=`<div class="empty"><div class="ico">🎯</div><p>Defina quanto pode gastar em cada categoria neste mês.</p></div>`;
   }else{
-    orcs.sort((a,b)=>gastoCategoriaMes(b.categoria_id,viewMonth)-gastoCategoriaMes(a.categoria_id,viewMonth));
+    orcs.sort((a,b)=>orcPct(gastoCategoriaMes(b.categoria_id,viewMonth),Number(b.limite)||0)-orcPct(gastoCategoriaMes(a.categoria_id,viewMonth),Number(a.limite)||0));
     orcs.forEach(o=>{
       const cat=catById(o.categoria_id); if(!cat) return;
       const g=gastoCategoriaMes(o.categoria_id,viewMonth), lim=Number(o.limite)||0;
-      const pct=lim?Math.min(100,g/lim*100):0; const over=g>lim;
+      const pct=orcPct(g,lim); const cor=orcCor(pct,false);
+      const dono = o.user_id!==USER.id ? ` <span style="opacity:.5;font-size:.82em">· ${esc(apelidoDe(o.user_id))}</span>` : '';
       html+=`<div class="lrow" style="display:block;cursor:pointer" onclick="openOrcamento('${o.id}')">
         <div style="display:flex;align-items:center;gap:10px">
           <div class="dot">${cat.icone||'🏷️'}</div>
-          <div class="mid"><div class="t">${esc(cat.nome)}</div><div class="s ${over?'danger':''}">${brl(g)} de ${brl(lim)}${over?' · estourou!':''}</div></div>
-          <div class="amt ${over?'r':''}">${lim?Math.round(g/lim*100):0}%</div>
+          <div class="mid"><div class="t">${o.fixar_home?'📌 ':''}${esc(cat.nome)}${dono}</div>
+            <div class="s" style="color:${cor}">${brl(g)} de ${brl(lim)} · ${orcFaltaTxt(g,lim)}</div></div>
+          <div class="amt" style="color:${cor}">${Math.round(pct)}%</div>
         </div>
-        <div class="prog" style="margin-top:8px"><div class="progfill" style="width:${pct}%;background:${over?'var(--red)':'var(--mint)'}"></div></div>
+        ${barraOrc(g,lim,false)}
       </div>`;
     });
   }
@@ -4660,7 +4707,7 @@ function renderPlanejamento(){
 function openOrcamento(id){
   const e=id?DATA.orcamentos.find(o=>o.id===id):null;
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
-  const usadas=new Set(DATA.orcamentos.filter(o=>o.ano_mes===am && (!e||o.id!==e.id)).map(o=>o.categoria_id));
+  const usadas=new Set(DATA.orcamentos.filter(o=>o.user_id===USER.id && o.ano_mes===am && (!e||o.id!==e.id)).map(o=>o.categoria_id));
   const cats=DATA.categorias.filter(c=>c.user_id===USER.id && c.tipo==='despesa' && (!usadas.has(c.id)||(e&&e.categoria_id===c.id)));
   openSheet(`
     <h2>${id?'Editar':'Definir'} orçamento</h2>
@@ -4668,6 +4715,22 @@ function openOrcamento(id){
     <div class="field" style="margin-top:10px"><label>Categoria</label>
       <select id="oCat" ${id?'disabled':''}>${cats.map(c=>`<option value="${c.id}" ${e&&e.categoria_id===c.id?'selected':''}>${c.icone||''} ${esc(c.nome)}</option>`).join('')}</select></div>
     <div class="field"><label>Limite do mês (R$)</label><input id="oLim" type="number" inputmode="decimal" step="0.01" value="${e?e.limite:''}" placeholder="0,00"></div>
+    <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:4px 0 10px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+        <input id="oRep" type="checkbox" style="width:20px;height:20px;flex-shrink:0" onchange="document.getElementById('oRepBox').style.display=this.checked?'block':'none'">
+        <span>Repetir este limite nos próximos meses</span></label>
+      <div id="oRepBox" style="display:none;margin-top:10px">
+        <label style="font-size:12.5px;color:var(--muted)">Quantos meses à frente</label>
+        <input id="oRepN" type="number" inputmode="numeric" min="1" max="60" step="1" value="12" style="font-size:16px">
+        <div class="note" style="margin-top:6px">Aplica a partir de ${mesNome(viewMonth)}. Depois você pode abrir um mês específico e mudar só ele.</div>
+      </div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:0 0 12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+        <input id="oHome" type="checkbox" ${e&&e.fixar_home?'checked':''} style="width:20px;height:20px;flex-shrink:0">
+        <span>Mostrar na tela inicial 📌</span></label>
+      <div class="note" style="margin-top:6px">Aparece com barra própria no card de orçamento, acima do saldo.</div>
+    </div>
     <button class="btn" onclick="saveOrcamento(${id?`'${id}'`:'null'})">${id?'Salvar':'Definir'}</button>
     ${id?`<button class="btn ghost" onclick="delOrcamento('${id}')"><span class="danger">Remover orçamento</span></button>`:''}
   `);
@@ -4675,17 +4738,32 @@ function openOrcamento(id){
 async function saveOrcamento(id){
   const lim=parseFloat($('oLim').value);
   if(!(lim>0)){toast('Informe um limite válido');return;}
-  const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
+  const base=firstOfMonth(viewMonth);
+  const am=ymd(base).slice(0,7);
+  const e=id?DATA.orcamentos.find(o=>o.id===id):null;
+  const catId=id?(e?e.categoria_id:null):$('oCat').value;
+  if(!catId){flashErr('Selecione uma categoria','oCat');return;}
+  const fixar=$('oHome')?!!$('oHome').checked:false;
+  const rep=$('oRep')&&$('oRep').checked;
+  let nRep=0;
+  if(rep){ nRep=parseInt($('oRepN').value||'12',10); if(!(nRep>=1)) nRep=12; nRep=Math.min(60,nRep); }
   let r;
-  if(id){ r=await dbUpdate('orcamentos',{limite:lim},'id',id); }
-  else{
-    const catId=$('oCat').value; if(!catId){flashErr('Selecione uma categoria','oCat');return;}
-    r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim}]);
-  }
+  if(id){ r=await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',id); }
+  else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar}]); }
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  let nOk=0;
+  for(let i=1;i<=nRep;i++){
+    const d=new Date(base.getFullYear(),base.getMonth()+i,1);
+    const ym=ymd(d).slice(0,7);
+    const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.categoria_id===catId && o.ano_mes===ym);
+    const rr = ex ? await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',ex.id)
+                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:lim,fixar_home:fixar}]);
+    if(!(rr&&rr.error)) nOk++;
+  }
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':'Orçamento salvo'); render();
+  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':(nOk?`Orçamento salvo e repetido em ${nOk} ${nOk===1?'mês':'meses'}`:'Orçamento salvo'));
+  render();
 }
 async function delOrcamento(id){
   if(!confirm('Remover este orçamento?'))return;
@@ -4705,6 +4783,29 @@ function barRecDesp(rec,desp){
 function barProg(g,lim,bg){
   const pct=lim?Math.min(100,g/lim*100):0; const over=g>lim;
   return `<div class="prog" style="margin-top:12px;background:rgba(255,255,255,.18)"><div class="progfill" style="width:${pct}%;background:${over?'#ffb4a8':'#a8f0c8'}"></div></div>`;
+}
+
+// ===== ORÇAMENTO — barra horizontal em 3 níveis (verde < 70% · laranja 70–89% · vermelho ≥ 90%) =====
+const ORC_LARANJA=70, ORC_VERMELHO=90;
+function orcPct(g,lim){ return lim>0?(g/lim*100):0; }
+function orcCor(pct,hero){
+  if(pct>=ORC_VERMELHO) return hero?'#ff9b8a':'var(--red)';
+  if(pct>=ORC_LARANJA)  return hero?'#ffcf7a':'#e0a020';
+  return hero?'#a8f0c8':'var(--green)';
+}
+// mensagem "quanto falta para o limite"
+function orcFaltaTxt(g,lim){
+  const falta=lim-g;
+  if(falta>0) return 'falta '+brl(falta)+' para o limite';
+  if(falta===0) return 'limite atingido';
+  return 'passou '+brl(-falta)+' do limite';
+}
+function barraOrc(g,lim,hero,alt){
+  const pct=orcPct(g,lim);
+  const w=Math.min(100,Math.max(pct>0?2:0,pct));
+  const h=alt||9;
+  return `<div class="prog" style="margin-top:8px;height:${h}px;border-radius:${h}px;overflow:hidden;${hero?'background:rgba(255,255,255,.18)':'background:var(--line)'}">
+    <div class="progfill" style="width:${w}%;height:100%;border-radius:${h}px;background:${orcCor(pct,hero)};transition:width .45s ease"></div></div>`;
 }
 
 // ============ INVESTIMENTOS ============

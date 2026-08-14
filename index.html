@@ -591,7 +591,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.50"; /* z4 */
+const APP_VER = "8.51"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4809,8 +4809,18 @@ function openOrcamento(id){
         <span>Repetir este limite nos próximos meses</span></label>
       <div id="oRepBox" style="display:none;margin-top:10px">
         <label style="font-size:12.5px;color:var(--muted)">Quantos meses à frente</label>
-        <input id="oRepN" type="number" inputmode="numeric" min="1" max="60" step="1" value="12" style="font-size:16px">
-        <div class="note" style="margin-top:6px">Aplica a partir de ${mesNome(viewMonth)}. Depois você pode abrir um mês específico e mudar só ele.</div>
+        <input id="oRepN" type="number" inputmode="numeric" min="1" max="60" step="1" value="12" style="font-size:16px" oninput="previewEscada()">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <div style="flex:1">
+            <label style="font-size:12.5px;color:var(--muted)">Reduzir por mês (%)</label>
+            <input id="oRepPct" type="number" inputmode="decimal" min="0" max="50" step="0.5" value="0" placeholder="0" style="font-size:16px" oninput="previewEscada()">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:12.5px;color:var(--muted)">Não baixar de (R$)</label>
+            <input id="oRepPiso" type="number" inputmode="decimal" step="0.01" placeholder="sem piso" style="font-size:16px" oninput="previewEscada()">
+          </div>
+        </div>
+        <div id="oPrev" class="note" style="margin-top:8px">Aplica a partir de ${mesNome(viewMonth)}. Depois você pode abrir um mês específico e mudar só ele.</div>
       </div>
     </div>
     <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:0 0 12px">
@@ -4822,6 +4832,42 @@ function openOrcamento(id){
     <button class="btn" onclick="saveOrcamento(${id?`'${id}'`:'null'})">${id?'Salvar':'Definir'}</button>
     ${id?`<button class="btn ghost" onclick="delOrcamento('${id}')"><span class="danger">Remover orçamento</span></button>`:''}
   `);
+}
+// escada: o limite cai X% a cada mês, nunca abaixo do piso
+function escadaLimite(base,pct,piso,i){
+  let v=base*Math.pow(1-(pct/100),i);
+  if(piso!=null && v<piso) v=piso;
+  return Math.round(v*100)/100;
+}
+function lerEscada(){
+  const lim=parseFloat(($('oLim')||{}).value)||0;
+  let n=parseInt(($('oRepN')||{}).value||'0',10); if(!(n>=1)) n=0; n=Math.min(60,n);
+  let pct=parseFloat(($('oRepPct')||{}).value); if(!(pct>0)) pct=0; pct=Math.min(50,pct);
+  const pisoRaw=parseFloat(($('oRepPiso')||{}).value);
+  const piso=(pisoRaw>0)?pisoRaw:null;
+  return {lim,n,pct,piso};
+}
+function previewEscada(){
+  const el=$('oPrev'); if(!el) return;
+  const {lim,n,pct,piso}=lerEscada();
+  if(!(lim>0)||!n){ el.textContent='Aplica a partir do mês aberto. Depois você pode abrir um mês específico e mudar só ele.'; return; }
+  if(!pct){ el.innerHTML=`Mesmo limite de <b>${brl(lim)}</b> nos próximos <b>${n}</b> ${n===1?'mês':'meses'}.`; return; }
+  const base=firstOfMonth(viewMonth);
+  const partes=[];
+  for(let i=0;i<=Math.min(n,3);i++){
+    const d=new Date(base.getFullYear(),base.getMonth()+i,1);
+    partes.push(`${d.toLocaleDateString('pt-BR',{month:'short'})} ${brl(escadaLimite(lim,pct,piso,i))}`);
+  }
+  const fim=escadaLimite(lim,pct,piso,n);
+  const dFim=new Date(base.getFullYear(),base.getMonth()+n,1);
+  let extra='';
+  if(piso!=null){
+    let iPiso=null;
+    for(let i=0;i<=n;i++){ if(escadaLimite(lim,pct,piso,i)<=piso){ iPiso=i; break; } }
+    if(iPiso!=null){ const dp=new Date(base.getFullYear(),base.getMonth()+iPiso,1);
+      extra=` · trava no piso de <b>${brl(piso)}</b> em <b>${dp.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}</b>`; }
+  }
+  el.innerHTML=`${partes.join(' → ')}${n>3?' → …':''} → <b>${dFim.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})} ${brl(fim)}</b>${extra}`;
 }
 async function saveOrcamento(id){
   const lim=parseFloat($('oLim').value);
@@ -4838,8 +4884,9 @@ async function saveOrcamento(id){
   else{ flashErr('Selecione o que limitar','oCat'); return; }
   const fixar=$('oHome')?!!$('oHome').checked:false;
   const rep=$('oRep')&&$('oRep').checked;
-  let nRep=0;
-  if(rep){ nRep=parseInt($('oRepN').value||'12',10); if(!(nRep>=1)) nRep=12; nRep=Math.min(60,nRep); }
+  const esc_=lerEscada();
+  let nRep=0, escPct=0, escPiso=null;
+  if(rep){ nRep=esc_.n||12; escPct=esc_.pct; escPiso=esc_.piso; }
   let r;
   if(id){ r=await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',id); }
   else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar,alvo:alvo}]); }
@@ -4849,13 +4896,14 @@ async function saveOrcamento(id){
     const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     const ym=ymd(d).slice(0,7);
     const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.ano_mes===ym && orcChave(o)===(alvo==='categoria'?('cat:'+catId):('alvo:'+alvo)));
-    const rr = ex ? await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',ex.id)
-                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:lim,fixar_home:fixar,alvo:alvo}]);
+    const limI = escPct>0 ? escadaLimite(lim,escPct,escPiso,i) : lim;
+    const rr = ex ? await dbUpdate('orcamentos',{limite:limI,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',ex.id)
+                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:limI,fixar_home:fixar,alvo:alvo}]);
     if(!(rr&&rr.error)) nOk++;
   }
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':(nOk?`Orçamento salvo e repetido em ${nOk} ${nOk===1?'mês':'meses'}`:'Orçamento salvo'));
+  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':(nOk?`Orçamento salvo · ${nOk} ${nOk===1?'mês':'meses'} à frente${escPct>0?` com −${escPct}% ao mês`:''}`:'Orçamento salvo'));
   render();
 }
 async function delOrcamento(id){

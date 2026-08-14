@@ -432,15 +432,13 @@ body.scrolling .fab{opacity:.25}
 .savepass-row input{width:18px;height:18px}
 
 /* balão de orçamento — aparece após lançar despesa, sem bloquear a tela */
-#orcBalao{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:9600;
-  background:rgba(30,20,55,.97);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:12px 14px;
-  box-shadow:0 12px 34px rgba(0,0,0,.45);color:#fff;opacity:0;transform:translateY(14px);pointer-events:none;
-  transition:opacity .28s ease,transform .28s ease;max-width:520px;margin:0 auto}
-#orcBalao.show{opacity:1;transform:translateY(0)}
-#orcBalao .ob-top{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
-#orcBalao .ob-sub{font-size:12px;opacity:.8;margin-top:3px}
-#orcBalao .ob-bar{margin-top:9px;height:8px;border-radius:8px;background:rgba(255,255,255,.16);overflow:hidden}
-#orcBalao .ob-fill{height:100%;border-radius:8px;transition:width .5s ease}
+#orcBalao{position:fixed;left:50%;top:50%;z-index:9600;width:min(86vw,340px);
+  background:rgba(26,17,48,.97);border:1px solid rgba(255,255,255,.16);border-radius:22px;padding:22px 20px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55);color:#fff;opacity:0;pointer-events:none;text-align:center;
+  transform:translate(-50%,-50%) scale(.92);transition:opacity .26s ease,transform .26s cubic-bezier(.2,.9,.3,1.2)}
+#orcBalao.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#orcBalao .ob-val{font-size:34px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+#orcBalao .ob-txt{font-size:13.5px;opacity:.85;margin-top:7px;line-height:1.35}
 </style>
 </head>
 <body>
@@ -591,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.52"; /* z4 */
+const APP_VER = "8.53"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -787,14 +785,11 @@ function mostrarBalaoOrc(row){
     const ic=pct>=ORC_VERMELHO?'🚨':(pct>=ORC_LARANJA?'⚠️':'✅');
     let el=$('orcBalao');
     if(!el){ el=document.createElement('div'); el.id='orcBalao'; document.body.appendChild(el); }
-    el.innerHTML=`<div class="ob-top"><span>${ic}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(rt.nome)}</span>
-        <b style="color:${cor}">${Math.round(pct)}%</b></div>
-      <div class="ob-sub"><b style="color:${cor}">${orcFaltaTxt(g,lim).replace(/^./,m=>m.toUpperCase())}</b> · ${brl(g)} de ${brl(lim)}</div>
-      <div class="ob-bar"><div class="ob-fill" style="width:0%;background:${cor}"></div></div>`;
-    requestAnimationFrame(()=>{
-      el.classList.add('show');
-      const f=el.querySelector('.ob-fill'); if(f) requestAnimationFrame(()=>{ f.style.width=Math.min(100,Math.max(pct>0?2:0,pct))+'%'; });
-    });
+    const falta=lim-g;
+    el.innerHTML=`<div style="font-size:26px">${ic}</div>
+      <div class="ob-val" style="color:${cor}">${brl(Math.abs(falta))}</div>
+      <div class="ob-txt">${falta>=0?'falta para atingir a meta de orçamento':'acima da meta de orçamento'}</div>`;
+    requestAnimationFrame(()=>{ el.classList.add('show'); });
     clearTimeout(el._t);
     el._t=setTimeout(()=>{ el.classList.remove('show'); }, pct>=ORC_LARANJA?6000:4200);
   }catch(e){}
@@ -3265,18 +3260,12 @@ function renderHome(){
       const _lm=Number(_e.limite)||0, _g=gastoOrc(_e,viewMonth);
       const _p=orcPct(_g,_lm), _c=orcCor(_p,true);
       const _ic=_p>=ORC_VERMELHO?'🚨':(_p>=ORC_LARANJA?'⚠️':'✅');
-      blocos.limitecombinado=`<div class="card hero" style="margin-bottom:0">
-        <div class="lab">💜 Limite combinado · ${mesNome(viewMonth)}</div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-          <div class="big" style="font-size:24px;margin:0">${brl(_g)}</div>
-          <div style="font-size:14px;opacity:.75">de ${brl(_lm)}</div>
-          <div style="margin-left:auto;font-weight:800;font-size:15px;color:${_c}">${Math.round(_p)}%</div>
-        </div>
-        ${barraOrc(_g,_lm,true,12)}
-        <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_c};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
-          ${_ic} <b style="color:${_c}">${orcFaltaTxt(_g,_lm).replace(/^./,m=>m.toUpperCase())}</b>
-        </div>
-        <div class="note" style="color:rgba(255,255,255,.62);margin-top:7px;font-size:11.5px">Referente aos seus gastos no cartão neste mês.</div>
+      const _falta=_lm-_g;
+      blocos.limitecombinado=`<div class="card hero" style="margin-bottom:0;text-align:center">
+        <div class="lab" style="text-align:center">💜 Limite combinado · ${mesNome(viewMonth)}</div>
+        <div class="big" style="font-size:32px;margin:2px 0 0;color:${_c}">${brl(Math.abs(_falta))}</div>
+        <div style="font-size:13.5px;opacity:.85;margin-top:4px">${_ic} ${_falta>=0?'falta para atingir a meta de orçamento':'acima da meta de orçamento'}</div>
+        ${barraOrc(_g,_lm,true,10)}
       </div>`;
     }catch(e){ blocos.limitecombinado=''; }
   })();

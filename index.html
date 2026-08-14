@@ -580,7 +580,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.47"; /* z4 */
+const APP_VER = "8.48"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4722,11 +4722,12 @@ function openOrcamento(id){
     <h2>${id?'Editar':'Definir'} orçamento</h2>
     <div class="note">Mês: ${mesNome(viewMonth)}</div>
     <div class="field" style="margin-top:10px"><label>O que você quer limitar</label>
-      <select id="oCat" ${id?'disabled':''}>
+      <select id="oCat">
         ${alvos.length?`<optgroup label="Totais da tela inicial">${alvos.map(a=>`<option value="alvo:${a.k}" ${val==='alvo:'+a.k?'selected':''}>${a.ico} ${esc(a.nome)}</option>`).join('')}</optgroup>`:''}
         <optgroup label="Categorias">${cats.map(c=>`<option value="cat:${c.id}" ${val==='cat:'+c.id?'selected':''}>${c.icone||''} ${esc(c.nome)}</option>`).join('')}</optgroup>
       </select></div>
     <div class="field"><label>Limite do mês (R$)</label><input id="oLim" type="number" inputmode="decimal" step="0.01" value="${e?e.limite:''}" placeholder="0,00"></div>
+    <div id="oAviso"></div>
     <div style="border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:4px 0 10px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
         <input id="oRep" type="checkbox" style="width:20px;height:20px;flex-shrink:0" onchange="document.getElementById('oRepBox').style.display=this.checked?'block':'none'">
@@ -4754,19 +4755,18 @@ async function saveOrcamento(id){
   const am=ymd(base).slice(0,7);
   const e=id?DATA.orcamentos.find(o=>o.id===id):null;
   let catId=null, alvo='categoria';
-  if(id&&e){ alvo=e.alvo||'categoria'; catId=e.categoria_id||null; }
-  else{
-    const v=$('oCat').value||'';
-    if(!v){flashErr('Selecione o que limitar','oCat');return;}
+  const v=$('oCat')?($('oCat').value||''):'';
+  if(v){
     if(v.startsWith('alvo:')){ alvo=v.slice(5); catId=null; }
     else{ alvo='categoria'; catId=v.slice(4); }
-  }
+  }else if(id&&e){ alvo=e.alvo||'categoria'; catId=e.categoria_id||null; }
+  else{ flashErr('Selecione o que limitar','oCat'); return; }
   const fixar=$('oHome')?!!$('oHome').checked:false;
   const rep=$('oRep')&&$('oRep').checked;
   let nRep=0;
   if(rep){ nRep=parseInt($('oRepN').value||'12',10); if(!(nRep>=1)) nRep=12; nRep=Math.min(60,nRep); }
   let r;
-  if(id){ r=await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',id); }
+  if(id){ r=await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',id); }
   else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar,alvo:alvo}]); }
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   let nOk=0;
@@ -4774,7 +4774,7 @@ async function saveOrcamento(id){
     const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     const ym=ymd(d).slice(0,7);
     const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.ano_mes===ym && orcChave(o)===(alvo==='categoria'?('cat:'+catId):('alvo:'+alvo)));
-    const rr = ex ? await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar},'id',ex.id)
+    const rr = ex ? await dbUpdate('orcamentos',{limite:lim,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',ex.id)
                   : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:lim,fixar_home:fixar,alvo:alvo}]);
     if(!(rr&&rr.error)) nOk++;
   }

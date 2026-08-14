@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.56"; /* z4 */
+const APP_VER = "8.57"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5071,20 +5071,39 @@ function projCfg(){
   };
 }
 function salvarProjCfg(c){ try{ localStorage.setItem('gf_proj_aportes',JSON.stringify(c)); }catch(e){} }
-// roda a simulação mês a mês
+// IR regressivo da renda fixa, pelo prazo de cada aporte
+function aliqIR(dias){
+  if(dias<=180) return 0.225;
+  if(dias<=360) return 0.20;
+  if(dias<=720) return 0.175;
+  return 0.15;
+}
+// roda a simulação mês a mês (cada aporte é um "lote" com seu próprio prazo e IR)
 function simularAportes(c){
   const tx=taxaMensalDe(c.pctSelic,c.idx);
-  let saldo=Number(c.partida)||0, aporte=Number(c.inicial)||0, aportado=Number(c.partida)||0;
+  let aporte=Number(c.inicial)||0, aportado=Number(c.partida)||0;
+  const lotes=[]; // {principal, valor, mesEntrada}
+  if(Number(c.partida)>0) lotes.push({principal:Number(c.partida), valor:Number(c.partida), mes:0});
   const linhas=[];
   for(let i=0;i<c.meses;i++){
     if(c.teto>0 && aporte>c.teto) aporte=c.teto;
-    const juros=saldo*tx;
-    saldo=saldo+juros+aporte;
+    let juros=0;
+    for(const l of lotes){ const j=l.valor*tx; l.valor+=j; juros+=j; }   // rende primeiro
+    if(aporte>0) lotes.push({principal:aporte, valor:aporte, mes:i});    // aporte entra depois
     aportado+=aporte;
-    linhas.push({i, aporte, juros, saldo, aportado});
+    const saldo=lotes.reduce((a,l)=>a+l.valor,0);
+    // IR se resgatasse tudo neste mês
+    let ir=0;
+    for(const l of lotes){
+      const dias=(i-l.mes+1)*30;
+      const rend=Math.max(0,l.valor-l.principal);
+      ir+=rend*aliqIR(dias);
+    }
+    linhas.push({i, aporte, juros, saldo, aportado, ir, liquido:saldo-ir});
     aporte=aporte*(1+(Number(c.cresc)||0)/100);
   }
-  return {linhas, tx, final:saldo, aportado, juros:saldo-aportado};
+  const ult=linhas[linhas.length-1]||{saldo:0,ir:0,liquido:0};
+  return {linhas, tx, final:ult.saldo, aportado, juros:ult.saldo-aportado, ir:ult.ir, liquido:ult.liquido};
 }
 function renderProjInvest(){
   const c=projCfg();
@@ -5097,15 +5116,16 @@ function renderProjInvest(){
   for(const l of s.linhas){ if(c.teto>0 && l.aporte>=c.teto-0.005){ iTeto=l.i; break; } }
   // marcos de 12 em 12 meses
   const marcos=s.linhas.filter(l=>(l.i+1)%12===0 || l.i===s.linhas.length-1);
-  const maxS=Math.max(...s.linhas.map(l=>l.saldo),1);
+  const maxS=Math.max(...s.linhas.map(l=>l.liquido),1);
 
   let html=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Projeção de aportes</b><span></span></div>`;
   html+=`<div class="card hero">
-    <div class="lab">Em ${c.meses} ${c.meses===1?'mês':'meses'}</div>
-    <div class="big" style="font-size:30px">${brl(s.final)}</div>
+    <div class="lab">Em ${c.meses} ${c.meses===1?'mês':'meses'} · líquido no resgate</div>
+    <div class="big" style="font-size:30px">${brl(s.liquido)}</div>
+    <div class="note" style="color:rgba(255,255,255,.72);margin:-4px 0 8px">bruto ${brl(s.final)} − IR ${brl(s.ir)}</div>
     <div class="balrow">
       <div class="b"><div class="l">Aportado</div><div class="v">${brl(s.aportado)}</div></div>
-      <div class="b"><div class="l">Juros</div><div class="v g">+${brl(s.juros)}</div></div>
+      <div class="b"><div class="l">Juros líquidos</div><div class="v g">+${brl(s.liquido-s.aportado)}</div></div>
     </div>
     <div class="note" style="color:rgba(255,255,255,.8);margin-top:8px">
       ${indexNome(c.idx)} ${indexAA(c.idx)?`<b>${indexAA(c.idx).toFixed(2).replace('.',',')}% a.a.</b>`:'<b>indisponível</b>'} · rendendo <b>${c.pctSelic}%</b> = <b>${txAA.toFixed(2).replace('.',',')}% a.a.</b>
@@ -5113,19 +5133,32 @@ function renderProjInvest(){
   </div>`;
 
   // gráfico de barras da evolução
-  html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Evolução do patrimônio</h3>
+  html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Evolução (líquido)</h3>
     <div style="display:flex;align-items:flex-end;gap:3px;height:120px">
       ${s.linhas.filter((l,i)=>i%Math.max(1,Math.ceil(s.linhas.length/24))===0).map(l=>`
-        <div style="flex:1;background:linear-gradient(180deg,var(--mint),var(--green));height:${Math.max(3,l.saldo/maxS*100)}%;border-radius:3px 3px 0 0" title="${mesLbl(l.i)} ${brl(l.saldo)}"></div>`).join('')}
+        <div style="flex:1;background:linear-gradient(180deg,var(--mint),var(--green));height:${Math.max(3,l.liquido/maxS*100)}%;border-radius:3px 3px 0 0" title="${mesLbl(l.i)} ${brl(l.liquido)}"></div>`).join('')}
     </div>
     <div class="note" style="display:flex;justify-content:space-between;margin-top:6px"><span>${mesLbl(0)}</span><span>${mesLbl(c.meses-1)}</span></div>
   </div>`;
 
   html+=`<div class="card"><h3 style="margin:0 0 8px;font-size:15px">Como vai crescer</h3>
     ${marcos.map(l=>`<div class="lrow">
-      <div class="mid"><div class="t">${mesLbl(l.i)}</div><div class="s">aporte ${brl(l.aporte)} · juros do mês ${brl(l.juros)}</div></div>
-      <div class="amt">${brl(l.saldo)}</div></div>`).join('')}
+      <div class="mid"><div class="t">${mesLbl(l.i)}</div><div class="s">aporte ${brl(l.aporte)} · juros do mês ${brl(l.juros)} · IR ${brl(l.ir)}</div></div>
+      <div class="amt">${brl(l.liquido)}</div></div>`).join('')}
+    <div class="note" style="margin-top:6px">Valores da coluna: líquido se resgatasse naquele mês.</div>
     ${iTeto!=null?`<div class="note" style="margin-top:8px">🎯 O aporte chega no teto de <b>${brl(c.teto)}</b> em <b>${mesLbl(iTeto)}</b> e para de crescer.</div>`:`<div class="note" style="margin-top:8px">O aporte ainda não alcança o teto de ${brl(c.teto)} nesse prazo.</div>`}
+  </div>`;
+
+  html+=`<div class="card">
+    <h3 style="margin:0 0 6px;font-size:15px">Imposto de renda</h3>
+    <div class="note" style="margin-bottom:8px">Cada aporte tem seu próprio prazo, então a alíquota cai aporte a aporte:</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px">
+      <span style="background:var(--line);border-radius:8px;padding:5px 9px">até 180d · 22,5%</span>
+      <span style="background:var(--line);border-radius:8px;padding:5px 9px">181–360d · 20%</span>
+      <span style="background:var(--line);border-radius:8px;padding:5px 9px">361–720d · 17,5%</span>
+      <span style="background:var(--line);border-radius:8px;padding:5px 9px">+720d · 15%</span>
+    </div>
+    <div class="note" style="margin-top:8px">O IR só é cobrado no resgate, e apenas sobre o rendimento.</div>
   </div>`;
 
   html+=`<div class="card">

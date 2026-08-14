@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.54"; /* z4 */
+const APP_VER = "8.55"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1018,6 +1018,43 @@ function balancoFechamento(d){
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
   const base = tot + b.recPend - (sd.aPagar + gcRest + faltaConj);
   return base - descontarInvest(sd.invPend, base);
+}
+// ===== SELIC (atualizada todo dia util pelo robo do GitHub) =====
+let SELIC={meta_aa:null,data_meta:null,atualizado_em:null};
+async function carregarSelic(){
+  // cache local primeiro (vale o dia), pra tela nunca ficar sem número
+  try{ const c=JSON.parse(localStorage.getItem('gf_selic')||'null'); if(c&&c.meta_aa>0) SELIC=c; }catch(e){}
+  const hoje=ymd(new Date());
+  if(SELIC.meta_aa>0 && SELIC.buscado_em===hoje) return;
+  // 1) direto do Banco Central (série 432 = meta Selic % a.a.)
+  try{
+    const r=await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json',{cache:'no-store'});
+    if(r.ok){
+      const d=await r.json();
+      const it=d&&d[d.length-1];
+      const v=it&&parseFloat(String(it.valor).replace(',','.'));
+      if(v>0){
+        SELIC={meta_aa:v, data_meta:it.data, buscado_em:hoje, fonte:'bcb'};
+        try{ localStorage.setItem('gf_selic',JSON.stringify(SELIC)); }catch(e){}
+        return;
+      }
+    }
+  }catch(e){}
+  // 2) arquivo do próprio app (atualizado pelo robô, se estiver ligado)
+  try{
+    const r2=await fetch('selic.json?cb='+Date.now());
+    if(r2.ok){
+      const j=await r2.json();
+      if(j&&j.meta_aa>0){ j.buscado_em=hoje; SELIC=j; try{ localStorage.setItem('gf_selic',JSON.stringify(j)); }catch(e){} }
+    }
+  }catch(e){}
+}
+// taxa mensal equivalente a X% da Selic ao ano
+function taxaMensalDe(pctSelic){
+  const aa=Number(SELIC.meta_aa)||0;
+  if(!aa) return 0;
+  const efetivaAA=aa*(Number(pctSelic)||100)/100;
+  return Math.pow(1+efetivaAA/100, 1/12)-1;
 }
 function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
@@ -1890,6 +1927,7 @@ function abrirNotificacoes(){
 
 async function loadAll(){
   if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
+  try{ carregarSelic(); }catch(e){}
   let c1,c2,c3,c4;
   try{
     [c1,c2,c3,c4]=await Promise.all([
@@ -1985,6 +2023,7 @@ function _doRender(){
   else if(tab==='planejamento')renderPlanejamento();
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
+  else if(tab==='projinvest')renderProjInvest();
   else if(tab==='tema')renderTema();
   else if(tab==='agenda')renderAgenda();
   else if(tab==='assistente')renderAssistente();
@@ -5000,6 +5039,122 @@ function orcRotulo(o){
 function orcChave(o){ return (o.alvo||'categoria')==='categoria'?('cat:'+o.categoria_id):('alvo:'+o.alvo); }
 
 // ============ INVESTIMENTOS ============
+// ============ PROJEÇÃO DE APORTES (escada crescente + juros) ============
+function projCfg(){
+  let c={};
+  try{ c=JSON.parse(localStorage.getItem('gf_proj_aportes')||'{}')||{}; }catch(e){}
+  return {
+    inicial: c.inicial!=null?c.inicial:1000,
+    cresc:   c.cresc!=null?c.cresc:5,
+    teto:    c.teto!=null?c.teto:6000,
+    meses:   c.meses!=null?c.meses:60,
+    pctSelic:c.pctSelic!=null?c.pctSelic:100,
+    partida: c.partida!=null?c.partida:0,
+    ativo:   c.ativo!=null?c.ativo:true
+  };
+}
+function salvarProjCfg(c){ try{ localStorage.setItem('gf_proj_aportes',JSON.stringify(c)); }catch(e){} }
+// roda a simulação mês a mês
+function simularAportes(c){
+  const tx=taxaMensalDe(c.pctSelic);
+  let saldo=Number(c.partida)||0, aporte=Number(c.inicial)||0, aportado=Number(c.partida)||0;
+  const linhas=[];
+  for(let i=0;i<c.meses;i++){
+    if(c.teto>0 && aporte>c.teto) aporte=c.teto;
+    const juros=saldo*tx;
+    saldo=saldo+juros+aporte;
+    aportado+=aporte;
+    linhas.push({i, aporte, juros, saldo, aportado});
+    aporte=aporte*(1+(Number(c.cresc)||0)/100);
+  }
+  return {linhas, tx, final:saldo, aportado, juros:saldo-aportado};
+}
+function renderProjInvest(){
+  const c=projCfg();
+  const s=simularAportes(c);
+  const base=firstOfMonth(new Date());
+  const mesLbl=i=>{ const d=new Date(base.getFullYear(),base.getMonth()+i,1); return d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); };
+  const txAA=(Math.pow(1+s.tx,12)-1)*100;
+  // quando o aporte trava no teto
+  let iTeto=null;
+  for(const l of s.linhas){ if(c.teto>0 && l.aporte>=c.teto-0.005){ iTeto=l.i; break; } }
+  // marcos de 12 em 12 meses
+  const marcos=s.linhas.filter(l=>(l.i+1)%12===0 || l.i===s.linhas.length-1);
+  const maxS=Math.max(...s.linhas.map(l=>l.saldo),1);
+
+  let html=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Projeção de aportes</b><span></span></div>`;
+  html+=`<div class="card hero">
+    <div class="lab">Em ${c.meses} ${c.meses===1?'mês':'meses'}</div>
+    <div class="big" style="font-size:30px">${brl(s.final)}</div>
+    <div class="balrow">
+      <div class="b"><div class="l">Aportado</div><div class="v">${brl(s.aportado)}</div></div>
+      <div class="b"><div class="l">Juros</div><div class="v g">+${brl(s.juros)}</div></div>
+    </div>
+    <div class="note" style="color:rgba(255,255,255,.8);margin-top:8px">
+      Selic ${SELIC.meta_aa?`<b>${String(SELIC.meta_aa).replace('.',',')}% a.a.</b>`:'<b>indisponível</b>'}${SELIC.data_meta?` · ${SELIC.data_meta}`:''} · rendendo <b>${c.pctSelic}%</b> dela = <b>${txAA.toFixed(2).replace('.',',')}% a.a.</b>
+    </div>
+  </div>`;
+
+  // gráfico de barras da evolução
+  html+=`<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Evolução do patrimônio</h3>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:120px">
+      ${s.linhas.filter((l,i)=>i%Math.max(1,Math.ceil(s.linhas.length/24))===0).map(l=>`
+        <div style="flex:1;background:linear-gradient(180deg,var(--mint),var(--green));height:${Math.max(3,l.saldo/maxS*100)}%;border-radius:3px 3px 0 0" title="${mesLbl(l.i)} ${brl(l.saldo)}"></div>`).join('')}
+    </div>
+    <div class="note" style="display:flex;justify-content:space-between;margin-top:6px"><span>${mesLbl(0)}</span><span>${mesLbl(c.meses-1)}</span></div>
+  </div>`;
+
+  html+=`<div class="card"><h3 style="margin:0 0 8px;font-size:15px">Como vai crescer</h3>
+    ${marcos.map(l=>`<div class="lrow">
+      <div class="mid"><div class="t">${mesLbl(l.i)}</div><div class="s">aporte ${brl(l.aporte)} · juros do mês ${brl(l.juros)}</div></div>
+      <div class="amt">${brl(l.saldo)}</div></div>`).join('')}
+    ${iTeto!=null?`<div class="note" style="margin-top:8px">🎯 O aporte chega no teto de <b>${brl(c.teto)}</b> em <b>${mesLbl(iTeto)}</b> e para de crescer.</div>`:`<div class="note" style="margin-top:8px">O aporte ainda não alcança o teto de ${brl(c.teto)} nesse prazo.</div>`}
+  </div>`;
+
+  html+=`<div class="card">
+    <h3 style="margin:0 0 10px;font-size:15px">Parâmetros</h3>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1;margin-bottom:10px"><label>1º aporte (R$)</label><input id="pjIni" type="number" inputmode="decimal" step="0.01" value="${c.inicial}"></div>
+      <div class="field" style="flex:1;margin-bottom:10px"><label>Aumento por mês (%)</label><input id="pjCre" type="number" inputmode="decimal" step="0.5" value="${c.cresc}"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1;margin-bottom:10px"><label>Teto do aporte (R$)</label><input id="pjTeto" type="number" inputmode="decimal" step="0.01" value="${c.teto}"></div>
+      <div class="field" style="flex:1;margin-bottom:10px"><label>Prazo (meses)</label><input id="pjMes" type="number" inputmode="numeric" min="1" max="480" step="1" value="${c.meses}"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1;margin-bottom:10px"><label>Rende % da Selic</label><input id="pjPct" type="number" inputmode="decimal" step="1" value="${c.pctSelic}"></div>
+      <div class="field" style="flex:1;margin-bottom:10px"><label>Já tenho hoje (R$)</label><input id="pjPart" type="number" inputmode="decimal" step="0.01" value="${c.partida}"></div>
+    </div>
+    <button class="btn" onclick="salvarProjInvest()">Recalcular</button>
+    <button class="btn ghost" onclick="usarInvestidoComoPartida()">Usar meu total investido como ponto de partida</button>
+  </div>`;
+
+  html+=`<div class="card">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+      <input type="checkbox" ${projInvest()?'checked':''} onchange="toggleProjInvest(this.checked)" style="width:20px;height:20px">
+      <span>Considerar os aportes na previsão de saldo dos próximos meses</span></label>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;margin-top:10px">
+      <input type="checkbox" ${investSobra()?'checked':''} onchange="toggleInvestSobra(this.checked)" style="width:20px;height:20px">
+      <span>Investir só o que sobra (nunca deixa a previsão negativa)</span></label>
+  </div>`;
+  $('content').innerHTML=html;
+}
+function salvarProjInvest(){
+  const num=(id,d)=>{ const v=parseFloat(($(id)||{}).value); return isNaN(v)?d:v; };
+  const c=projCfg();
+  c.inicial=Math.max(0,num('pjIni',c.inicial));
+  c.cresc=Math.max(0,Math.min(50,num('pjCre',c.cresc)));
+  c.teto=Math.max(0,num('pjTeto',c.teto));
+  c.meses=Math.max(1,Math.min(480,Math.round(num('pjMes',c.meses))));
+  c.pctSelic=Math.max(0,Math.min(300,num('pjPct',c.pctSelic)));
+  c.partida=Math.max(0,num('pjPart',c.partida));
+  salvarProjCfg(c); toast('Projeção atualizada'); render();
+}
+function usarInvestidoComoPartida(){
+  const c=projCfg();
+  c.partida=Math.round((totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))*100)/100;
+  salvarProjCfg(c); toast('Ponto de partida: '+brl(c.partida)); render();
+}
 function renderInvestimentos(){
   const lista=investimentosScope();
   const totalAtual=lista.reduce((a,i)=>a+valorAtualInvest(i),0);
@@ -5016,6 +5171,14 @@ function renderInvestimentos(){
     </div>
     <div class="balrow"><div class="b" style="flex:1"><div class="l">Patrimônio (contas + investimentos)</div><div class="v">${brl(patr)}</div></div></div>
   </div>`;
+  html+=`<div class="card" onclick="go('projinvest')" style="cursor:pointer;border:1px solid var(--mint);padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66;width:34px;height:34px">📈</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">Projeção de aportes</div>
+        <div class="note" style="font-size:11.5px">Aporte crescente até um teto, rendendo % da Selic${SELIC.meta_aa?` (hoje ${String(SELIC.meta_aa).replace('.',',')}% a.a.)`:''}</div>
+      </div><span style="opacity:.5">›</span>
+    </div></div>`;
   html+=`<div class="card">`;
   if(!lista.length){
     html+=`<div class="empty"><div class="ico">💰</div><p>Cadastre seus investimentos (poupança, renda fixa…) e acompanhe render mês a mês.</p><button class="btn coral sm" onclick="openInvest()">Adicionar investimento</button></div>`;

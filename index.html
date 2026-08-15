@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.61"; /* z4 */
+const APP_VER = "8.62"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -966,8 +966,10 @@ function contaPassaScope(c){
 function contasScope(){return DATA.contas.filter(c=>!c.arquivada && srcOk(c.user_id) && contaPassaScope(c));}
 function cartoesScope(){return DATA.cartoes.filter(c=>!c.arquivado && srcOk(c.user_id) && contaPassaScope(c));}
 function contasPrincipais(){return contasScope().filter(c=>!c.eh_investimento);}
-function contasInvestimento(){return DATA.contas.filter(c=>{
+function idsEspelho(){ try{ return new Set((DATA.investimentos||[]).filter(i=>i.conta_espelho_id).map(i=>i.conta_espelho_id)); }catch(e){ return new Set(); } }
+function contasInvestimento(){const _esp=idsEspelho(); return DATA.contas.filter(c=>{
   if(c.arquivada||!srcOk(c.user_id)||!c.eh_investimento) return false;
+  if(_esp.has(c.id)) return false;   // conta espelho: só existe pro lançamento fechar, o valor está no investimento
   if(scope==='familia') return c.incluir_principal===false;
   if(scope==='tudo') return true;
   return c.tipo===scope; // investimento entra no patrimônio mesmo com "não incluir no principal"
@@ -5364,6 +5366,13 @@ function openInvest(id){
       <div id="iIdxNota" class="note" style="margin-top:5px"></div>
     </div>
     <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
+    ${!id?`<div class="field"><label>Sai da conta</label>
+      <select id="iOrigem">
+        <option value="">Não descontar de nenhuma conta</option>
+        ${contasPrincipais().map(c=>`<option value="${c.id}">${esc(c.nome)} · ${brl(saldoConta(c.id))}</option>`).join('')}
+      </select>
+      <div class="note" style="margin-top:5px">Se escolher uma conta, o app lança a saída desse valor nela e o dinheiro passa a contar como investimento.</div>
+    </div>`:(e.conta_origem_id?`<div class="note" style="margin:-4px 0 10px">Aporte saiu de <b>${esc((contaById(e.conta_origem_id)||{}).nome||'conta removida')}</b>.</div>`:'')}
     
     <div class="field" style="margin-top:12px"><label>Somar no patrimônio?</label>
       <div class="seg2">
@@ -5400,8 +5409,23 @@ async function saveInvest(id){
   const data=$('iData').value||ymd(new Date());
   const idx=($('iIdx')&&$('iIdx').value)||'mensal';
   const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false,indexador:idx};
+  const origemId = !id && $('iOrigem') ? ($('iOrigem').value||'') : '';
+  let espelhoId=null;
+  if(origemId && valor>0){
+    // conta espelho: destino contábil do aporte (não soma de novo no patrimônio)
+    espelhoId=uuid();
+    const oc=contaById(origemId);
+    const rc=await dbInsert('contas',[{id:espelhoId,user_id:USER.id,nome:'📈 '+nome,tipo:(oc&&oc.tipo)||'pessoal',saldo_inicial:0,limite:0,incluir_principal:true,eh_investimento:true}]);
+    if(rc&&rc.error){ toast('Erro ao criar destino: '+rc.error.message); return; }
+    row.conta_origem_id=origemId;
+    row.conta_espelho_id=espelhoId;
+  }
   const r = id ? await dbUpdate('investimentos',row,'id',id) : await dbInsert('investimentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  if(origemId && espelhoId){
+    const rl=await dbInsert('lancamentos',[{user_id:USER.id,tipo:'transferencia',descricao:'Aporte · '+nome,valor:valor,data:data,status:'pago',conta_id:origemId,conta_destino_id:espelhoId}]);
+    if(rl&&rl.error) toast('Investimento salvo, mas a saída não lançou: '+rl.error.message);
+  }
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
   toast(r&&r.queued?(id?'Investimento atualizado (offline)':'Investimento criado (offline)')+' — sincroniza depois':(id?'Investimento atualizado':'Investimento criado')); render();

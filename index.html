@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.69"; /* z4 */
+const APP_VER = "8.70"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5463,6 +5463,7 @@ function openInvest(id){
     ${id?`<button class="btn ghost" onclick="delInvest('${id}')"><span class="danger">Excluir investimento</span></button>`:''}
   `);
   window._invTipo=tipo; window._invInc=inclui;
+  try{ setInvIdxLabel(); }catch(e){}
 }
 function setInvTipo(t){window._invTipo=t;[['iT0','poupanca'],['iT1','renda_fixa'],['iT2','outro']].forEach(([bid,tt])=>$(bid)&&$(bid).classList.toggle('on',tt===t));
   if(t==='poupanca' && $('iTaxa') && !$('iTaxa').value) $('iTaxa').value='0.5';
@@ -5502,7 +5503,10 @@ async function saveInvest(id){
     row.conta_espelho_id=espelhoId;
   }
   const r = id ? await dbUpdate('investimentos',row,'id',id) : await dbInsert('investimentos',[row]);
-  if(r&&r.error){toast('Erro: '+r.error.message);return;}
+  if(r&&r.error){
+    if(espelhoId){ try{ await dbDelete('contas','id',espelhoId); }catch(e){} }   // desfaz o destino criado
+    toast('Erro: '+r.error.message); return;
+  }
   if(origemId && espelhoId){
     const rl=await dbInsert('lancamentos',[{user_id:USER.id,tipo:'transferencia',descricao:'Aporte · '+nome,valor:valor,data:data,status:'pago',conta_id:origemId,conta_destino_id:espelhoId}]);
     if(rl&&rl.error) toast('Investimento salvo, mas a saída não lançou: '+rl.error.message);

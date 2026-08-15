@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.72"; /* z4 */
+const APP_VER = "8.73"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4449,8 +4449,30 @@ async function confirmPagarFatura(cartaoId,tot){
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
   try{ (r.rows||[]).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
-  vibra(); toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':'Fatura paga'); renderFatura();
+  // fatura quitada → as compras daquela competência viram "pago"
+  const nQuit = await quitarComprasDaFatura(cartaoId, faturaMonth);
+  vibra();
+  toast(r&&r.queued?'Fatura paga (offline) — sincroniza depois':(nQuit?`Fatura paga · ${nQuit} ${nQuit===1?'compra marcada':'compras marcadas'} como paga`:'Fatura paga'));
+  renderFatura();
   if(!(r&&r.queued)) bgSync();
+}
+// marca como pagas as compras da fatura daquele mês (e volta a pendente se a fatura for reaberta)
+async function quitarComprasDaFatura(cartaoId, mesRef, novoStatus){
+  try{
+    const st=novoStatus||'pago';
+    const ym=ymd(firstOfMonth(mesRef)).slice(0,7);
+    const cart=cartaoById(cartaoId);
+    const alvo=DATA.lancamentos.filter(l=>
+      l.cartao_id===cartaoId && l.user_id===USER.id && l.competencia &&
+      faturaYm(l.competencia, cart)===ym && l.status!==st
+    );
+    let n=0;
+    for(const l of alvo){
+      const rr=await dbUpdate('lancamentos',{status:st},'id',l.id);
+      if(!(rr&&rr.error)){ l.status=st; n++; }
+    }
+    return n;
+  }catch(e){ return 0; }
 }
 
 // ============ CONTAS ============

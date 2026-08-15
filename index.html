@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.65"; /* z4 */
+const APP_VER = "8.66"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3463,7 +3463,7 @@ function renderHome(){
       const _livre = balCard>0 ? (balCard+_inv) : balCard;   // sem sobra no mês, o investido não conta como livre
       return `<div class="balrow" style="margin-top:12px">
         <div class="b"><div class="l">Investido</div><div class="v">${brl(_inv)}</div></div>
-        <div class="b tap" onclick="explicarPatrimonio()"><div class="l">Patrimônio livre</div><div class="v ${_livre<0?'r':''}">${brl(_livre)}</div></div>
+        <div class="b tap" onclick="explicarPatrimonio()"><div class="l">Patrimônio</div><div class="v ${_livre<0?'r':''}">${brl(_livre)}</div></div>
       </div>`;
     })()}
   </div>`;
@@ -3547,8 +3547,8 @@ function explicarPatrimonio(){
   const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
   const invC=descontarInvest(sd.invPend,base);
   const bal=base-invC;
-  openSheet(`<h2>Patrimônio livre</h2>
-    <div class="note" style="margin-bottom:10px">É o que sobra de verdade: o Balanço do mês (já sem as contas que ainda vão sair) mais o que está investido.</div>
+  openSheet(`<h2>Patrimônio</h2>
+    <div class="note" style="margin-bottom:10px">O que já está investido mais o Balanço do mês — o Balanço é a parte que ainda está <b>livre</b>, sem direcionamento.</div>
     <div class="lrow"><div class="mid"><div class="t">Saldo em contas</div></div><div class="amt">${brl(tot)}</div></div>
     <div class="lrow"><div class="mid"><div class="t">+ A receber</div></div><div class="amt g">+${brl(b.recPend)}</div></div>
     <div class="lrow"><div class="mid"><div class="t">− Contas a pagar</div></div><div class="amt r">−${brl(sd.aPagar)}</div></div>
@@ -3559,7 +3559,10 @@ function explicarPatrimonio(){
     ${bal>0
       ? `<div class="lrow"><div class="mid"><div class="t">+ Investido</div></div><div class="amt g">+${brl(_inv)}</div></div>`
       : `<div class="lrow"><div class="mid"><div class="t">+ Investido</div><div class="s">não entra: o mês não fechou com sobra</div></div><div class="amt" style="opacity:.5;text-decoration:line-through">${brl(_inv)}</div></div>`}
-    <div class="lrow" style="border-bottom:none"><div class="mid"><div class="t"><b>Patrimônio livre</b></div></div><div class="amt"><b>${brl(bal>0?bal+_inv:bal)}</b></div></div>
+    <div class="lrow" style="border-bottom:none"><div class="mid"><div class="t"><b>Patrimônio</b></div></div><div class="amt"><b>${brl(bal>0?bal+_inv:bal)}</b></div></div>
+    <div style="margin-top:10px;background:var(--line);border-radius:10px;padding:10px 12px;font-size:13px">
+      💡 Livre (sem direcionamento): <b style="color:${bal>0?'var(--green)':'var(--red)'}">${brl(bal)}</b> · já direcionado: <b>${brl(_inv)}</b>
+    </div>
     ${_fora>0?`<div class="note" style="margin-top:10px">Inclui <b>${brl(_fora)}</b> marcado como "deixar separado" na aba Investir.</div>`:''}
     <div class="note" style="margin-top:6px">Na aba Investir você vê o outro corte: contas + investimentos, sem descontar o que ainda vai sair.</div>
     <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Fechar</button>`);

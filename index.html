@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.62"; /* z4 */
+const APP_VER = "8.63"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2363,13 +2363,27 @@ function taxaInvestLabel(inv){
   if(idx==='selic') return t+'% da Selic';
   return String(t).replace('.',',')+'%/mês';
 }
+function diasCorridosInvest(inv){
+  if(!inv.data_aplicacao) return 0;
+  const a=new Date(inv.data_aplicacao+'T00:00:00'), b=new Date();
+  return Math.max(0,(b-a)/86400000);
+}
 function valorAtualInvest(inv){
   const taxa=taxaInvestMes(inv);
-  if(!inv.data_aplicacao) return Number(inv.valor_aplicado||0);
-  const a=new Date(inv.data_aplicacao+'T00:00:00'), b=new Date();
-  const dias=Math.max(0,(b-a)/86400000);
-  const meses=dias/30.4375; // fração de mês → rende diariamente
-  return Number(inv.valor_aplicado||0)*Math.pow(1+taxa/100, meses);
+  const aplic=Number(inv.valor_aplicado||0);
+  if(!inv.data_aplicacao) return aplic;
+  const dias=diasCorridosInvest(inv);
+  const car=Number(inv.carencia_dias)||0;
+  if(car>0 && dias<car) return aplic;   // carência: só credita o rendimento depois, e aí retroativo
+  const meses=dias/30.4375;             // fração de mês → rende diariamente
+  return aplic*Math.pow(1+taxa/100, meses);
+}
+function carenciaLabel(inv){
+  const car=Number(inv.carencia_dias)||0;
+  if(!car) return '';
+  const faltam=Math.ceil(car-diasCorridosInvest(inv));
+  if(faltam<=0) return '';
+  return 'rende em '+faltam+'d';
 }
 function investimentosScope(){ return DATA.investimentos.filter(i=>!i.arquivado && srcOk(i.user_id)); }
 function totalInvestido(){ return investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }
@@ -5332,7 +5346,7 @@ function renderInvestimentos(){
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">
         <div class="dot" style="background:#e9f3f1">${ic}</div>
         <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio===false?'<span class="pill neg">fora do patrimônio</span>':''}</div>
-          <div class="s">${tx>0?taxaInvestLabel(i)+' · ':''}rend ${r>=0?'+':''}${brl(r)}</div></div>
+          <div class="s">${tx>0?taxaInvestLabel(i)+' · ':''}${carenciaLabel(i)?`<span style="color:#e0a020">⏳ ${carenciaLabel(i)}</span>`:`rend ${r>=0?'+':''}${brl(r)}`}</div></div>
         <div class="amt g">${brl(atual)}</div></div>`;
     });
   }
@@ -5365,7 +5379,11 @@ function openInvest(id){
       </select>
       <div id="iIdxNota" class="note" style="margin-top:5px"></div>
     </div>
-    <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
+    <div class="row2">
+      <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
+      <div class="field"><label>Carência (dias)</label><input id="iCar" type="number" inputmode="numeric" min="0" max="3650" step="1" value="${e.carencia_dias!=null?e.carencia_dias:0}" placeholder="0"></div>
+    </div>
+    <div class="note" style="margin:-4px 0 10px">Ex.: RDB com resgate imediato costuma render só depois de <b>30 dias</b> — e aí o rendimento vem retroativo. Deixe 0 se rende desde o primeiro dia.</div>
     ${!id?`<div class="field"><label>Sai da conta</label>
       <select id="iOrigem">
         <option value="">Não descontar de nenhuma conta</option>
@@ -5408,7 +5426,8 @@ async function saveInvest(id){
   const taxa=parseFloat($('iTaxa').value)||0;
   const data=$('iData').value||ymd(new Date());
   const idx=($('iIdx')&&$('iIdx').value)||'mensal';
-  const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false,indexador:idx};
+  const car=Math.max(0,Math.min(3650,parseInt(($('iCar')||{}).value||'0',10)||0));
+  const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false,indexador:idx,carencia_dias:car};
   const origemId = !id && $('iOrigem') ? ($('iOrigem').value||'') : '';
   let espelhoId=null;
   if(origemId && valor>0){

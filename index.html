@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.71"; /* z4 */
+const APP_VER = "8.72"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7141,7 +7141,7 @@ async function saveLanc(id){
     );
     if(jaTem){
       if(!confirm('⚠️ Você já lançou "'+desc+'" de '+brl(valor)+' nesta data.\n\nLançar mesmo assim?')) return;
-    }
+    }else if(!avisarValorRepetido(valor, desc)) return;
   }
   if(lancType!=='transferencia' && !window._meio){toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
@@ -7330,6 +7330,27 @@ function addMonths(dateStr,n){
   const dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
   t.setDate(Math.min(day,dim));
   return ymd(t);
+}
+// avisa quando o MESMO VALOR já aparece várias vezes no app (parcelamento já lançado, compra em duplicidade)
+function avisarValorRepetido(valor, desc){
+  try{
+    if(!(valor>=50)) return true;                       // valores pequenos se repetem naturalmente
+    const iguais=DATA.lancamentos.filter(l=>
+      l.user_id===USER.id && Math.abs(Number(l.valor)-valor)<0.02
+    );
+    if(iguais.length<2) return true;                    // uma ocorrência isolada não é sinal de nada
+    // agrupa por descrição pra mostrar de onde vem
+    const porDesc={};
+    iguais.forEach(l=>{ const k=(l.descricao||'sem descrição').trim(); porDesc[k]=(porDesc[k]||0)+1; });
+    const top=Object.entries(porDesc).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const datas=iguais.map(l=>l.competencia||l.data).filter(Boolean).sort();
+    const per=datas.length?` (${datas[0].slice(0,7).split('-').reverse().join('/')} → ${datas[datas.length-1].slice(0,7).split('-').reverse().join('/')})`:'';
+    const ondeTxt=top.map(([k,n])=>`• ${k}${n>1?` — ${n}×`:''}`).join('\n');
+    return confirm(
+      '⚠️ '+brl(valor)+' já aparece '+iguais.length+'× no app'+per+':\n\n'+ondeTxt+
+      '\n\nPode ser a mesma compra ou um parcelamento já lançado.\n\nLançar "'+desc+'" mesmo assim?'
+    );
+  }catch(e){ return true; }
 }
 async function upsertLanc(id,row){
   if(id){

@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.70"; /* z4 */
+const APP_VER = "8.71"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3628,6 +3628,45 @@ function toggleRecents(){
   localStorage.setItem('gf_hideRecents', cur?'0':'1');
   render(); salvarPrefs();
 }
+function verPrevistoConta(cid){
+  const c=contaById(cid); if(!c) return;
+  const s=saldoConta(cid);
+  const itens=[];
+  DATA.lancamentos.forEach(l=>{
+    if(l.status!=='pendente' || l.cartao_id) return;
+    if(!inMonthRep(l, viewMonth)) return;
+    const v=Number(l.valor)||0;
+    if(l.tipo==='receita' && l.conta_id===cid) itens.push({d:l.data, t:l.descricao||'Receita', v:v, e:true, l});
+    else if(l.tipo==='despesa' && l.conta_id===cid) itens.push({d:l.data, t:l.descricao||'Despesa', v:-v, e:false, l});
+    else if(l.tipo==='transferencia'){
+      const dest=l.conta_destino_id?contaById(l.conta_destino_id):null;
+      if(l.conta_id===cid) itens.push({d:l.data, t:(l.descricao||'Transferência')+(dest?' → '+dest.nome:''), v:-v, e:false, l});
+      else if(l.conta_destino_id===cid) itens.push({d:l.data, t:(l.descricao||'Transferência')+' ← '+((contaById(l.conta_id)||{}).nome||''), v:v, e:true, l});
+    }
+  });
+  itens.sort((a,b)=>(a.d||'').localeCompare(b.d||''));
+  const entra=itens.filter(i=>i.v>0).reduce((a,i)=>a+i.v,0);
+  const sai=itens.filter(i=>i.v<0).reduce((a,i)=>a-i.v,0);
+  const fim=s+entra-sai;
+  const hojeS=ymd(new Date());
+  openSheet(`<h2>${esc(c.nome)}</h2>
+    <div class="note" style="margin-bottom:10px">O que ainda mexe nesta conta em ${mesNome(viewMonth)}</div>
+    <div class="lrow"><div class="mid"><div class="t">Saldo atual</div></div><div class="amt">${brl(s)}</div></div>
+    ${itens.length?itens.map(i=>{
+      const dd=new Date(i.d+'T00:00:00');
+      const dias=Math.round((dd-new Date(hojeS+'T00:00:00'))/86400000);
+      const quando = dias<0?`${-dias}d atrasado` : dias===0?'hoje' : dias===1?'amanhã' : `em ${dias} dias`;
+      return `<div class="lrow tap" onclick="closeSheet();openLanc('${i.l.id}')">
+        <div class="mid"><div class="t">${esc(i.t)}</div>
+          <div class="s">${dd.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${quando}</div></div>
+        <div class="amt ${i.v>0?'g':'r'}">${i.v>0?'+':'−'}${brl(Math.abs(i.v))}</div></div>`;
+    }).join(''):'<div class="note" style="padding:10px 0">Nada pendente neste mês.</div>'}
+    <div class="lrow" style="border-bottom:none"><div class="mid"><div class="t"><b>Saldo previsto no fim do mês</b></div>
+      <div class="s">${entra>0?`entra ${brl(entra)}`:''}${entra>0&&sai>0?' · ':''}${sai>0?`sai ${brl(sai)}`:''}</div></div>
+      <div class="amt ${fim<0?'r':'g'}"><b>${brl(fim)}</b></div></div>
+    ${fim<0?`<div style="margin-top:10px;background:rgba(255,90,90,.12);border-left:3px solid var(--red);border-radius:9px;padding:9px 11px;font-size:13px">⚠️ Nesse ritmo a conta fecha o mês negativa.</div>`:''}
+    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Fechar</button>`);
+}
 function verReceberConta(contaId){
   const c=(DATA.contas||[]).find(x=>x.id===contaId); if(!c) return;
   let itens=[];
@@ -3713,7 +3752,7 @@ function rowConta(c){
         ${saiPrev>0?`<div style="font-size:10px;color:var(--coral);font-weight:700;margin-top:2px;white-space:nowrap">−${brl(saiPrev)} a sair${saiInvest>0?' 📈':''}</div>${saiLbl?`<div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap">🗓️ ${saiLbl}</div>`:''}`:''}
       </div>
     </div>
-    ${(recPrev>0||saiPrev>0)?`<div style="padding:0 2px 10px 52px;margin-top:-4px;font-size:11px;color:var(--muted)">Saldo previsto no fim do mês · <b style="color:${(s+recPrev-saiPrev)<0?'var(--red)':'var(--green)'}">${brl(s+recPrev-saiPrev)}</b></div>`:''}
+    ${(recPrev>0||saiPrev>0)?`<div onclick="event.stopPropagation();verPrevistoConta('${c.id}')" style="padding:0 2px 10px 52px;margin-top:-4px;font-size:11px;color:var(--muted);cursor:pointer">Saldo previsto no fim do mês · <b style="color:${(s+recPrev-saiPrev)<0?'var(--red)':'var(--green)'}">${brl(s+recPrev-saiPrev)}</b> <span style="opacity:.6">›</span></div>`:''}
     ${lim>0?`<div style="padding:0 2px 12px 52px;margin-top:-4px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px;white-space:nowrap">Limite ${brl(lim)} · usado <b style="color:${cor}">${brl(usado)}</b> · livre ${brl(livre)}</div>
       <div style="height:5px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>

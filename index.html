@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.66"; /* z4 */
+const APP_VER = "8.67"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3057,16 +3057,24 @@ function renderHome(){
   // Balanço [def. João]: recursos (saldo + a receber) − o que ainda vai sair (a pagar + cartão restante + aporte de investimento AINDA VIRTUAL + falta do cônjuge).
   // Aporte já efetivado não desconta de novo (o saldo já caiu). Mês futuro = resultado do mês.
   let balCard, _invNota='';
+  const _apProj=aporteProjetadoMes(viewMonth);
+  // se a projeção de aportes está configurada, é ela que manda no aporte do mês
+  const _invMes = _apProj>0 ? _apProj : (_futuro?sd.invest:sd.invPend);
   if(_futuro){
     const baseF=b.rec-(sd.aPagar+gcRest+(sd.conjuge||0));
-    const invC=descontarInvest(sd.invest,baseF);
+    const invC=descontarInvest(_invMes,baseF);
     balCard=baseF-invC;
-    if(projInvest()&&investSobra()&&invC<(sd.invest||0)) _invNota=`Na previsão entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+    if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`Na previsão entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
   }else{
     const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
-    const invC=descontarInvest(sd.invPend,base);
+    const invC=descontarInvest(_invMes,base);
     balCard=base-invC;
-    if(projInvest()&&investSobra()&&invC<(sd.invPend||0)) _invNota=`No balanço entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+    if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`No balanço entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+  }
+  if(_apProj>0 && !_invNota){
+    const _vm=firstOfMonth(viewMonth);
+    const _prox=aporteProjetadoMes(new Date(_vm.getFullYear(),_vm.getMonth()+1,1));
+    _invNota=`Aporte planejado na projeção${_prox>0?` · mês que vem ${brl(_prox)}`:''}.`;
   }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
   const _hjRec=ymd(new Date());
@@ -3418,7 +3426,7 @@ function renderHome(){
       <div class="b tap" onclick="verTrans('all')"><div class="l">Balanço</div><div class="v ${balCard<0?'r':'g'}">${brl(balCard)}</div></div>
     </div>
     <div class="saidas">
-      ${sd.invest>0?`<div class="srow inv tap" onclick="explicarInvest()"><span>Investimentos ${!projInvest()?'<span style="opacity:.5;font-size:.8em">não conta no balanço</span>':''}</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(sd.invest)}</b></div>${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
+      ${(_apProj>0||sd.invest>0)?`<div class="srow inv tap" onclick="explicarInvest()"><span>Investimentos ${!projInvest()?'<span style="opacity:.5;font-size:.8em">não conta no balanço</span>':''}</span><b style="${!projInvest()?'text-decoration:line-through;opacity:.5':''}">${brl(_apProj>0?_apProj:sd.invest)}</b></div>${_invNota?`<div class="note" style="font-size:11.5px;margin:-4px 0 4px;opacity:.8">${_invNota}</div>`:''}`:''}
       ${b.recPend>0?`<div class="srow tap" onclick="verTrans('receita')"><span>Receitas a receber</span><b style="color:var(--hero-green)">${brl(b.recPend)}</b></div>`:''}
       ${(()=>{
         const _pg=sd.pagas||0, _ap=sd.aPagar||0, _totC=_pg+_ap;
@@ -3571,8 +3579,14 @@ function explicarInvest(){
   const on=projInvest();
   const sd=saidasMes(viewMonth);
   const pend=sd.invPend||0;
+  const proj=aporteProjetadoMes(viewMonth);
+  const _vm=firstOfMonth(viewMonth);
+  const prox=aporteProjetadoMes(new Date(_vm.getFullYear(),_vm.getMonth()+1,1));
   openSheet(`<h2>Investimentos do mês</h2>
-    <div class="note" style="margin-bottom:10px">Aporte planejado: <b>${brl(sd.invest||0)}</b>${pend>0?` · ainda não efetivado: <b>${brl(pend)}</b>`:''}</div>
+    ${proj>0?`<div style="border:1px solid var(--mint);border-radius:12px;padding:11px 12px;margin-bottom:10px;font-size:13.5px">
+      📈 Pela projeção, o aporte deste mês é <b>${brl(proj)}</b>${prox>0?` e o do mês que vem, <b>${brl(prox)}</b>`:''}.
+      ${sd.invest>0?`<div class="note" style="margin-top:6px">Há ${brl(sd.invest)} lançado como transferência para investimento neste mês — se não bater, ajuste o lançamento.</div>`:''}
+    </div>`:`<div class="note" style="margin-bottom:10px">Aporte planejado: <b>${brl(sd.invest||0)}</b>${pend>0?` · ainda não efetivado: <b>${brl(pend)}</b>`:''}</div>`}
     <div style="border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13.5px;line-height:1.45">
       ${on
         ? 'O aporte que ainda <b>não saiu</b> da conta está sendo <b>descontado do Balanço</b> — o Balanço já mostra o que sobra depois de investir.'
@@ -5178,6 +5192,7 @@ function projCfg(){
     pctSelic:c.pctSelic!=null?c.pctSelic:100,
     idx:     c.idx||'cdi',
     partida: c.partida!=null?c.partida:0,
+    inicioYm:c.inicioYm||ymd(firstOfMonth(new Date())).slice(0,7),
     ativo:   c.ativo!=null?c.ativo:true
   };
 }
@@ -5215,6 +5230,21 @@ function simularAportes(c){
   }
   const ult=linhas[linhas.length-1]||{saldo:0,ir:0,liquido:0};
   return {linhas, tx, final:ult.saldo, aportado, juros:ult.saldo-aportado, ir:ult.ir, liquido:ult.liquido};
+}
+// aporte que a projeção prevê para um mês (1º aporte crescendo X% ao mês, até o teto)
+function aporteProjetadoMes(d){
+  try{
+    const c=projCfg();
+    if(!c || !(c.inicial>0)) return 0;
+    const ym=ymd(firstOfMonth(d)).slice(0,7);
+    const [ay,am]=c.inicioYm.split('-').map(Number);
+    const [by,bm]=ym.split('-').map(Number);
+    const i=(by-ay)*12+(bm-am);
+    if(i<0 || i>=c.meses) return 0;
+    let v=Number(c.inicial)*Math.pow(1+(Number(c.cresc)||0)/100, i);
+    if(c.teto>0 && v>c.teto) v=c.teto;
+    return Math.round(v*100)/100;
+  }catch(e){ return 0; }
 }
 function renderProjInvest(){
   const c=projCfg();
@@ -5312,6 +5342,7 @@ function salvarProjInvest(){
   c.pctSelic=Math.max(0,Math.min(300,num('pjPct',c.pctSelic)));
   c.idx=($('pjIdx')&&$('pjIdx').value)||c.idx;
   c.partida=Math.max(0,num('pjPart',c.partida));
+  c.inicioYm=ymd(firstOfMonth(new Date())).slice(0,7);   // a escada passa a valer deste mês
   salvarProjCfg(c); toast('Projeção atualizada'); render();
 }
 function usarInvestidoComoPartida(){

@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.60"; /* z4 */
+const APP_VER = "8.61"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3441,7 +3441,15 @@ function renderHome(){
       })():''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>
-    ${(totalInvestidoContas()>0 || investimentosScope().filter(i=>i.incluir_patrimonio!==false).length)?`<div class="balrow" style="margin-top:12px"><div class="b"><div class="l">Investido</div><div class="v">${brl(totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0))}</div></div><div class="b"><div class="l">Patrimônio total</div><div class="v">${brl(patrimonioTotal())}</div></div></div>`:''}
+    ${(()=>{
+      const _inv=totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0);
+      if(!(_inv>0)) return '';
+      const _livre=balCard+_inv;
+      return `<div class="balrow" style="margin-top:12px">
+        <div class="b"><div class="l">Investido</div><div class="v">${brl(_inv)}</div></div>
+        <div class="b tap" onclick="explicarPatrimonio()"><div class="l">Patrimônio livre</div><div class="v ${_livre<0?'r':''}">${brl(_livre)}</div></div>
+      </div>`;
+    })()}
   </div>`;
 
   // bloco: atalhos para CONSULTAR receitas, despesas e transferências
@@ -3511,6 +3519,29 @@ function renderHome(){
   $('content').innerHTML=html;
   makeSortable('homeSortable','gf_order_home');
   setTimeout(checarOrcamentos,400);
+}
+function explicarPatrimonio(){
+  const _inv=totalInvestidoContas()+investimentosScope().filter(i=>i.incluir_patrimonio!==false).reduce((a,i)=>a+valorAtualInvest(i),0);
+  const b=balancoMes(viewMonth), gc=gastoCartaoMes(viewMonth), sd=saidasMes(viewMonth);
+  const tot=saldoTotal();
+  const gcRest=Math.max(0,gc-(sd.pagFatura||0));
+  const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
+  const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+  const invC=descontarInvest(sd.invPend,base);
+  const bal=base-invC;
+  openSheet(`<h2>Patrimônio livre</h2>
+    <div class="note" style="margin-bottom:10px">É o que sobra de verdade: o Balanço do mês (já sem as contas que ainda vão sair) mais o que está investido.</div>
+    <div class="lrow"><div class="mid"><div class="t">Saldo em contas</div></div><div class="amt">${brl(tot)}</div></div>
+    <div class="lrow"><div class="mid"><div class="t">+ A receber</div></div><div class="amt g">+${brl(b.recPend)}</div></div>
+    <div class="lrow"><div class="mid"><div class="t">− Contas a pagar</div></div><div class="amt r">−${brl(sd.aPagar)}</div></div>
+    <div class="lrow"><div class="mid"><div class="t">− Cartão a pagar</div></div><div class="amt r">−${brl(gcRest)}</div></div>
+    ${faltaConj>0?`<div class="lrow"><div class="mid"><div class="t">− Falta do cônjuge</div></div><div class="amt r">−${brl(faltaConj)}</div></div>`:''}
+    ${invC>0?`<div class="lrow"><div class="mid"><div class="t">− Aporte planejado</div></div><div class="amt r">−${brl(invC)}</div></div>`:''}
+    <div class="lrow"><div class="mid"><div class="t"><b>= Balanço</b></div></div><div class="amt ${bal<0?'r':'g'}"><b>${brl(bal)}</b></div></div>
+    <div class="lrow"><div class="mid"><div class="t">+ Investido</div></div><div class="amt g">+${brl(_inv)}</div></div>
+    <div class="lrow" style="border-bottom:none"><div class="mid"><div class="t"><b>Patrimônio livre</b></div></div><div class="amt"><b>${brl(bal+_inv)}</b></div></div>
+    <div class="note" style="margin-top:10px">Na aba Investir você vê o outro corte: contas + investimentos, sem descontar o que ainda vai sair.</div>
+    <button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Fechar</button>`);
 }
 function explicarInvest(){
   const on=projInvest();

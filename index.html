@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.68"; /* z4 */
+const APP_VER = "8.69"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3469,10 +3469,33 @@ function renderHome(){
       const _inv=totalInvestidoContas()+investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0);
       if(!(_inv>0)) return '';
       const _livre = balCard>0 ? (balCard+_inv) : balCard;   // sem sobra no mês, o investido não conta como livre
+      // projeção de 6 anos partindo do que já está investido, seguindo a escada de aportes
+      let _proj6='';
+      try{
+        const _c=projCfg();
+        if(_c.inicial>0){
+          const _sim=simularAportes({...(_c), partida:_inv, meses:72});
+          const _ult=_sim.linhas[_sim.linhas.length-1];
+          const _apHoje=aporteProjetadoMes(new Date());
+          const _pctBar=Math.min(100,Math.max(4,_inv/_ult.liquido*100));
+          _proj6=`<div class="tap" onclick="go('projinvest')" style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:14px;padding:11px 13px">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:12px;opacity:.8">📈 Em 6 anos</span>
+              <b style="margin-left:auto;font-size:18px">${brl(_ult.liquido)}</b>
+            </div>
+            <div class="prog" style="margin-top:8px;height:7px;border-radius:7px;background:rgba(255,255,255,.16);overflow:hidden">
+              <div style="width:${_pctBar}%;height:100%;border-radius:7px;background:linear-gradient(90deg,#a8f0c8,#5fd3a0)"></div>
+            </div>
+            <div class="note" style="color:rgba(255,255,255,.65);font-size:10.5px;margin-top:6px">
+              hoje ${brl(_inv)} · aportando ${brl(_apHoje||_c.inicial)}/mês +${_c.cresc}% a.m. até ${brl(_c.teto)} · ${_c.pctSelic}% do ${indexNome(_c.idx)} · líquido de IR
+            </div>
+          </div>`;
+        }
+      }catch(e){ _proj6=''; }
       return `<div class="balrow" style="margin-top:12px">
         <div class="b"><div class="l">Investido</div><div class="v">${brl(_inv)}</div></div>
         <div class="b tap" onclick="explicarPatrimonio()"><div class="l">Patrimônio</div><div class="v ${_livre<0?'r':''}">${brl(_livre)}</div></div>
-      </div>`;
+      </div>${_proj6}`;
     })()}
   </div>`;
 

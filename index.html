@@ -478,7 +478,7 @@ body.scrolling .fab{opacity:.25}
       <label class="savepass-row"><input type="checkbox" id="liSavePass"> Salvar senha neste aparelho</label>
       <button class="btn" onclick="doLogin()">Entrar</button>
       <div class="auth-switch">Não tem conta? <b onclick="showSignup()">Criar agora</b></div>
-      <div class="auth-switch" style="margin-top:6px"><b onclick="esqueciSenha()">Esqueci minha senha</b></div>
+      <div class="auth-switch" style="margin-top:6px"><b onclick="esqueciSenha()">Esqueci minha senha</b> · <b onclick="trocarSenhaLogin()">Trocar senha</b></div>
     </div>
     <!-- signup -->
     <div id="signupForm" class="hidden">
@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.77"; /* z4 */
+const APP_VER = "8.78"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1160,6 +1160,35 @@ async function esqueciSenha(){
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
   if(error){ toast('Erro: '+error.message); return; }
   toast('Pronto! Enviamos um link pra '+email+' — confira também o spam.');
+}
+// troca de senha direto da tela de login (sabendo a senha atual)
+function trocarSenhaLogin(){
+  const em=($('liEmail')&&$('liEmail').value.trim())||'';
+  openSheet(`<h2>🔑 Trocar senha</h2>
+    <div class="note" style="margin-bottom:12px">Sabe a senha atual? Troque aqui na hora. Se esqueceu, use o <b>Esqueci minha senha</b>, que envia um link pro e-mail.</div>
+    <div class="field"><label>E-mail</label><input id="tsEmail" type="email" inputmode="email" autocapitalize="none" autocomplete="username" value="${esc(em)}" placeholder="voce@email.com"></div>
+    <div class="field"><label>Senha atual</label><div class="pwWrap"><input id="tsAtual" type="password" autocomplete="current-password" placeholder="••••••••"><button type="button" class="pwEye" onclick="verSenha('tsAtual',this)" aria-label="Ver senha">👁️</button></div></div>
+    <div class="field"><label>Nova senha</label><div class="pwWrap"><input id="tsNova" type="password" autocomplete="new-password" placeholder="mínimo 6 caracteres"><button type="button" class="pwEye" onclick="verSenha('tsNova',this)" aria-label="Ver senha">👁️</button></div></div>
+    <div class="field"><label>Repita a nova senha</label><div class="pwWrap"><input id="tsNova2" type="password" autocomplete="new-password" placeholder="digite de novo"><button type="button" class="pwEye" onclick="verSenha('tsNova2',this)" aria-label="Ver senha">👁️</button></div></div>
+    <button class="btn" id="tsBtn" onclick="confirmarTrocaSenha()">Trocar senha</button>`);
+}
+async function confirmarTrocaSenha(){
+  const em=($('tsEmail').value||'').trim();
+  const atual=$('tsAtual').value, nova=$('tsNova').value, nova2=$('tsNova2').value;
+  if(!em){toast('Informe o e-mail');return;}
+  if(!atual){toast('Informe a senha atual');return;}
+  if(!nova||nova.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres');return;}
+  if(nova!==nova2){toast('As novas senhas não conferem');return;}
+  if(nova===atual){toast('A nova senha é igual à atual');return;}
+  const btn=$('tsBtn'); if(btn){btn.disabled=true;btn.textContent='Trocando…';}
+  try{
+    const {error:e1}=await sb.auth.signInWithPassword({email:em,password:atual});
+    if(e1){ toast(e1.message&&e1.message.includes('Invalid')?'Senha atual incorreta':'Erro: '+e1.message); return; }
+    const {error:e2}=await sb.auth.updateUser({password:nova});
+    if(e2){ toast('Erro ao trocar: '+e2.message); return; }
+    try{ if(localStorage.getItem('savedPass:'+em)) savePassFor(em,nova); }catch(e){}
+    closeSheet(); vibra(); toast('Senha trocada ✅ Você já está dentro!');
+  } finally { if(btn){btn.disabled=false;btn.textContent='Trocar senha';} }
 }
 let _emRecovery=false;
 function mostrarNovaSenha(){

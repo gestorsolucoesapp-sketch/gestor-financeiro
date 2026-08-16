@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.74"; /* z4 */
+const APP_VER = "8.75"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4083,9 +4083,29 @@ function isFixo(l){
   if(l.parcelas&&l.parcelas>1)return false;   // parcelamento não é conta fixa
   return l.recorrente===true;
 }
+// data de vencimento da fatura em que a compra caiu
+function vencimentoFatura(l){
+  try{
+    const c=cartaoById(l.cartao_id); if(!c||!l.competencia) return '';
+    const ym=faturaYm(l.competencia,c); if(!ym) return '';
+    const [y,m]=ym.split('-').map(Number);
+    const dia=Number(c.dia_vencimento)||1;
+    const ultimo=new Date(y,m,0).getDate();
+    return ymd(new Date(y,m-1,Math.min(dia,ultimo)));
+  }catch(e){ return ''; }
+}
 function duePill(l){
   if(l.status!=='pendente'||l.tipo==='transferencia'||l.tipo==='receita') return '';
   const hoje=ymd(new Date()), amanha=ymd(new Date(Date.now()+86400000));
+  // compra no cartão não vence na data da compra: quem vence é a fatura
+  if(l.cartao_id){
+    const venc=vencimentoFatura(l);
+    if(!venc) return '';
+    if(venc<hoje)   return ' <span class="pill" style="background:#fdecec;color:#d64545;font-weight:700">fatura vencida</span>';
+    if(venc===hoje) return ' <span class="pill" style="background:#fff3df;color:#c07600;font-weight:700">fatura vence hoje</span>';
+    if(venc===amanha) return ' <span class="pill" style="background:#fff3df;color:#c07600">fatura vence amanhã</span>';
+    return '';
+  }
   if(l.data<hoje) return ' <span class="pill" style="background:#fdecec;color:#d64545;font-weight:700">atrasada</span>';
   if(l.data===hoje) return ' <span class="pill" style="background:#fff3df;color:#c07600;font-weight:700">vence hoje</span>';
   if(l.data===amanha) return ' <span class="pill" style="background:#fff3df;color:#c07600">vence em 1 dia</span>';

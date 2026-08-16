@@ -483,6 +483,23 @@ body.scrolling .fab{opacity:.25}
 #content.telanova>.card:nth-child(4){animation-delay:.15s}
 #content.telanova>.card:nth-child(5){animation-delay:.2s}
 #content.telanova .progfill, #content.telanova .prog>div, #content.telanova .ob-fill{animation:growbar .7s cubic-bezier(.25,.9,.3,1) both}
+
+/* ===== Retrô do mês (stories) ===== */
+#retro{position:fixed;inset:0;z-index:99700;display:flex;flex-direction:column;color:#fff;overflow:hidden;
+  transition:background .5s ease;padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 16px)}
+#retro .rt-prog{display:flex;gap:5px;margin-bottom:14px}
+#retro .rt-prog i{flex:1;height:3.5px;border-radius:4px;background:rgba(255,255,255,.28)}
+#retro .rt-prog i.on{background:#fff}
+#retro .rt-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+#retro .rt-emoji{font-size:64px;animation:markPop .7s cubic-bezier(.2,.9,.3,1.15) both}
+#retro .rt-tit{font-size:15px;font-weight:700;opacity:.85;letter-spacing:.4px;text-transform:uppercase;animation:cardin .5s ease .1s both}
+#retro .rt-val{font-size:44px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;animation:cardin .5s ease .2s both}
+#retro .rt-sub{font-size:15px;opacity:.85;max-width:290px;line-height:1.5;animation:cardin .5s ease .32s both}
+#retro .rt-close{position:absolute;top:calc(env(safe-area-inset-top) + 34px);right:14px;width:36px;height:36px;border-radius:50%;
+  background:rgba(0,0,0,.3);color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;z-index:3}
+#retro .rt-dica{text-align:center;font-size:11px;opacity:.55;margin-top:8px}
+.rt-conf{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;animation:confCai linear forwards}
+@keyframes confCai{to{transform:translateY(110vh) rotate(720deg)}}
 </style>
 </head>
 <body>
@@ -633,7 +650,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.92"; /* z4 */
+const APP_VER = "8.93"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5243,9 +5260,93 @@ function openCatList(){
 }
 
 // ============ RELATÓRIOS ============
+// ===== RETRÔ DO MÊS — o fechamento em formato stories =====
+function abrirRetro(){
+  const d=viewMonth, b=balancoMes(d), s=saidasMes(d), gc=gastoCartaoMes(d);
+  const totDesp=(s.pagas||0)+(s.aPagar||0)+gc+(s.conjuge||0);
+  const ini=ymd(firstOfMonth(d)), fim=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+  const doMes=DATA.lancamentos.filter(l=>srcOk(l.user_id)&&l.data>=ini&&l.data<=fim&&l.tipo==='despesa'&&!(l.descricao||'').startsWith('Acerto'));
+  // maior compra
+  const maior=doMes.slice().sort((a,b2)=>Number(b2.valor)-Number(a.valor))[0];
+  // dia mais caro
+  const porDia={}; doMes.forEach(l=>{ porDia[l.data]=(porDia[l.data]||0)+Number(l.valor); });
+  const diaTop=Object.entries(porDia).sort((a,b2)=>b2[1]-a[1])[0];
+  // categoria campeã
+  const gs=gastosPorCategoria(d); const catTop=gs[0];
+  // vs mês anterior
+  const dAnt=new Date(d.getFullYear(),d.getMonth()-1,1);
+  const sA=saidasMes(dAnt), despAnt=(sA.pagas||0)+(sA.aPagar||0)+gastoCartaoMes(dAnt)+(sA.conjuge||0);
+  const varPct=despAnt>0?((totDesp-despAnt)/despAnt*100):null;
+  const invTot=totalInvestidoContas()+investimentosScope().reduce((a,i2)=>a+valorAtualInvest(i2),0);
+  const nomeM=mesNome(d);
+  const slides=[
+    {bg:'linear-gradient(160deg,#3b1d6e,#0f0a1e)', e:'📆', t:'Seu '+nomeM, v:brl(totDesp),
+     sub:'foi o total de gastos · com '+brl(b.rec)+' de receitas'},
+    maior?{bg:'linear-gradient(160deg,#7a1f3d,#1a0a12)', e:'🛍️', t:'Maior compra', v:brl(maior.valor),
+     sub:'“'+esc(maior.descricao||'sem descrição')+'” em '+new Date(maior.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}:null,
+    catTop?{bg:'linear-gradient(160deg,#1f5e4e,#07120e)', e:catTop.icone||'🏷️', t:'Categoria campeã', v:esc(catTop.nome),
+     sub:brl(catTop.valor)+' · '+Math.round(catTop.valor/Math.max(1,totDesp)*100)+'% de tudo que saiu'}:null,
+    diaTop?{bg:'linear-gradient(160deg,#8a5a10,#181004)', e:'🔥', t:'Dia mais caro', v:new Date(diaTop[0]+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}),
+     sub:brl(diaTop[1])+' num dia só'}:null,
+    varPct!=null?{bg:'linear-gradient(160deg,'+(varPct<=0?'#0e5e3f':'#8a2731')+',#0a0a12)', e:varPct<=0?'📉':'📈', t:'Vs mês anterior',
+     v:(varPct<=0?'−':'+')+Math.abs(varPct).toFixed(0)+'%',
+     sub:varPct<=0?'Você gastou menos que no mês passado. 👏':'Gastos subiram em relação ao mês passado.'}:null,
+    {bg:'linear-gradient(160deg,#1c3f8a,#070a16)', e:'💎', t:'Patrimônio', v:brl(invTot),
+     sub:'trabalhando por você. Bora pro próximo mês! 🚀', conf:true}
+  ].filter(Boolean);
+  window._retro={slides, i:0};
+  const el=document.createElement('div'); el.id='retro';
+  el.onclick=(ev)=>{ const x=ev.clientX||0; if(x<window.innerWidth*0.3) retroNav(-1); else retroNav(1); };
+  document.body.appendChild(el);
+  retroPinta();
+}
+function retroPinta(){
+  const r=window._retro; if(!r) return;
+  const el=$('retro'); if(!el) return;
+  const s=r.slides[r.i];
+  el.style.background=s.bg;
+  el.innerHTML=`
+    <div class="rt-prog">${r.slides.map((_,k)=>`<i class="${k<=r.i?'on':''}"></i>`).join('')}</div>
+    <div class="rt-close" onclick="event.stopPropagation();fecharRetro()">✕</div>
+    <div class="rt-body">
+      <div class="rt-emoji">${s.e}</div>
+      <div class="rt-tit">${s.t}</div>
+      <div class="rt-val">${s.v}</div>
+      <div class="rt-sub">${s.sub}</div>
+    </div>
+    <div class="rt-dica">toque à direita pra avançar · à esquerda pra voltar</div>`;
+  try{ vibra(10); }catch(e){}
+  if(s.conf){
+    const cores=['#ffd166','#ef476f','#06d6a0','#118ab2','#f78c6b','#c77dff'];
+    for(let k=0;k<44;k++){
+      const c=document.createElement('div'); c.className='rt-conf';
+      c.style.left=(Math.random()*100)+'%';
+      c.style.background=cores[k%cores.length];
+      c.style.animationDuration=(2.2+Math.random()*1.8)+'s';
+      c.style.animationDelay=(Math.random()*0.9)+'s';
+      c.style.transform='rotate('+(Math.random()*360)+'deg)';
+      el.appendChild(c);
+    }
+  }
+}
+function retroNav(dir){
+  const r=window._retro; if(!r) return;
+  const n=r.i+dir;
+  if(n<0) return;
+  if(n>=r.slides.length){ fecharRetro(); return; }
+  r.i=n; retroPinta();
+}
+function fecharRetro(){ const el=$('retro'); if(el) el.remove(); window._retro=null; }
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
+  html+=`<div class="card tap" onclick="abrirRetro()" style="background:linear-gradient(120deg,#3b1d6e,#7a2f8f);color:#fff;padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:26px">✨</span>
+      <div style="flex:1"><b style="font-size:15px">Retrô de ${mesNome(viewMonth)}</b>
+        <div style="font-size:12px;opacity:.85">Seu mês em 6 telas — toque pra ver</div></div>
+      <span style="opacity:.7">›</span>
+    </div></div>`;
   const blocos={};
   const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);

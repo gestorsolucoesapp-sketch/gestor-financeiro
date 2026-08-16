@@ -602,7 +602,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.82"; /* z4 */
+const APP_VER = "8.83"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2160,6 +2160,7 @@ async function selectAll(table, orderCol, asc){
 async function loadAll(){
   if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
   try{ carregarSelic(); }catch(e){}
+  setTimeout(()=>{ try{ reconciliarAcertos(); }catch(e){} }, 800);
   let c1,c2,c3,c4;
   try{
     [c1,c2,c3,c4]=await Promise.all([
@@ -4652,14 +4653,16 @@ async function saveAjusteFatura(cartaoId){
     tipo=diff>0?'despesa':'receita';
     valor=Math.abs(diff);
     desc='Acerto de fatura';
+    window._ajAncora=valor>=0?+(+$('ajValor')?calcVal($('ajValor').value):0).toFixed(2):null;
   }else{
+    window._ajAncora=null;
     desc=$('ajDesc').value.trim()||(tipo==='receita'?'Estorno':'Ajuste de fatura');
     if(!(valor>0)){toast('Informe um valor válido');return;}
   }
   const off=cardDueOffset(cartaoById(cartaoId));
   const compDate=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
   const comp=ymd(firstOfMonth(compDate));
-  const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp};
+  const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp,ancora_total:window._ajAncora||null};
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
@@ -7592,6 +7595,42 @@ function addMonths(dateStr,n){
   const dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
   t.setDate(Math.min(day,dim));
   return ymd(t);
+}
+// RECONCILIAÇÃO: acertos com âncora se autocorrigem a cada carga do app.
+// A âncora é o total real da fatura (digitado no "Acertar total"); o acerto vira
+// sempre = âncora − soma dos demais itens da fatura, não importa o que mudou nem por onde.
+async function reconciliarAcertos(){
+  try{
+    const todos=DATA.lancamentos.filter(l=>l.user_id===USER.id && l.cartao_id && l.competencia
+      && (l.descricao||'').startsWith('Acerto de fatura') && Number(l.ancora_total)>0);
+    // uma fatura, um acerto: se houver mais de um ancorado na mesma fatura, só o mais antigo manda
+    const vistos=new Set(); const acertos=[];
+    todos.sort((x,y)=>(x.criado_em||'').localeCompare(y.criado_em||''));
+    for(const a of todos){
+      const c0=cartaoById(a.cartao_id); if(!c0) continue;
+      const k=a.cartao_id+'|'+faturaYm(a.competencia,c0);
+      if(vistos.has(k)) continue;
+      vistos.add(k); acertos.push(a);
+    }
+    for(const a of acertos){
+      const cart=cartaoById(a.cartao_id); if(!cart) continue;
+      const ym=faturaYm(a.competencia, cart);
+      let soma=0;
+      for(const l of DATA.lancamentos){
+        if(l.id===a.id || l.cartao_id!==a.cartao_id || !l.competencia) continue;
+        if(faturaYm(l.competencia,cart)!==ym) continue;
+        soma += (l.tipo==='receita'?-1:1)*(Number(l.valor)||0);
+      }
+      const alvo=+(Number(a.ancora_total)-soma).toFixed(2);            // acerto assinado necessário
+      const atual=+((a.tipo==='receita'?-1:1)*(Number(a.valor)||0)).toFixed(2);
+      if(Math.abs(alvo-atual)<0.005) continue;
+      const upd = alvo>=0
+        ? {tipo:'despesa', valor:alvo, descricao:'Acerto de fatura'}
+        : {tipo:'receita', valor:-alvo, descricao:'Acerto de fatura (crédito)'};
+      const rr=await dbUpdate('lancamentos',upd,'id',a.id);
+      if(!(rr&&rr.error)) Object.assign(a,upd);
+    }
+  }catch(e){}
 }
 // O "Acerto de fatura" fixa o total real da fatura. Se entrar compra nova nela, o acerto absorve
 // o valor (diminui na mesma medida), mantendo o total ancorado no que o banco mostra.

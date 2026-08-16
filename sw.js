@@ -1,9 +1,9 @@
 // Gestor Soluções · Service Worker (offline shell + push)
-const CACHE = 'gf-shell-v185';
+const CACHE = 'gf-shell-v186';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
-  'assets/supabase.js', 'assets/logo.jpg'
+  'assets/supabase.js', 'assets/logo.jpg', 'assets/mark.png?v=4'
 ];
 
 self.addEventListener('install', e => {

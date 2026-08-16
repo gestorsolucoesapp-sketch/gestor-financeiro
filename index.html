@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.76"; /* z4 */
+const APP_VER = "8.77"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7179,13 +7179,16 @@ function faturaYm(competencia, cartao){
   return ymd(t).slice(0,7);
 }
 async function saveLanc(id){
+  if(window._salvandoLanc) return;            // trava anti toque-duplo
+  window._salvandoLanc=true;
+  setTimeout(()=>{ window._salvandoLanc=false; }, 2500);
   const desc=$('lDesc').value.trim();
   const valor=evalValor($('lValor').value);
   const data=$('lData').value;
-  if(!desc){flashErr('Informe a descrição','lDesc');return;}
-  if(isNaN(valor)){flashErr('Valor inválido (confira a conta)','lValor');return;}
-  if(!(valor>0)){flashErr('Informe um valor válido','lValor');return;}
-  if(!data){flashErr('Informe a data','lData');return;}
+  if(!desc){window._salvandoLanc=false;flashErr('Informe a descrição','lDesc');return;}
+  if(isNaN(valor)){window._salvandoLanc=false;flashErr('Valor inválido (confira a conta)','lValor');return;}
+  if(!(valor>0)){window._salvandoLanc=false;flashErr('Informe um valor válido','lValor');return;}
+  if(!data){window._salvandoLanc=false;flashErr('Informe a data','lData');return;}
   // ⚠️ aviso de duplicado: já existe lançamento igual (desc+valor+data)?
   if(!id){
     const jaTem = DATA.lancamentos.find(l=>

@@ -453,6 +453,9 @@ body.scrolling .fab{opacity:.25}
 #devGate h2{margin:0;font-size:19px}
 #devGate p{margin:0;color:var(--muted);font-size:13.5px;max-width:300px;line-height:1.5}
 #devGate .btn{max-width:300px;width:100%}
+
+@keyframes svgdraw{to{stroke-dashoffset:0}}
+@keyframes svgpop{from{opacity:0;transform:scale(.6);transform-origin:center}to{opacity:1;transform:scale(1)}}
 </style>
 </head>
 <body>
@@ -603,7 +606,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.86"; /* z4 */
+const APP_VER = "8.87"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5215,22 +5218,23 @@ function renderRelatorios(){
   }
   bcat+=`</div>`;
   blocos.categoria=bcat;
-  // BARRAS evolução 6 meses
+  // EVOLUÇÃO 6 meses — curvas de área (receitas × despesas) com resultado por mês
   const ev=evolucaoMeses(6);
-  const maxV=Math.max(1,...ev.map(m=>Math.max(m.rec,m.desp)));
-  let bev=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 10px;font-size:15px">Receitas x Despesas (6 meses)</h3>
-    <div class="bars">`;
-  ev.forEach(m=>{
-    const hr=Math.round(m.rec/maxV*90), hd=Math.round(m.desp/maxV*90);
-    bev+=`<div class="barcol">
-      <div class="barpair">
-        <div class="bar rec" style="height:${hr}px" title="${brl(m.rec)}"></div>
-        <div class="bar desp" style="height:${hd}px" title="${brl(m.desp)}"></div>
-      </div>
-      <div class="barlab">${m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</div>
-    </div>`;
-  });
-  bev+=`</div><div class="legend"><span><i style="background:var(--bar-rec)"></i>Receitas</span><span><i style="background:var(--bar-desp)"></i>Despesas</span></div></div>`;
+  const labs=ev.map(m=>m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
+  const ultimo=ev[ev.length-1]||{rec:0,desp:0};
+  const saldoU=ultimo.rec-ultimo.desp;
+  let bev=`<div class="card" style="margin-bottom:0">
+    <div style="display:flex;align-items:baseline;justify-content:space-between">
+      <h3 style="margin:0;font-size:15px">Receitas × Despesas</h3>
+      <span style="font-size:12px;font-weight:800;color:${saldoU>=0?'var(--green)':'var(--red)'}">${saldoU>=0?'+':''}${brl(saldoU)} <span style="font-weight:600;color:var(--muted)">no mês</span></span>
+    </div>
+    <div style="margin:10px 0 2px">${areaChartSVG([
+      {vals:ev.map(m=>m.rec), cor:'#1f9d6b', nome:'receitas'},
+      {vals:ev.map(m=>m.desp), cor:'#e8654e', nome:'despesas'}
+    ], labs)}</div>
+    <div class="legend"><span><i style="background:#1f9d6b"></i>Receitas</span><span><i style="background:#e8654e"></i>Despesas</span></div>
+    <div class="note" style="font-size:10.5px;margin-top:4px">Toque num ponto pra ver o valor.</div>
+  </div>`;
   blocos.evolucao=bev;
   blocos.evolucao24=evolucao24HTML();
   // BARRAS gastos diários — só os MEUS (o da Carol fica separado logo abaixo)
@@ -5297,18 +5301,79 @@ function compartilharResumo(){
     `*Top categorias:*\n${top||'—'}\n\n_Gerado pelo Gestor Financeiro_`;
   window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
 }
-function donutSVG(seg,total){
-  const size=180,r=70,cx=size/2,cy=size/2,sw=26;
-  const C=2*Math.PI*r; let off=0; let arcs='';
-  seg.forEach(s=>{
-    const frac=s.valor/total; const len=frac*C;
-    arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}"
-      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
-    off+=len;
+// ===== MOTOR DE GRÁFICOS SVG (curvas suaves + gradiente + toque) =====
+let _svgUid=0;
+function _suave(pts){ // catmull-rom → bézier: linha orgânica, sem quinas
+  if(pts.length<3) return 'M'+pts.map(p=>p[0]+','+p[1]).join(' L');
+  let d='M'+pts[0][0]+','+pts[0][1];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
+    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
+    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
+    d+=`C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+// séries: [{vals:[...], cor:'#hex', nome:''}] · labels: ['jan',...]
+function areaChartSVG(series, labels, opts){
+  opts=opts||{};
+  const W=opts.w||340, H=opts.h||150, padL=6, padR=6, padT=12, padB=20;
+  const n=Math.max(...series.map(s=>s.vals.length));
+  if(n<2) return '';
+  const maxV=Math.max(1,...series.flatMap(s=>s.vals));
+  const X=i=>padL+(W-padL-padR)*i/(n-1);
+  const Y=v=>padT+(H-padT-padB)*(1-v/maxV);
+  const uid=++_svgUid;
+  let defs='', corpo='';
+  series.forEach((s,si)=>{
+    const pts=s.vals.map((v,i)=>[X(i),Y(v)]);
+    const linha=_suave(pts);
+    const area=linha+`L${X(s.vals.length-1)},${H-padB} L${X(0)},${H-padB} Z`;
+    defs+=`<linearGradient id="ag${uid}_${si}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${s.cor}" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="${s.cor}" stop-opacity="0"/></linearGradient>`;
+    corpo+=`<path d="${area}" fill="url(#ag${uid}_${si})"></path>
+      <path d="${linha}" fill="none" stroke="${s.cor}" stroke-width="2.4" stroke-linecap="round"
+        style="stroke-dasharray:1200;stroke-dashoffset:1200;animation:svgdraw 1.1s ease ${si*0.15}s forwards"></path>`;
+    // pontos tocáveis com o valor
+    s.vals.forEach((v,i)=>{
+      corpo+=`<circle cx="${X(i)}" cy="${Y(v)}" r="10" fill="transparent" onclick="toast('${(labels[i]||'')} · ${(s.nome||'')} ${brl(v).replace(/'/g,'')}')"></circle>
+        <circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="${s.cor}" style="opacity:0;animation:svgpop .3s ease ${.9+i*0.05}s forwards"></circle>`;
+    });
   });
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${arcs}
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="12" fill="var(--muted)">Total</text>
-    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">${brl(total).replace('R$ ','R$')}</text></svg>`;
+  const labs=labels.map((l,i)=>`<text x="${X(i)}" y="${H-5}" text-anchor="middle" font-size="9.5" fill="var(--muted)" style="text-transform:capitalize">${l}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block"><defs>${defs}</defs>${corpo}${labs}</svg>`;
+}
+// mini-linha para dentro de cards (sparkline)
+function sparkSVG(vals, cor, w, hh){
+  w=w||72; hh=hh||26;
+  if(!vals||vals.length<2) return '';
+  const mx=Math.max(...vals), mn=Math.min(...vals);
+  const rng=(mx-mn)||1;
+  const pts=vals.map((v,i)=>[2+(w-4)*i/(vals.length-1), 2+(hh-4)*(1-(v-mn)/rng)]);
+  const uid=++_svgUid;
+  return `<svg viewBox="0 0 ${w} ${hh}" width="${w}" height="${hh}" style="display:block">
+    <defs><linearGradient id="sg${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${cor}" stop-opacity=".25"/><stop offset="100%" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${_suave(pts)}L${pts[pts.length-1][0]},${hh} L${pts[0][0]},${hh} Z" fill="url(#sg${uid})"></path>
+    <path d="${_suave(pts)}" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round"></path>
+    <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="2.4" fill="${cor}"></circle></svg>`;
+}
+function donutSVG(seg,total){
+  const size=190,r=72,cx=size/2,cy=size/2,sw=22;
+  const C=2*Math.PI*r; const gap=seg.length>1?3:0; let off=0; let arcs='';
+  seg.forEach((s,i)=>{
+    const frac=s.valor/total; const len=Math.max(0.5, frac*C-gap);
+    arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}" stroke-linecap="round"
+      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"
+      style="opacity:0;animation:svgpop .5s ease ${i*0.07}s forwards"></circle>`;
+    off+=frac*C;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${sw}" opacity=".45"></circle>
+    ${arcs}
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="11" fill="var(--muted)">Total do mês</text>
+    <text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)" style="font-variant-numeric:tabular-nums">${brl(total).replace('R$ ','R$ ')}</text></svg>`;
 }
 
 // ============ PLANEJAMENTO (ORÇAMENTO) ============
@@ -5782,11 +5847,28 @@ function renderInvestimentos(){
       const atual=valorAtualInvest(i), aplic=Number(i.valor_aplicado)||0, r=atual-aplic;
       const ic = i.tipo==='poupanca'?'🐷':(i.tipo==='renda_fixa'?'📈':'💼');
       const tx = Number(i.taxa_mensal)||0;
+      // curvinha: valor do investimento nos últimos 6 meses
+      let spark='';
+      try{
+        const txm=taxaInvestMes(i)/100;
+        if(i.data_aplicacao && txm>0){
+          const a=new Date(i.data_aplicacao+'T00:00:00');
+          const vs=[];
+          for(let k=5;k>=0;k--){
+            const d=new Date(); d.setMonth(d.getMonth()-k);
+            const meses=Math.max(0,(d-a)/86400000/30.4375);
+            const car=Number(i.carencia_dias)||0;
+            const dias=(d-a)/86400000;
+            vs.push((car>0&&dias<car)?Number(i.valor_aplicado||0):Number(i.valor_aplicado||0)*Math.pow(1+txm,meses));
+          }
+          if(vs.some(v=>v>0)) spark=`<div style="margin:2px 0 -2px">${sparkSVG(vs,'#1f9d8a')}</div>`;
+        }
+      }catch(e){}
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">
         <div class="dot" style="background:#e9f3f1">${ic}</div>
         <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio===false?'<span class="pill neg">fora do patrimônio</span>':''}</div>
           <div class="s">${tx>0?taxaInvestLabel(i)+' · ':''}${carenciaLabel(i)?`<span style="color:#e0a020">⏳ ${carenciaLabel(i)}</span>`:`rend ${r>=0?'+':''}${brl(r)}`}</div></div>
-        <div class="amt g">${brl(atual)}</div></div>`;
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">${spark}<div class="amt g">${brl(atual)}</div></div></div>`;
     });
   }
   html+=`</div><button class="btn outline" onclick="openInvest()">+ Adicionar investimento</button>`;

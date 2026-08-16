@@ -446,6 +446,12 @@ body.scrolling .fab{opacity:.25}
 #lockScreen h2{margin:0;font-size:20px}
 #lockScreen p{margin:0;color:var(--muted);font-size:13.5px;text-align:center;max-width:280px}
 #lockScreen .btn{max-width:280px;width:100%}
+
+#devGate{position:fixed;inset:0;z-index:99980;background:var(--bg,#0d0b14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:26px;text-align:center}
+#devGate .dg-ico{font-size:50px}
+#devGate h2{margin:0;font-size:19px}
+#devGate p{margin:0;color:var(--muted);font-size:13.5px;max-width:300px;line-height:1.5}
+#devGate .btn{max-width:300px;width:100%}
 </style>
 </head>
 <body>
@@ -596,7 +602,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.79"; /* z4 */
+const APP_VER = "8.80"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1196,6 +1202,67 @@ async function confirmarTrocaSenha(){
     try{ if(localStorage.getItem('savedPass:'+em)) savePassFor(em,nova); }catch(e){}
     closeSheet(); vibra(); toast('Senha trocada ✅ Você já está dentro!');
   } finally { if(btn){btn.disabled=false;btn.textContent='Trocar senha';} }
+}
+// ===== DISPOSITIVOS CONFIÁVEIS =====
+function deviceId(){
+  let d=localStorage.getItem('gf_device_id');
+  if(!d){ d=uuid(); localStorage.setItem('gf_device_id',d); }
+  return d;
+}
+function nomeAparelho(){
+  const ua=navigator.userAgent||'';
+  const so=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':/Mac/.test(ua)?'Mac':/Windows/.test(ua)?'Windows':'aparelho';
+  return so+' · '+new Date().toLocaleDateString('pt-BR');
+}
+// true = liberado; false = precisa de aprovação
+async function checarDispositivo(){
+  try{
+    const {data,error}=await sb.rpc('registrar_dispositivo',{p_device:deviceId(), p_nome:nomeAparelho()});
+    if(error){ console.warn('disp:',error.message); return true; }   // não trava o app se a checagem falhar
+    return data===true;
+  }catch(e){ return true; }
+}
+function mostrarDevGate(){
+  if($('devGate')) return;
+  const d=document.createElement('div');
+  d.id='devGate';
+  d.innerHTML=`<div class="dg-ico">📵</div><h2>Aparelho não autorizado</h2>
+    <p>Por segurança, este aparelho precisa ser aprovado. Abra o app em um aparelho já confiável, vá em <b>Mais → Aparelhos confiáveis</b> e aprove este aqui.</p>
+    <button class="btn" onclick="reverificarDispositivo(this)">Já aprovei — verificar</button>
+    <button class="btn ghost" onclick="sb.auth.signOut().then(()=>location.reload())">Sair da conta</button>`;
+  document.body.appendChild(d);
+}
+async function reverificarDispositivo(btn){
+  if(btn){btn.disabled=true;btn.textContent='Verificando…';}
+  const ok=await checarDispositivo();
+  if(ok){ const d=$('devGate'); if(d) d.remove(); vibra(); toast('Aparelho aprovado ✅'); }
+  else { if(btn){btn.disabled=false;btn.textContent='Já aprovei — verificar';} toast('Ainda não aprovado'); }
+}
+async function renderDispositivos(){
+  const {data,error}=await sb.from('dispositivos').select('*').order('criado_em');
+  const lista=(!error&&data)||[];
+  const meu=deviceId();
+  openSheet(`<h2>📱 Aparelhos confiáveis</h2>
+    <div class="note" style="margin-bottom:10px">Só aparelhos aprovados abrem os seus dados. Aprove ou remova abaixo.</div>
+    ${lista.map(d=>`<div class="lrow">
+      <div class="mid"><div class="t">${esc(d.nome||'aparelho')} ${d.device_id===meu?'<span class="pill" style="background:#e6f4ee;color:#2f8f66">este</span>':''}</div>
+        <div class="s">${d.aprovado?'✅ aprovado':'⏳ aguardando aprovação'} · visto ${new Date(d.ultimo_acesso).toLocaleDateString('pt-BR')}</div></div>
+      <div style="display:flex;gap:6px">
+        ${!d.aprovado?`<button class="btn sm" style="width:auto;padding:7px 12px" onclick="aprovarDisp('${d.id}')">Aprovar</button>`:''}
+        ${d.device_id!==meu?`<button class="btn sm ghost" style="width:auto;padding:7px 10px" onclick="removerDisp('${d.id}')"><span class="danger">Remover</span></button>`:''}
+      </div></div>`).join('')||'<div class="note">Nenhum aparelho registrado ainda.</div>'}
+    <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Fechar</button>`);
+}
+async function aprovarDisp(id){
+  const r=await sb.from('dispositivos').update({aprovado:true}).eq('id',id);
+  if(r.error){toast('Erro: '+r.error.message);return;}
+  toast('Aparelho aprovado ✅'); renderDispositivos();
+}
+async function removerDisp(id){
+  if(!confirm('Remover este aparelho? Ele perde o acesso na hora.'))return;
+  const r=await sb.from('dispositivos').delete().eq('id',id);
+  if(r.error){toast('Erro: '+r.error.message);return;}
+  toast('Aparelho removido'); renderDispositivos();
 }
 // ===== BLOQUEIO POR FACE ID (WebAuthn no aparelho) =====
 function faceIdCfg(){ try{ return JSON.parse(localStorage.getItem('gf_faceid')||'null'); }catch(e){ return null; } }
@@ -1798,6 +1865,7 @@ async function afterLogin(userArg){
   if(!user){ authErr('Não deu pra entrar sem internet. Conecte uma vez para o app guardar seu acesso.'); return; }
   USER=user;
   if(faceIdOn()) mostrarLock();   // trava a tela até o Face ID liberar
+  if(navigator.onLine){ checarDispositivo().then(ok=>{ if(!ok) mostrarDevGate(); }); }
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
   updateIaFab();
@@ -4744,6 +4812,7 @@ function renderConfig(){
   html+=`<div class="page-title" style="margin-top:20px">Sobre e legal</div><div class="card">
     ${hubItem('download','🔄 Atualizar tudo','Recarrega seus dados do servidor agora',"recarregarTudo()",'#3b6fd6')}
     ${hubItem('receipt','Termos de Uso','Condições de uso do aplicativo',"window.open('termos.html','_blank')",'#3b6fd6')}
+    ${hubItem('phone','📱 Aparelhos confiáveis','Aprove ou remova aparelhos com acesso à sua conta',"renderDispositivos()",'#3b6fd6')}
     ${hubItem('lock', faceIdOn()?'🔓 Desativar Face ID':'🔒 Bloquear com Face ID', faceIdOn()?'O app deixa de pedir biometria ao abrir':'Pede Face ID / digital toda vez que o app abre', faceIdOn()?"desativarFaceId()":"ativarFaceId()",'#7c5cff')}
     ${hubItem('receipt','Política de Privacidade','Como tratamos seus dados (LGPD)',"window.open('privacidade.html','_blank')",'#2f8f66')}
   </div>`;

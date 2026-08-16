@@ -602,7 +602,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.81"; /* z4 */
+const APP_VER = "8.82"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7593,6 +7593,34 @@ function addMonths(dateStr,n){
   t.setDate(Math.min(day,dim));
   return ymd(t);
 }
+// O "Acerto de fatura" fixa o total real da fatura. Se entrar compra nova nela, o acerto absorve
+// o valor (diminui na mesma medida), mantendo o total ancorado no que o banco mostra.
+async function absorverNoAcerto(rows){
+  try{
+    for(const r of (rows||[])){
+      if(!r || !r.cartao_id || !r.competencia || r.tipo!=='despesa') continue;
+      if((r.descricao||'').startsWith('Acerto de fatura')) continue;
+      const cart=cartaoById(r.cartao_id); if(!cart) continue;
+      const ymNovo=faturaYm(r.competencia, cart);
+      const acerto=DATA.lancamentos.find(a=>
+        a.cartao_id===r.cartao_id && a.competencia &&
+        (a.descricao||'').startsWith('Acerto de fatura') &&
+        faturaYm(a.competencia, cart)===ymNovo
+      );
+      if(!acerto) continue;
+      const v=Number(r.valor)||0; if(!(v>0)) continue;
+      const atual=(acerto.tipo==='receita'?-1:1)*(Number(acerto.valor)||0);
+      const novo=atual-v;   // acerto assinado: positivo=débito, negativo=crédito
+      const upd = novo>=0
+        ? {tipo:'despesa', valor:Math.round(novo*100)/100, descricao:'Acerto de fatura'}
+        : {tipo:'receita', valor:Math.round(-novo*100)/100, descricao:'Acerto de fatura (crédito)'};
+      const rr=await dbUpdate('lancamentos',upd,'id',acerto.id);
+      if(!(rr&&rr.error)){ Object.assign(acerto,upd);
+        toast(`Acerto da fatura ajustado: o total continua o que você fixou`);
+      }
+    }
+  }catch(e){}
+}
 // avisa quando o MESMO VALOR já aparece várias vezes no app (parcelamento já lançado, compra em duplicidade)
 function avisarValorRepetido(valor, desc){
   try{
@@ -7627,7 +7655,7 @@ async function upsertLanc(id,row){
   if(!r.ok) return;
   closeSheet();
   if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
-  else { await loadAll(); toast('Transação adicionada'); render(); }
+  else { await absorverNoAcerto(r.rows||[row]); await loadAll(); toast('Transação adicionada'); render(); }
   setTimeout(()=>mostrarBalaoOrc(row),650);
 }
 async function delLanc(id){

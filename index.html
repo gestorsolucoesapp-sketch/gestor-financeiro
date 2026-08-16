@@ -589,7 +589,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.75"; /* z4 */
+const APP_VER = "8.76"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1943,6 +1943,19 @@ function abrirNotificacoes(){
   setNotifSeen(); updateBell();
 }
 
+// busca TODAS as linhas de uma tabela, paginando de 1000 em 1000
+async function selectAll(table, orderCol, asc){
+  const PAGE=1000; let from=0; const out=[];
+  for(let i=0;i<50;i++){
+    const r=await sb.from(table).select('*').order(orderCol,{ascending:!!asc}).range(from, from+PAGE-1);
+    if(r.error) return r;
+    const rows=r.data||[];
+    out.push(...rows);
+    if(rows.length<PAGE) break;
+    from+=PAGE;
+  }
+  return {data:out, error:null};
+}
 async function loadAll(){
   if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
   try{ carregarSelic(); }catch(e){}
@@ -1952,7 +1965,7 @@ async function loadAll(){
       sb.from('contas').select('*').order('criado_em'),
       sb.from('categorias').select('*').order('nome'),
       sb.from('cartoes').select('*').order('criado_em'),
-      sb.from('lancamentos').select('*').order('data',{ascending:false}),
+      selectAll('lancamentos','data',false),   // paginado: o Supabase corta em 1000 por consulta
     ]);
   }catch(e){
     if((isNetErr(e)||!navigator.onLine) && loadCache()){ updateOfflinePill(); return; }
@@ -1965,9 +1978,9 @@ async function loadAll(){
     throw e;
   }
   DATA.contas=c1.data; DATA.categorias=c2.data; DATA.cartoes=c3.data; DATA.lancamentos=c4.data;
-  const o=await sb.from('orcamentos').select('*');
+  const o=await selectAll('orcamentos','ano_mes',true);
   DATA.orcamentos = o.error ? [] : o.data;
-  const inv=await sb.from('investimentos').select('*');
+  const inv=await selectAll('investimentos','criado_em',true);
   DATA.investimentos = inv.error ? [] : inv.data;
   saveCache(); updateOfflinePill();
   const sh=await sb.from('compartilhamentos').select('*');

@@ -623,7 +623,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.89"; /* z4 */
+const APP_VER = "8.90"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5253,20 +5253,28 @@ function renderRelatorios(){
   const labs=ev.map(m=>m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
   const ultimo=ev[ev.length-1]||{rec:0,desp:0};
   const saldoU=ultimo.rec-ultimo.desp;
+  const _evModo=localStorage.getItem('gf_ev_modo')||'6';
   let bev=`<div class="card" style="margin-bottom:0">
-    <div style="display:flex;align-items:baseline;justify-content:space-between">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <h3 style="margin:0;font-size:15px">Receitas × Despesas</h3>
-      <span style="font-size:12px;font-weight:800;color:${saldoU>=0?'var(--green)':'var(--red)'}">${saldoU>=0?'+':''}${brl(saldoU)} <span style="font-weight:600;color:var(--muted)">no mês</span></span>
-    </div>
-    <div style="margin:10px 0 2px">${areaChartSVG([
+      <div style="display:flex;background:var(--line);border-radius:10px;padding:2px;gap:2px">
+        <button onclick="localStorage.setItem('gf_ev_modo','6');render()" style="padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;${_evModo==='6'?'background:var(--card);box-shadow:var(--shadow-1)':''}">6m</button>
+        <button onclick="localStorage.setItem('gf_ev_modo','24');render()" style="padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;${_evModo==='24'?'background:var(--card);box-shadow:var(--shadow-1)':''}">à frente</button>
+      </div>
+    </div>`;
+  if(_evModo==='6'){
+    bev+=`<div style="display:flex;justify-content:flex-end;margin-top:4px"><span style="font-size:12px;font-weight:800;color:${saldoU>=0?'var(--green)':'var(--red)'}">${saldoU>=0?'+':''}${brl(saldoU)} <span style="font-weight:600;color:var(--muted)">no mês</span></span></div>
+    <div style="margin:6px 0 2px">${areaChartSVG([
       {vals:ev.map(m=>m.rec), cor:'#1f9d6b', nome:'receitas'},
       {vals:ev.map(m=>m.desp), cor:'#e8654e', nome:'despesas'}
     ], labs)}</div>
     <div class="legend"><span><i style="background:#1f9d6b"></i>Receitas</span><span><i style="background:#e8654e"></i>Despesas</span></div>
-    <div class="note" style="font-size:10.5px;margin-top:4px">Toque num ponto pra ver o valor.</div>
-  </div>`;
+    <div class="note" style="font-size:10.5px;margin-top:4px">Toque num ponto pra ver o valor.</div>`;
+  }else{
+    bev+=evolucao24HTML().replace(/^<div class="card"[^>]*>/,'<div>').replace(/<\/div>$/,'</div>');
+  }
+  bev+=`</div>`;
   blocos.evolucao=bev;
-  blocos.evolucao24=evolucao24HTML();
   // BARRAS gastos diários — só os MEUS (o da Carol fica separado logo abaixo)
   const dias=gastosDiariosPartner(viewMonth,USER.id);
   blocos.diario=daybarChartHTML(dias, `Gastos diários — Meus · ${mesNome(viewMonth)}`, 'Cartão conta no mês da fatura. Toque numa barra pra ver os detalhes.', USER.id);
@@ -5284,17 +5292,24 @@ function renderRelatorios(){
     blocos[keyC]=daybarChartHTML(comprasP, `Compras por dia — ${esc(p.apelido)}`, `Pelo dia real da compra (parcela no dia que comprou). Toque — mostra se foi parcelado.`, p.owner_id, 'abrirDiaCompraDetalhe');
     defaultOrder.push(keyC);
   });
-  defaultOrder.push('categoria','evolucao','evolucao24');
+  defaultOrder.push('categoria','evolucao');
   // gastos anuais + variação % — MEUS (mesmos gráficos que os parceiros têm)
   {
     const ano=viewMonth.getFullYear();
     const valsMe=gastosMensaisAno(USER.id,ano);
     const itensMe=gastosMensaisTodos(USER.id);
-    blocos.anual=itensMe.length
-      ? mesesChartHTML(itensMe, 'Gastos por mês — Meus', 'Todos os meses com lançamento (inclui parcelas futuras). Arraste ↔')
-      : anualChartHTML(valsMe, `Gastos por mês — Meus · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).');
-    blocos.anualpct=pctChartHTML(valsMe, `Variação mês a mês — Meus · ${ano}`);
-    defaultOrder.push('anual','anualpct');
+    const _anModo=localStorage.getItem('gf_an_modo')||'val';
+    const _corpoAnual=_anModo==='pct'
+      ? pctChartHTML(valsMe, `Variação mês a mês — Meus · ${ano}`)
+      : (itensMe.length
+          ? mesesChartHTML(itensMe, 'Gastos por mês — Meus', 'Todos os meses com lançamento (inclui parcelas futuras). Arraste ↔')
+          : anualChartHTML(valsMe, `Gastos por mês — Meus · ${ano}`, 'Total de despesas de cada mês (cartão conta no mês da fatura).'));
+    blocos.anual=`<div style="position:relative">
+      <div style="position:absolute;right:14px;top:12px;z-index:2;display:flex;background:var(--line);border-radius:10px;padding:2px;gap:2px">
+        <button onclick="localStorage.setItem('gf_an_modo','val');render()" style="padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;${_anModo!=='pct'?'background:var(--card);box-shadow:var(--shadow-1)':''}">R$</button>
+        <button onclick="localStorage.setItem('gf_an_modo','pct');render()" style="padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;${_anModo==='pct'?'background:var(--card);box-shadow:var(--shadow-1)':''}">%</button>
+      </div>${_corpoAnual}</div>`;
+    defaultOrder.push('anual');
   }
   MYPARTNERS.forEach(p=>{
     // gastos anuais + variação % mês a mês (mais pra baixo)

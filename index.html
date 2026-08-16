@@ -602,7 +602,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.80"; /* z4 */
+const APP_VER = "8.81"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1217,10 +1217,49 @@ function nomeAparelho(){
 // true = liberado; false = precisa de aprovação
 async function checarDispositivo(){
   try{
+    const jaConhecido=!!localStorage.getItem('gf_dev_registrado');
     const {data,error}=await sb.rpc('registrar_dispositivo',{p_device:deviceId(), p_nome:nomeAparelho()});
     if(error){ console.warn('disp:',error.message); return true; }   // não trava o app se a checagem falhar
+    localStorage.setItem('gf_dev_registrado','1');
+    // trilha de acesso: grava o evento (aparelho novo ganha destaque)
+    try{
+      await sb.from('acessos').insert({device_id:deviceId(), nome_aparelho:nomeAparelho(),
+        aprovado:data===true, evento: jaConhecido?'acesso':'aparelho_novo'});
+    }catch(e){}
     return data===true;
   }catch(e){ return true; }
+}
+// alerta na home: acessos de aparelhos que NÃO são este, ainda não vistos
+async function checarAcessosEstranhos(){
+  try{
+    const meu=deviceId();
+    const {data,error}=await sb.from('acessos').select('*')
+      .eq('visto',false).neq('device_id',meu)
+      .order('criado_em',{ascending:false}).limit(10);
+    if(error||!data||!data.length) return;
+    const novos=data.filter(a=>a.evento==='aparelho_novo');
+    const alvo=novos.length?novos:data;
+    const a=alvo[0];
+    const dt=new Date(a.criado_em);
+    const quando=dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:9700;background:#3a1220;border:1.5px solid #d64545;border-radius:16px;padding:13px 15px;color:#fff;box-shadow:0 12px 30px rgba(0,0,0,.5);max-width:520px;margin:0 auto';
+    el.innerHTML=`<div style="display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:22px">🚨</span>
+      <div style="flex:1;min-width:0">
+        <b style="font-size:14px">${a.evento==='aparelho_novo'?'Aparelho novo acessou sua conta':'Acesso de outro aparelho'}</b>
+        <div style="font-size:12.5px;opacity:.85;margin-top:3px">${esc(a.nome_aparelho||'aparelho')} · ${quando} · ${a.aprovado?'aprovado':'bloqueado na tela de autorização'}${alvo.length>1?` · +${alvo.length-1} outro(s)`:''}</div>
+        <div style="display:flex;gap:8px;margin-top:9px">
+          <button onclick="this.closest('div[style]').remove();marcarAcessosVistos();renderDispositivos()" style="background:#d64545;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-weight:700;font-size:12.5px">Ver aparelhos</button>
+          <button onclick="this.closest('div[style]').remove();marcarAcessosVistos()" style="background:rgba(255,255,255,.14);color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:12.5px">Fui eu</button>
+        </div>
+      </div></div>`;
+    document.body.appendChild(el);
+    try{ vibra(60); }catch(e){}
+  }catch(e){}
+}
+async function marcarAcessosVistos(){
+  try{ await sb.from('acessos').update({visto:true}).eq('visto',false); }catch(e){}
 }
 function mostrarDevGate(){
   if($('devGate')) return;
@@ -1865,7 +1904,7 @@ async function afterLogin(userArg){
   if(!user){ authErr('Não deu pra entrar sem internet. Conecte uma vez para o app guardar seu acesso.'); return; }
   USER=user;
   if(faceIdOn()) mostrarLock();   // trava a tela até o Face ID liberar
-  if(navigator.onLine){ checarDispositivo().then(ok=>{ if(!ok) mostrarDevGate(); }); }
+  if(navigator.onLine){ checarDispositivo().then(ok=>{ if(!ok) mostrarDevGate(); else setTimeout(checarAcessosEstranhos, 1200); }); }
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
   updateIaFab();

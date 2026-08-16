@@ -456,6 +456,23 @@ body.scrolling .fab{opacity:.25}
 
 @keyframes svgdraw{to{stroke-dashoffset:0}}
 @keyframes svgpop{from{opacity:0;transform:scale(.6);transform-origin:center}to{opacity:1;transform:scale(1)}}
+
+/* ===== design system v2 ===== */
+/* números sempre tabulares (não dançam ao trocar de mês) */
+.amt,.big,.v,.balrow .v,.srow b,.monthnav .m{font-variant-numeric:tabular-nums}
+/* feedback de toque universal: leve encolhida */
+.btn,.lrow,.tap,.hubitem,.iconbtn,.seg button,.monthnav button,.quicknav>div,.card.hero.tap{
+  transition:transform .12s ease, filter .12s ease;-webkit-tap-highlight-color:transparent}
+.btn:active,.lrow:active,.tap:active,.hubitem:active,.iconbtn:active,.monthnav button:active,.quicknav>div:active{transform:scale(.976)}
+/* sombras em dois níveis só */
+:root{--shadow-1:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.06);--shadow-2:0 2px 4px rgba(0,0,0,.08),0 14px 34px rgba(0,0,0,.12)}
+.card{box-shadow:var(--shadow-1)}
+.card.hero{box-shadow:var(--shadow-2)}
+/* skeleton loading */
+.skelcard{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow-1)}
+.skel{border-radius:9px;background:linear-gradient(100deg,var(--line) 30%,color-mix(in srgb,var(--line) 40%,transparent) 50%,var(--line) 70%);
+  background-size:300% 100%;animation:skelWave 1.3s ease-in-out infinite}
+@keyframes skelWave{0%{background-position:110% 0}100%{background-position:-110% 0}}
 </style>
 </head>
 <body>
@@ -606,7 +623,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.88"; /* z4 */
+const APP_VER = "8.89"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1914,6 +1931,19 @@ async function afterLogin(userArg){
   updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
   atualizarOlho();
+  // primeiro acesso sem cache: esqueleto pulsando em vez de tela vazia
+  try{
+    if(!DATA.lancamentos.length){
+      $('content').innerHTML=`
+        <div class="skelcard"><div class="skel" style="width:38%;height:11px"></div>
+          <div class="skel" style="width:62%;height:30px;margin-top:12px"></div>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <div class="skel" style="flex:1;height:52px"></div><div class="skel" style="flex:1;height:52px"></div></div></div>
+        <div class="skelcard"><div class="skel" style="width:45%;height:12px"></div>
+          ${'<div style="display:flex;gap:10px;align-items:center;margin-top:14px"><div class="skel" style="width:36px;height:36px;border-radius:11px"></div><div style="flex:1"><div class="skel" style="width:55%;height:11px"></div><div class="skel" style="width:35%;height:9px;margin-top:6px"></div></div><div class="skel" style="width:64px;height:13px"></div></div>'.repeat(3)}</div>
+        <div class="skelcard"><div class="skel" style="width:50%;height:12px"></div><div class="skel" style="width:100%;height:110px;margin-top:12px;border-radius:12px"></div></div>`;
+    }
+  }catch(e){}
   await loadAll();
   await carregarPrefs();
   applyTema(scope); updateIaFab();

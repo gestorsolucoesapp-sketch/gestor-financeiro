@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.01"; /* z4 */
+const APP_VER = "9.02"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3421,6 +3421,7 @@ function ordemSalva(key,defaultOrder,disponiveis,ancoras){
   disponiveis.forEach(k=>{
     if(out.includes(k)) return;
     const anc=ancoras&&ancoras[k];
+    if(anc==='^'){ out.unshift(k); return; }         // '^' = entra no topo
     const i=anc?out.indexOf(anc):-1;
     if(i>=0) out.splice(i+1,0,k); else out.push(k);
   });
@@ -5803,7 +5804,7 @@ function renderRelatorios(){
     defaultOrder.push('anual_'+p.owner_id,'anualpct_'+p.owner_id);
   });
 
-  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos));
+  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos),{painel:'^',tendencia:'painel'});
   html+=`<div id="relSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.00"; /* z4 */
+const APP_VER = "9.01"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5673,6 +5673,43 @@ function renderRelatorios(){
   const blocos={};
   const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
+  // PAINEL — três velocímetros do mês
+  {
+    const s=saidasMes(viewMonth);
+    const totContas=(s.pagas||0)+(s.aPagar||0);
+    const pctPagas = totContas>0 ? (s.pagas||0)/totContas*100 : 100;
+    const alvos=orcAlvos(viewMonth);
+    const limOrc=Number(alvos&&alvos.total)||0;
+    const gastoTotalMes=totContas+gastoCartaoMes(viewMonth)+(s.conjuge||0);
+    const pctOrc = limOrc>0 ? gastoTotalMes/limOrc*100 : null;
+    const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado&&Number(c.limite)>0);
+    const limTot=cards.reduce((a,c)=>a+Number(c.limite),0);
+    const usado=cards.reduce((a,c)=>a+Math.max(0,faturaTotal(c.id,viewMonth)),0);
+    const pctLim = limTot>0 ? usado/limTot*100 : null;
+    const item=(g,lab,val)=>`<div style="flex:1;text-align:center;min-width:0">${g}
+      <div class="note" style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;margin-top:4px">${lab}</div>
+      <b style="font-size:14px;font-variant-numeric:tabular-nums">${val}</b></div>`;
+    let corpo='';
+    if(pctOrc!=null) corpo+=item(gaugeSVG(pctOrc),'Orçamento',Math.round(pctOrc)+'%');
+    corpo+=item(gaugeSVG(pctPagas,{inverte:true}),'Contas pagas',Math.round(pctPagas)+'%');
+    if(pctLim!=null) corpo+=item(gaugeSVG(pctLim),'Limite cartões',Math.round(pctLim)+'%');
+    if(corpo) blocos.painel=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
+      <div style="display:flex;gap:8px;align-items:flex-end">${corpo}</div></div>`;
+  }
+  // TENDÊNCIA DE SALDO — dia a dia
+  {
+    const svg=tendenciaSaldoSVG(viewMonth);
+    if(svg){
+      blocos.tendencia=`<div class="card" style="margin-bottom:0">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
+          <b style="font-size:14px;font-variant-numeric:tabular-nums">${brl(saldoTotal())}</b>
+        </div>
+        <div style="margin-top:8px">${svg}</div>
+        <div class="note" style="font-size:10.5px;margin-top:2px">Saldo das contas dia a dia. Toque num ponto pra ver o valor.</div>
+      </div>`;
+    }
+  }
   // DONUT despesas por categoria
   let bcat=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
   if(!totalGasto){ bcat+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
@@ -5735,7 +5772,7 @@ function renderRelatorios(){
     blocos[keyC]=daybarChartHTML(comprasP, `Compras por dia — ${esc(p.apelido)}`, `Pelo dia real da compra (parcela no dia que comprou). Toque — mostra se foi parcelado.`, p.owner_id, 'abrirDiaCompraDetalhe');
     defaultOrder.push(keyC);
   });
-  defaultOrder.push('categoria','evolucao');
+  defaultOrder.push('painel','tendencia','categoria','evolucao');
   // gastos anuais + variação % — MEUS (mesmos gráficos que os parceiros têm)
   {
     const ano=viewMonth.getFullYear();
@@ -5851,15 +5888,117 @@ function sparkSVG(vals, cor, w, hh){
     </g>
     <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="2.4" fill="${cor}" style="opacity:0;animation:svgpop .3s ease ${(atraso+0.75).toFixed(2)}s forwards"></circle></svg>`;
 }
+// velocímetro semicircular com zonas coloridas e ponteiro animado
+function gaugeSVG(pct, opts){
+  opts=opts||{};
+  const W=118, H=74, cx=W/2, cy=64, r=44;
+  const p=Math.max(0,Math.min(100,pct));
+  const arco=(a0,a1,cor)=>{
+    const A0=Math.PI*(1-a0/100), A1=Math.PI*(1-a1/100);
+    const x0=cx+r*Math.cos(A0), y0=cy-r*Math.sin(A0);
+    const x1=cx+r*Math.cos(A1), y1=cy-r*Math.sin(A1);
+    return `<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}" fill="none" stroke="${cor}" stroke-width="10" stroke-linecap="round"></path>`;
+  };
+  // zonas: normal = verde→laranja→vermelho · invertido (quanto mais, melhor) = vermelho→laranja→verde
+  const Z = opts.inverte ? [[0,45,'#d64545'],[45,75,'#e0a020'],[75,100,'#1f9d6b']]
+                         : [[0,60,'#1f9d6b'],[60,85,'#e0a020'],[85,100,'#d64545']];
+  const ang=-90+180*p/100;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
+    ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
+    <g transform="rotate(${ang.toFixed(1)} ${cx} ${cy})">
+      <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round">
+        <animateTransform attributeName="transform" type="rotate" from="${(-90-ang).toFixed(1)} ${cx} ${cy}" to="0 ${cx} ${cy}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.25 0.9 0.35 1.2" keyTimes="0;1"/>
+      </line>
+    </g>
+    <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
+  </svg>`;
+}
+// tendência do saldo dia a dia no mês (com grade e eixo)
+function tendenciaSaldoSVG(d){
+  try{
+    const ini=firstOfMonth(d);
+    const fim=new Date(d.getFullYear(),d.getMonth()+1,0);
+    const _esp=idsEspelho();
+    const contas=DATA.contas.filter(c=>srcOk(c.user_id)&&!c.arquivada&&!c.eh_investimento&&!_esp.has(c.id));
+    const ids=new Set(contas.map(c=>c.id));
+    if(!ids.size) return '';
+    let base=contas.reduce((a,c)=>a+(Number(c.saldo_inicial)||0),0);
+    const iniS=ymd(ini);
+    const porDia={};
+    for(const l of DATA.lancamentos){
+      if(l.status!=='pago') continue;
+      const v=Number(l.valor)||0; if(!v) continue;
+      let delta=0;
+      if(l.tipo==='receita' && ids.has(l.conta_id)) delta=v;
+      else if(l.tipo==='despesa' && ids.has(l.conta_id) && !l.cartao_id) delta=-v;
+      else if(l.tipo==='transferencia'){
+        if(ids.has(l.conta_id)) delta-=v;
+        if(ids.has(l.conta_destino_id)) delta+=v;
+      }
+      if(!delta) continue;
+      if(l.data<iniS) base+=delta;
+      else if(l.data<=ymd(fim)) porDia[l.data]=(porDia[l.data]||0)+delta;
+    }
+    const hoje=ymd(new Date());
+    const ultimo=Math.min(fim.getDate(), (ymd(fim)>=hoje && iniS<=hoje) ? new Date().getDate() : fim.getDate());
+    const vals=[]; let acc=base;
+    for(let dd=1;dd<=ultimo;dd++){
+      const key=ymd(new Date(d.getFullYear(),d.getMonth(),dd));
+      acc+=porDia[key]||0;
+      vals.push(acc);
+    }
+    if(vals.length<2) return '';
+    const W=340,H=170,padL=52,padR=10,padT=14,padB=22;
+    let mn=Math.min(...vals), mx=Math.max(...vals);
+    if(mx-mn<1){ mx+=1; mn-=1; }
+    const span=mx-mn; mn-=span*0.08; mx+=span*0.08;
+    const X=i=>padL+(W-padL-padR)*i/(vals.length-1);
+    const Y=v=>padT+(H-padT-padB)*(1-(v-mn)/(mx-mn));
+    const pts=vals.map((v,i)=>[X(i),Y(v)]);
+    const uid=++_svgUid;
+    // grade: 4 linhas com rótulo compacto (R$ 5,2k)
+    const fmtK=v=>{ const a=Math.abs(v); const s=a>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v); return (v<0?'-':'')+String(s).replace('-',''); };
+    let grade='';
+    for(let g=0;g<=3;g++){
+      const v=mn+(mx-mn)*g/3, y=Y(v);
+      grade+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1" opacity=".7"></line>
+        <text x="${padL-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="var(--muted)">${fmtK(v)}</text>`;
+    }
+    const linha=_suave(pts);
+    const area=linha+`L${pts[pts.length-1][0]},${H-padB} L${pts[0][0]},${H-padB} Z`;
+    const negativo=vals[vals.length-1]<0;
+    const cor=negativo?'#e8654e':'#1f9d8a';
+    const labX=[1, Math.round(vals.length/2), vals.length].filter((v,i,a)=>a.indexOf(v)===i);
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <defs><linearGradient id="ts${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${cor}" stop-opacity=".26"/><stop offset="100%" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs>
+      ${grade}
+      <path d="${area}" fill="url(#ts${uid})"></path>
+      <path d="${linha}" fill="none" stroke="${cor}" stroke-width="2.4" stroke-linecap="round"
+        style="stroke-dasharray:1400;stroke-dashoffset:1400;animation:svgdraw 1.1s ease forwards"></path>
+      <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="3.6" fill="${cor}" style="opacity:0;animation:svgpop .3s ease .95s forwards"></circle>
+      ${labX.map(dd=>`<text x="${X(dd-1)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${String(dd).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</text>`).join('')}
+      ${pts.map((pt,i)=>`<circle cx="${pt[0]}" cy="${pt[1]}" r="9" fill="transparent" onclick="toast('dia ${String(i+1).padStart(2,'0')} · ${brl(vals[i]).replace(/'/g,'')}')"></circle>`).join('')}
+    </svg>`;
+  }catch(e){ return ''; }
+}
 function donutSVG(seg,total){
   const size=190,r=72,cx=size/2,cy=size/2,sw=22;
   const C=2*Math.PI*r; const gap=seg.length>1?3:0; let off=0; let arcs='';
+  let rot=0;
   seg.forEach((s,i)=>{
     const frac=s.valor/total; const len=Math.max(0.5, frac*C-gap);
     arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}" stroke-linecap="round"
       stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"
       style="opacity:0;animation:svgpop .5s ease ${i*0.07}s forwards"></circle>`;
-    off+=frac*C;
+    // % no meio da fatia (só nas que têm espaço)
+    if(frac>=0.09){
+      const ang=(rot+frac/2)*2*Math.PI - Math.PI/2;
+      const tx=cx+r*Math.cos(ang), ty=cy+r*Math.sin(ang);
+      arcs+=`<text x="${tx.toFixed(1)}" y="${(ty+3.5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff"
+        style="opacity:0;animation:svgpop .4s ease ${(0.35+i*0.07).toFixed(2)}s forwards">${Math.round(frac*100)}%</text>`;
+    }
+    rot+=frac; off+=frac*C;
   });
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${sw}" opacity=".45"></circle>

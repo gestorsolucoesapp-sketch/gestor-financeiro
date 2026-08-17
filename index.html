@@ -671,7 +671,8 @@ body.scrolling .fab{opacity:.25}
 
 <div class="tabbar hidden" id="tabbar">
   <div class="tb-pill" id="tbPill"></div>
-  <button data-tab="home" class="on" onclick="go('home')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Início</button>
+  <button data-tab="dash" class="on" onclick="go('dash')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Painel</button>
+  <button data-tab="home" onclick="go('home')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Início</button>
   <button data-tab="trans" onclick="verTrans('all')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>Transações</button>
   <button data-tab="contas" onclick="go('contas')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/></svg></span>Contas</button>
   <button data-tab="investimentos" onclick="go('investimentos')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Investir</button>
@@ -708,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.03"; /* z4 */
+const APP_VER = "9.04"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1527,6 +1528,7 @@ const TEMA_PRESETS={
   'Azul oceano':{emerald:'#0b3d6e',mint:'#2563eb',coral:'#f59e0b',green:'#1f9d6b',red:'#d6473a',paper:'#eef3fa',card:'#ffffff',ink:'#0c1f33',muted:'#637084',line:'#dde6f0'},
   'Verde negócio':{emerald:'#14532d',mint:'#16a34a',coral:'#f59e0b',green:'#16a34a',red:'#dc2626',paper:'#eef6ef',card:'#ffffff',ink:'#0f2a18',muted:'#5d7064',line:'#dde9de'},
   'Laranja família':{emerald:'#9a3412',mint:'#f97316',coral:'#e8654e',green:'#1f9d6b',red:'#d6473a',paper:'#fdf3ec',card:'#ffffff',ink:'#3a1d10',muted:'#7d6a60',line:'#f0e2d6'},
+  'Clean verde (claro)':{emerald:'#2fbf71',mint:'#1fa05c',coral:'#f59e0b',green:'#22b07d',red:'#e05545',paper:'#f3f5f7',card:'#ffffff',ink:'#17212b',muted:'#6b7684',line:'#e6eaef'},
   'Escuro (beta)':{emerald:'#0f1a18',mint:'#2dd4bf',coral:'#fb7185',green:'#34d399',red:'#f87171',paper:'#11151a',card:'#1b2129',ink:'#e8edf2',muted:'#9aa6b2',line:'#2a323c'}
 };
 function getTemas(){
@@ -1845,7 +1847,7 @@ async function onbConcluir(){
   try{ localStorage.setItem(obKey(),'1'); }catch(e){}
   window._onb=null;
   try{ await loadAll(); }catch(e){}
-  go('home');
+  go('dash');
   toast('Seu app está vivo! ✨');
 }
 // ============ TUTORIAL DE PRIMEIROS PASSOS (onboarding) ============
@@ -2177,7 +2179,7 @@ async function afterLogin(userArg){
   try{ updateAgBadge(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
   try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
-  if(obDone()){ go('home'); }
+  if(obDone()){ go('dash'); }
   else { go('home'); setTimeout(()=>abrirBemVindo(), 400); }
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
@@ -2502,7 +2504,7 @@ window._telaNova=false;
   document.addEventListener('touchstart',(e)=>{
     ativo=false;
     if($('onb')||$('retro')||document.querySelector('.sheet.open,.sheetwrap.open,#lockScreen,#devGate')) return;
-    if(!['home','trans','relatorios','planejamento','cartoes','fatura'].includes(tab)) return;
+    if(!['dash','home','trans','relatorios','planejamento','cartoes','fatura'].includes(tab)) return;
     const t=e.target;
     if(t.closest('input,select,textarea,button,.monthnav,svg')) return;
     if(scrollavel(t)) return;
@@ -2535,7 +2537,7 @@ function moverPillTab(){
   }catch(e){}
 }
 window.addEventListener('resize', moverPillTab);
-const _ORDEM_ABAS=['home','trans','contas','investimentos','config'];
+const _ORDEM_ABAS=['dash','home','trans','contas','investimentos','config'];
 function go(t){
   window._telaNova=true;
   const _de=_ORDEM_ABAS.indexOf(tab), _pra=_ORDEM_ABAS.indexOf(t);
@@ -2560,6 +2562,7 @@ function _doRender(){
   else if(tab==='cartoes')renderCartoes();
   else if(tab==='contas')renderContas();
   else if(tab==='config')renderConfig();
+  else if(tab==='dash')renderDash();
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='planejamento')renderPlanejamento();
   else if(tab==='pendencias')renderPendencias();
@@ -5661,6 +5664,135 @@ function anelProgSVG(pct, cor, tam){
     <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="${tam>=70?15:13}" font-weight="800" fill="${cor}" style="font-variant-numeric:tabular-nums">${Math.round(p)}%</text>
   </svg>`;
 }
+function painelMesHTML(d){
+  const b=balancoMes(d);
+  const s=saidasMes(d);
+  const gastoTotalMes=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(d)+(s.conjuge||0);
+  const saldo=saldoTotal();
+  const fluxo=b.rec-gastoTotalMes;
+  const _k=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
+  const pSaldo=Math.max(0,Math.min(100, gastoTotalMes>0 ? saldo/gastoTotalMes*100 : (saldo>0?100:0)));
+  const base=Math.max(b.rec,gastoTotalMes,1);
+  const pFluxo=Math.max(0,Math.min(100, 50+50*(fluxo/base)));
+  const pGasto=Math.max(0,Math.min(100, b.rec>0 ? (1-gastoTotalMes/b.rec)*100 : 0));
+  const item=(pct,lab,val)=>`<div style="flex:1;text-align:center;min-width:0">${gaugeSVG(pct)}
+    <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:5px">${lab}</div>
+    <b style="font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.3px">${val}</b></div>`;
+  return `<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      ${item(pSaldo,'Saldo',_k(saldo))}
+      ${item(pFluxo,'Fluxo de caixa',_k(fluxo))}
+      ${item(pGasto,'Gastos',_k(-gastoTotalMes))}
+    </div></div>`;
+}
+function tendenciaCardHTML(d){
+  const svg=tendenciaSaldoSVG(d);
+  if(!svg) return '';
+  return `<div class="card" style="margin-bottom:0">
+    <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
+    <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">Hoje</div>
+    <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(saldoTotal())}</div>
+    <div style="margin-top:4px">${svg}</div>
+    <div class="note" style="font-size:10.5px;margin-top:2px">Saldo das contas dia a dia. Toque num ponto pra ver o valor.</div>
+  </div>`;
+}
+// ===== ABA PAINEL: a casa dos gráficos =====
+function renderDash(){
+  let html=`<div class="page-title">Painel</div>`;
+  html+=monthNav('trans');
+  const cards=[];
+  // 1) velocímetros
+  cards.push(painelMesHTML(viewMonth));
+  // 2) tendência de saldo
+  const tend=tendenciaCardHTML(viewMonth); if(tend) cards.push(tend);
+  // 3) receitas × despesas (6 meses)
+  try{
+    const ev=evolucaoMeses(6);
+    const labs=ev.map(m=>m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
+    const u=ev[ev.length-1]||{rec:0,desp:0};
+    const sU=u.rec-u.desp;
+    cards.push(`<div class="card" style="margin-bottom:0">
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <h3 style="margin:0;font-size:15px">Receitas × Despesas</h3>
+        <span style="font-size:12px;font-weight:800;color:${sU>=0?'var(--green)':'var(--red)'}">${sU>=0?'+':''}${brl(sU)}</span>
+      </div>
+      <div style="margin:10px 0 2px">${areaChartSVG([
+        {vals:ev.map(m=>m.rec), cor:'#1f9d6b', nome:'receitas'},
+        {vals:ev.map(m=>m.desp), cor:'#e8654e', nome:'despesas'}
+      ], labs)}</div>
+      <div class="legend"><span><i style="background:#1f9d6b"></i>Receitas</span><span><i style="background:#e8654e"></i>Despesas</span></div>
+    </div>`);
+  }catch(e){}
+  // 4) donut de categorias com top 5
+  try{
+    const gs=gastosPorCategoria(viewMonth);
+    const tot=gs.reduce((a,g)=>a+g.valor,0);
+    if(tot>0){
+      const seg=gs.map(g=>({valor:g.valor,color:corCategoria(g.id)}));
+      cards.push(`<div class="card" style="margin-bottom:0">
+        <h3 style="margin:0 0 6px;font-size:15px">Despesas por categoria</h3>
+        <div style="display:flex;justify-content:center">${donutSVG(seg,tot)}</div>
+        ${gs.slice(0,5).map(g=>`<div style="display:flex;align-items:center;gap:9px;font-size:13px;margin-top:8px">
+          <i style="width:10px;height:10px;border-radius:3px;background:${corCategoria(g.id)};flex:0 0 auto"></i>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.icone||''} ${esc(g.nome)}</span>
+          <b style="font-variant-numeric:tabular-nums">${brl(g.valor)}</b>
+          <span class="note" style="width:34px;text-align:right">${Math.round(g.valor/tot*100)}%</span></div>`).join('')}
+      </div>`);
+    }
+  }catch(e){}
+  // 5) anel do orçamento
+  try{
+    const alvos=orcAlvos(viewMonth);
+    const lim=Number(alvos&&alvos.total)||0;
+    if(lim>0){
+      const s=saidasMes(viewMonth);
+      const g=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(viewMonth)+(s.conjuge||0);
+      const pct=g/lim*100, cor=orcCor(pct,false)||(pct>=90?'var(--red)':pct>=70?'#e0a020':'var(--green)');
+      cards.push(`<div class="card tap" onclick="go('planejamento')" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="flex:1;min-width:0">
+            <h3 style="margin:0;font-size:15px">Orçamento do mês</h3>
+            <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:4px">${brl(g)}</div>
+            <div class="note" style="margin-top:1px">de ${brl(lim)} · ${orcFaltaTxt(g,lim)}</div>
+          </div>
+          <div style="flex:0 0 auto">${anelProgSVG(pct, pct>=90?'#d6473a':pct>=70?'#e0a020':'#1f9d6b', 84)}</div>
+        </div></div>`);
+    }
+  }catch(e){}
+  // 6) patrimônio: investido crescendo (6 meses)
+  try{
+    const lista=investimentosScope();
+    if(lista.length){
+      const vs=[];
+      for(let k=5;k>=0;k--){
+        const d0=new Date(); d0.setMonth(d0.getMonth()-k);
+        let tot=totalInvestidoContas();
+        lista.forEach(i=>{
+          const txm=(typeof taxaInvestMes==='function'?taxaInvestMes(i):Number(i.taxa_mensal)||0)/100;
+          const a=i.data_aplicacao?new Date(i.data_aplicacao+'T00:00:00'):null;
+          if(!a||d0<a){ tot+= (a&&d0<a)?0:Number(i.valor_aplicado)||0; return; }
+          const meses=Math.max(0,(d0-a)/86400000/30.4375);
+          const car=Number(i.carencia_dias)||0, dias=(d0-a)/86400000;
+          tot += (car>0&&dias<car)?Number(i.valor_aplicado||0):Number(i.valor_aplicado||0)*Math.pow(1+txm,meses);
+        });
+        vs.push(tot);
+      }
+      const atual=vs[vs.length-1];
+      cards.push(`<div class="card tap" onclick="go('investimentos')" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="flex:1;min-width:0">
+            <h3 style="margin:0;font-size:15px">Patrimônio investido</h3>
+            <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:4px">${brl(atual)}</div>
+            <div class="note" style="margin-top:1px">últimos 6 meses</div>
+          </div>
+          <div style="flex:0 0 auto">${sparkSVG(vs,'#1f9d8a',110,40)}</div>
+        </div></div>`);
+    }
+  }catch(e){}
+  html+=cards.map(c=>`<div style="margin-bottom:14px">${c}</div>`).join('');
+  html+=`<div class="note" style="text-align:center;margin:4px 0 10px">Mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
+  $('content').innerHTML=html;
+}
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
@@ -5674,42 +5806,8 @@ function renderRelatorios(){
   const blocos={};
   const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
-  // PAINEL — SALDO · FLUXO DE CAIXA · GASTOS (como os apps de referência)
-  {
-    const b=balancoMes(viewMonth);
-    const s=saidasMes(viewMonth);
-    const gastoTotalMes=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(viewMonth)+(s.conjuge||0);
-    const saldo=saldoTotal();
-    const fluxo=b.rec-gastoTotalMes;                       // o que entrou − o que o mês consome
-    const _k=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
-    // ponteiros: saldo = quanto cobre dos gastos do mês · fluxo = -100%..+100% da maior ponta · gastos = quanto sobrou do que entrou
-    const pSaldo=Math.max(0,Math.min(100, gastoTotalMes>0 ? saldo/gastoTotalMes*100 : (saldo>0?100:0)));
-    const base=Math.max(b.rec,gastoTotalMes,1);
-    const pFluxo=Math.max(0,Math.min(100, 50+50*(fluxo/base)));
-    const pGasto=Math.max(0,Math.min(100, b.rec>0 ? (1-gastoTotalMes/b.rec)*100 : 0));
-    const item=(pct,lab,val)=>`<div style="flex:1;text-align:center;min-width:0">${gaugeSVG(pct)}
-      <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:5px">${lab}</div>
-      <b style="font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.3px">${val}</b></div>`;
-    blocos.painel=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
-      <div style="display:flex;gap:8px;align-items:flex-end">
-        ${item(pSaldo,'Saldo',_k(saldo))}
-        ${item(pFluxo,'Fluxo de caixa',_k(fluxo))}
-        ${item(pGasto,'Gastos',_k(-gastoTotalMes))}
-      </div></div>`;
-  }
-  // TENDÊNCIA DE SALDO — dia a dia
-  {
-    const svg=tendenciaSaldoSVG(viewMonth);
-    if(svg){
-      blocos.tendencia=`<div class="card" style="margin-bottom:0">
-        <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
-        <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">Hoje</div>
-        <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(saldoTotal())}</div>
-        <div style="margin-top:4px">${svg}</div>
-        <div class="note" style="font-size:10.5px;margin-top:2px">Saldo das contas dia a dia. Toque num ponto pra ver o valor.</div>
-      </div>`;
-    }
-  }
+  blocos.painel=painelMesHTML(viewMonth);
+  blocos.tendencia=tendenciaCardHTML(viewMonth);
   // DONUT despesas por categoria
   let bcat=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
   if(!totalGasto){ bcat+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }

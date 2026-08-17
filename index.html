@@ -522,6 +522,34 @@ body.scrolling .fab{opacity:.25}
 #onb .ob2-skip{width:100%;background:transparent;color:rgba(255,255,255,.75);padding:12px;font-size:13.5px;font-weight:600}
 #onb .ob2-feito{display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.13);border-radius:14px;padding:12px 14px;margin-top:8px;animation:cardin .45s ease both}
 #onb .ob2-feito b{font-variant-numeric:tabular-nums}
+
+/* ===== acabamento premium v8.95 ===== */
+/* aurora: luzes que respiram dentro do hero */
+.card.hero{position:relative;overflow:hidden;isolation:isolate}
+.card.hero::before{content:'';position:absolute;inset:-40%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38% 44% at 22% 26%, rgba(255,255,255,.16), transparent 70%),
+    radial-gradient(46% 52% at 82% 18%, rgba(140,255,210,.13), transparent 70%),
+    radial-gradient(50% 56% at 68% 88%, rgba(120,140,255,.12), transparent 72%);
+  animation:aurora 11s ease-in-out infinite alternate}
+@keyframes aurora{
+  0%{transform:translate3d(-3%,-2%,0) rotate(0deg) scale(1)}
+  100%{transform:translate3d(3%,2%,0) rotate(6deg) scale(1.08)}}
+/* tab bar: pílula deslizante + pulo do ícone ativo */
+.tabbar{position:fixed}
+.tabbar .tb-pill{position:absolute;top:6px;height:calc(100% - env(safe-area-inset-bottom) - 12px);
+  border-radius:14px;background:color-mix(in srgb, var(--nav-on) 12%, transparent);
+  transition:left .28s cubic-bezier(.3,.9,.3,1.1), width .28s cubic-bezier(.3,.9,.3,1.1);
+  pointer-events:none;z-index:0}
+.tabbar button{position:relative;z-index:1}
+.tabbar button.on .i{animation:tabhop .32s cubic-bezier(.3,1.6,.4,1)}
+@keyframes tabhop{0%{transform:translateY(0) scale(1)}45%{transform:translateY(-4px) scale(1.12)}100%{transform:translateY(0) scale(1)}}
+/* respeitar quem desliga animações */
+@media (prefers-reduced-motion: reduce){
+  .card.hero::before{animation:none}
+  .tabbar .tb-pill{transition:none}
+  .tabbar button.on .i{animation:none}
+}
 </style>
 </head>
 <body>
@@ -586,7 +614,7 @@ body.scrolling .fab{opacity:.25}
 <div id="app" class="hidden">
   <div class="topbar">
     <div class="row1">
-      <div class="hi">Olá,<b id="userName">—</b></div>
+      <div class="hi"><span id="hiSaud">Olá,</span><b id="userName">—</b></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="iconbtn hidden" id="cliBtn" onclick="go('clientes')" style="position:relative" title="Clientes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.3 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg><span id="cliBadge" class="badge hidden">0</span></button>
         <button class="iconbtn" id="agBtn" onclick="go('agenda')" style="position:relative" title="Agenda"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span id="agBadge" class="badge hidden">0</span></button>
@@ -635,6 +663,7 @@ body.scrolling .fab{opacity:.25}
 </div>
 
 <div class="tabbar hidden" id="tabbar">
+  <div class="tb-pill" id="tbPill"></div>
   <button data-tab="home" class="on" onclick="go('home')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Início</button>
   <button data-tab="trans" onclick="verTrans('all')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>Transações</button>
   <button data-tab="contas" onclick="go('contas')"><span class="i"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 10l7-4 7 4"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M9.5 10v9"/><path d="M14.5 10v9"/></svg></span>Contas</button>
@@ -672,7 +701,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.94"; /* z4 */
+const APP_VER = "8.95"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2102,8 +2131,10 @@ async function afterLogin(userArg){
   if(navigator.onLine){ checarDispositivo().then(ok=>{ if(!ok) mostrarDevGate(); else setTimeout(checarAcessosEstranhos, 1200); }); }
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden'); $('fab').classList.remove('hidden'); $('tabbar').classList.remove('hidden');
+  setTimeout(moverPillTab, 120);
   updateIaFab();
   $('userName').textContent=(user.user_metadata&&user.user_metadata.nome)||user.email.split('@')[0];
+  saudacaoViva();
   atualizarOlho();
   // primeiro acesso sem cache: esqueleto pulsando em vez de tela vazia
   try{
@@ -2442,7 +2473,24 @@ const _EYE_OFF='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stro
 function atualizarOlho(){ const b=$('eyeBtn'); if(b){ b.innerHTML = HIDEVAL?_EYE_OFF:_EYE_ON; b.style.opacity = HIDEVAL?'1':'.75'; } }
 function toggleHideVal(){ HIDEVAL=!HIDEVAL; localStorage.setItem('gf_hide_val',HIDEVAL?'1':'0'); atualizarOlho(); render(); toast(HIDEVAL?'Valores ocultos 👁️':'Valores visíveis'); }
 window._telaNova=false;
-function go(t){window._telaNova=true;tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));const _c=$('content');if(_c&&_c.scrollTo)_c.scrollTo(0,0);window.scrollTo(0,0);render();updateIaFab();}
+function saudacaoViva(){
+  try{
+    const hr=new Date().getHours();
+    const s = hr<5 ? 'Boa madrugada 🌙' : hr<12 ? 'Bom dia ☀️' : hr<18 ? 'Boa tarde 🌤️' : 'Boa noite 🌙';
+    const el=$('hiSaud'); if(el) el.textContent=s+',';
+  }catch(e){}
+}
+setInterval(saudacaoViva, 60000);
+function moverPillTab(){
+  try{
+    const bar=$('tabbar'), pill=$('tbPill'); if(!bar||!pill) return;
+    const on=bar.querySelector('button.on'); if(!on){ pill.style.width='0'; return; }
+    pill.style.left=on.offsetLeft+'px';
+    pill.style.width=on.offsetWidth+'px';
+  }catch(e){}
+}
+window.addEventListener('resize', moverPillTab);
+function go(t){window._telaNova=true;tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));setTimeout(moverPillTab,30);const _c=$('content');if(_c&&_c.scrollTo)_c.scrollTo(0,0);window.scrollTo(0,0);render();updateIaFab();}
 let _lastRender=0, _renderPending=null;
 function render(){
   const agora=Date.now();

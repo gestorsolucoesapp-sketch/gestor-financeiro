@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.96"; /* z4 */
+const APP_VER = "8.97"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -771,6 +771,12 @@ function toggleDemoNovo(){
     go('home');
   }
   render();
+}
+function corCategoria(id){
+  if(!id||id==='_sem') return '#636e72';
+  let s=0; const t=String(id);
+  for(let i=0;i<t.length;i++) s=(s*31+t.charCodeAt(i))>>>0;
+  return PALETA[s%PALETA.length];
 }
 const PALETA=['#6c5ce7','#0984e3','#00b894','#e17055','#fdcb6e','#e84393','#00cec9','#a29bfe','#fab1a0','#55efc4','#74b9ff','#ff7675','#81ecec','#ffeaa7','#fd79a8','#636e72'];
 
@@ -2529,7 +2535,12 @@ function moverPillTab(){
   }catch(e){}
 }
 window.addEventListener('resize', moverPillTab);
-function go(t){window._telaNova=true;tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));setTimeout(moverPillTab,30);const _c=$('content');if(_c&&_c.scrollTo)_c.scrollTo(0,0);window.scrollTo(0,0);render();updateIaFab();}
+const _ORDEM_ABAS=['home','trans','contas','investimentos','config'];
+function go(t){
+  window._telaNova=true;
+  const _de=_ORDEM_ABAS.indexOf(tab), _pra=_ORDEM_ABAS.indexOf(t);
+  if(_de>=0&&_pra>=0&&_de!==_pra) window._swDir=_pra>_de?1:-1;
+  tab=t;if(t!=='tema')applyTema(scope);document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));setTimeout(moverPillTab,30);const _c=$('content');if(_c&&_c.scrollTo)_c.scrollTo(0,0);window.scrollTo(0,0);render();updateIaFab();}
 let _lastRender=0, _renderPending=null;
 function render(){
   const agora=Date.now();
@@ -5608,13 +5619,13 @@ function renderRelatorios(){
   let bcat=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">Despesas por categoria</h3>`;
   if(!totalGasto){ bcat+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div>`; }
   else{
-    const seg=gastos.map((g,i)=>({valor:g.valor,color:PALETA[i%PALETA.length]}));
+    const seg=gastos.map(g=>({valor:g.valor,color:corCategoria(g.id)}));
     bcat+=`<div style="display:flex;align-items:center;justify-content:center;margin:8px 0 4px">${donutSVG(seg,totalGasto)}</div>`;
     bcat+=`<div style="margin-top:6px">`;
     gastos.forEach((g,i)=>{
       const pct=(g.valor/totalGasto*100);
       bcat+=`<div class="lrow" style="cursor:pointer" onclick="abrirCatDetalhe('${g.id}')">
-        <div class="dot" style="background:${PALETA[i%PALETA.length]}22;color:${PALETA[i%PALETA.length]}">${g.icone||'•'}</div>
+        <div class="dot" style="background:${corCategoria(g.id)}22;color:${corCategoria(g.id)}">${g.icone||'•'}</div>
         <div class="mid"><div class="t">${esc(g.nome)}</div><div class="s">${pct.toFixed(1)}% do mês</div></div>
         <div class="amt r">${brl(g.valor)}</div><span style="color:var(--muted);font-size:17px;margin-left:4px">›</span></div>`;
     });
@@ -5814,10 +5825,17 @@ function renderPlanejamento(){
     totalGasto=0; _sm.forEach(o=>totalGasto+=gastoOrc(o,viewMonth));
   }
   const _pctT=orcPct(totalGasto,totalLim);
-  html+=`<div class="card hero"><div class="lab">Orçamento de ${mesNome(viewMonth)}</div>
-    <div class="big" style="font-size:26px">${brl(totalGasto)} <span style="font-size:15px;opacity:.7">/ ${brl(totalLim)}</span></div>
-    ${barraOrc(totalGasto,totalLim,true,12)}
-    ${totalLim>0?`<div class="note" style="color:rgba(255,255,255,.85);margin-top:8px">${Math.round(_pctT)}% usado · <b>${orcFaltaTxt(totalGasto,totalLim)}</b></div>`:''}</div>`;
+  const _corT=orcCor(_pctT,true);
+  html+=`<div class="card hero">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="flex:1;min-width:0">
+        <div class="lab">Orçamento de ${mesNome(viewMonth)}</div>
+        <div class="big" style="font-size:26px;margin:4px 0 0">${brl(totalGasto)}</div>
+        <div style="font-size:13.5px;opacity:.75;margin-top:1px">de ${brl(totalLim)}</div>
+        ${totalLim>0?`<div class="note" style="color:rgba(255,255,255,.85);margin-top:7px"><b>${orcFaltaTxt(totalGasto,totalLim)}</b></div>`:''}
+      </div>
+      ${totalLim>0?`<div style="flex:0 0 auto">${anelProgSVG(_pctT,_corT,92)}</div>`:''}
+    </div></div>`;
   html+=`<div class="card">`;
   if(!orcs.length){
     html+=`<div class="empty"><div class="ico">🎯</div><p>Defina quanto pode gastar em cada categoria neste mês.</p></div>`;

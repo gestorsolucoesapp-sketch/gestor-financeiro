@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.05"; /* z4 */
+const APP_VER = "9.06"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5664,6 +5664,11 @@ function anelProgSVG(pct, cor, tam){
     <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="${tam>=70?15:13}" font-weight="800" fill="${cor}" style="font-variant-numeric:tabular-nums">${Math.round(p)}%</text>
   </svg>`;
 }
+// orçamentos vigentes do mês (linhas de DATA.orcamentos com limite>0)
+function orcsDoMes(d){
+  const am=ymd(firstOfMonth(d)).slice(0,7)+'-01';
+  return DATA.orcamentos.filter(o=>String(o.ano_mes).slice(0,10)===am && Number(o.limite)>0 && (o.user_id===USER.id||orcEspelho(o)));
+}
 function painelMesHTML(d){
   const b=balancoMes(d);
   const s=saidasMes(d);
@@ -5681,13 +5686,12 @@ function painelMesHTML(d){
     {p:pFluxo, lab:'Fluxo de caixa', val:_k(fluxo)},
     {p:pGasto, lab:'Gastos', val:_k(-gastoTotalMes)}
   ];
-  // orçamento da Carol (limite combinado): quanto do teto ela já usou
+  // orçamento da Carol: a linha real de alvo 'conjuge' do mês
   try{
-    const alvos=orcAlvos(d);
-    const limC=Number(alvos&&alvos.conjuge)||0;
-    if(limC>0){
-      const gC=gastoCartaoDe?(s.conjuge||0):(s.conjuge||0);
-      itens.push({p:Math.max(0,Math.min(100,gC/limC*100)), lab:'Orç. Carol', val:_k(gC)});
+    const oC=orcsDoMes(d).find(o=>(o.alvo==='conjuge')&&!orcEspelho(o));
+    if(oC){
+      const gC=gastoOrc(oC,d), limC=Number(oC.limite)||0;
+      if(limC>0) itens.push({p:Math.max(0,Math.min(100,gC/limC*100)), lab:'Orç. '+nomeConjuge(), val:_k(gC)});
     }
   }catch(e){}
   const quatro=itens.length>3;
@@ -5707,7 +5711,7 @@ function tendenciaCardHTML(d){
     <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">Hoje</div>
     <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(saldoTotal())}</div>
     <div style="margin-top:4px">${svg}</div>
-    <div class="note" style="font-size:10.5px;margin-top:2px">Saldo das contas dia a dia. Toque num ponto pra ver o valor.</div>
+    <div class="note" style="font-size:10.5px;margin-top:2px">Saldo dia a dia — dias futuros usam a previsão (pendentes). Toque num ponto pra ver o valor.</div>
   </div>`;
 }
 // ===== ABA PAINEL: a casa dos gráficos =====
@@ -5754,14 +5758,30 @@ function renderDash(){
       </div>`);
     }
   }catch(e){}
-  // 5) anel do orçamento
+  // 5) orçamentos do mês — um anel por meta (tudo em gráfico)
   try{
-    const alvos=orcAlvos(viewMonth);
-    const lim=Number(alvos&&alvos.total)||0;
-    if(lim>0){
+    const os=orcsDoMes(viewMonth);
+    if(os.length){
+      const aneis=os.map(o=>{
+        const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
+        const pct=lim>0?g/lim*100:0;
+        const cor=pct>=90?'#d6473a':pct>=70?'#e0a020':'#1f9d6b';
+        const r=orcRotulo(o);
+        return `<div style="flex:0 0 ${os.length>2?'31%':'46%'};text-align:center;min-width:0">
+          ${anelProgSVG(pct,cor,os.length>2?70:82)}
+          <div class="note" style="font-size:10px;letter-spacing:.4px;text-transform:uppercase;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ico} ${esc(r.nome.replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''))}</div>
+          <b style="font-size:13.5px;font-variant-numeric:tabular-nums">${brl(g)}</b>
+          <div class="note" style="font-size:10px">de ${brl(lim)}</div>
+        </div>`;
+      }).join('');
+      cards.push(`<div class="card tap" onclick="go('planejamento')" style="margin-bottom:0">
+        <h3 style="margin:0 0 10px;font-size:15px">Orçamentos do mês</h3>
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;row-gap:14px">${aneis}</div>
+      </div>`);
+    }
+    if(false){
       const s=saidasMes(viewMonth);
-      const g=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(viewMonth)+(s.conjuge||0);
-      const pct=g/lim*100, cor=orcCor(pct,false)||(pct>=90?'var(--red)':pct>=70?'#e0a020':'var(--green)');
+      const g=0, lim=0, pct=0, cor='';
       cards.push(`<div class="card tap" onclick="go('planejamento')" style="margin-bottom:0">
         <div style="display:flex;align-items:center;gap:14px">
           <div style="flex:1;min-width:0">
@@ -6037,7 +6057,9 @@ function tendenciaSaldoSVG(d){
     const iniS=ymd(ini);
     const porDia={};
     for(const l of DATA.lancamentos){
-      if(l.status!=='pago') continue;
+      const _hj=ymd(new Date());
+      const futuroPend = l.status==='pendente' && l.data>_hj;
+      if(l.status!=='pago' && !futuroPend) continue;
       const v=Number(l.valor)||0; if(!v) continue;
       let delta=0;
       if(l.tipo==='receita' && ids.has(l.conta_id)) delta=v;
@@ -6051,7 +6073,7 @@ function tendenciaSaldoSVG(d){
       else if(l.data<=ymd(fim)) porDia[l.data]=(porDia[l.data]||0)+delta;
     }
     const hoje=ymd(new Date());
-    const ultimo=Math.min(fim.getDate(), (ymd(fim)>=hoje && iniS<=hoje) ? new Date().getDate() : fim.getDate());
+    const ultimo=fim.getDate();   // mês atual e futuro seguem até o fim com a previsão dos pendentes
     const vals=[]; let acc=base;
     for(let dd=1;dd<=ultimo;dd++){
       const key=ymd(new Date(d.getFullYear(),d.getMonth(),dd));
@@ -6068,7 +6090,8 @@ function tendenciaSaldoSVG(d){
     const pts=vals.map((v,i)=>[X(i),Y(v)]);
     const uid=++_svgUid;
     // grade: 4 linhas com rótulo compacto (R$ 5,2k)
-    const fmtK=v=>{ const a=Math.abs(v); const s=a>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v); return (v<0?'-':'')+String(s).replace('-',''); };
+    const estreito=(mx-mn)<3000;
+    const fmtK=v=>{ const a=Math.abs(v); const s=a>=1000?(v/1000).toFixed(estreito?2:1).replace('.',',')+'k':String(Math.round(v)); return (v<0?'-':'')+String(s).replace('-',''); };
     let grade='';
     for(let g=0;g<=3;g++){
       const v=mn+(mx-mn)*g/3, y=Y(v);

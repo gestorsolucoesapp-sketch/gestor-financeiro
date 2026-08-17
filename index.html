@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.98"; /* z4 */
+const APP_VER = "8.99"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7058,7 +7058,19 @@ function parseVoz(txt){
   if(!descBase.replace(/[\d\s.,]/g,'').trim()) descBase = tn;   // se sobrou só número, usa a frase toda
   // tira o nome do cartão/conta e da categoria ANTES de remover os números (senão "c6" vira "c" + "bank")
   const _escolhido = cartaoId?cartaoById(cartaoId):(contaId?contaById(contaId):null);
-  if(_escolhido){ const n=_normTxt(_escolhido.nome); if(n) descBase=descBase.split(n).join(' '); }
+  if(_escolhido){
+    const n=_normTxt(_escolhido.nome);
+    if(n){
+      descBase=descBase.split(n).join(' ');
+      // e também palavra por palavra do nome + parecidas (falou "C6 Bank", cartão é "C6 cartão": cai o "c6" E o resto)
+      const toks=n.split(' ').filter(w=>w.length>=2);
+      descBase=descBase.split(' ').filter(w=>{
+        if(!w) return false;
+        if(toks.includes(w)) return false;
+        return !toks.some(tk=>tk.length>=4 && Math.abs(w.length-tk.length)<=2 && _dist(w,tk)<=2);
+      }).join(' ');
+    }
+  }
   if(categoriaId){
     const c=catById(categoriaId);
     if(c){
@@ -7074,7 +7086,7 @@ function parseVoz(txt){
   let desc=descBase
     .replace(/\d+(?:[.,]\d{1,2})?/g,' ')
     .replace(/\b(adicione|adicionar|adiciona|lancar|lance|lanca|registre|registrar|registra|coloque|colocar|coloca|gastei|paguei|comprei|anota|anotar|foi|de|um|uma)\b/g,' ')
-    .replace(/\b(reais?|real|conto|pila|no|na|em|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista|vista)\b/g,' ')
+    .replace(/\b(reais?|real|conto|pila|no|na|em|do|da|com|cartao|credito|debito|conta|dinheiro|pix|vezes|parcelas?|parcelad[oa]|x|e|a vista|avista|vista|bank|banco|corrente|poupanca)\b/g,' ')
     .replace(/\b(uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|dezoito|vinte)\s+(?=vezes|parcelas?|x\b)/g,' ')
     .replace(/\s+/g,' ').trim();
   Object.keys(NUM_EXT).forEach(w=>{ desc=desc.replace(new RegExp('\\b'+w+'\\b','g'),' '); });

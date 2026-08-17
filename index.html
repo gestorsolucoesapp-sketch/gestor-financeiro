@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.02"; /* z4 */
+const APP_VER = "9.03"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5674,39 +5674,38 @@ function renderRelatorios(){
   const blocos={};
   const gastos=gastosPorCategoria(viewMonth);
   const totalGasto=gastos.reduce((a,g)=>a+g.valor,0);
-  // PAINEL — três velocímetros do mês
+  // PAINEL — SALDO · FLUXO DE CAIXA · GASTOS (como os apps de referência)
   {
+    const b=balancoMes(viewMonth);
     const s=saidasMes(viewMonth);
-    const totContas=(s.pagas||0)+(s.aPagar||0);
-    const pctPagas = totContas>0 ? (s.pagas||0)/totContas*100 : 100;
-    const alvos=orcAlvos(viewMonth);
-    const limOrc=Number(alvos&&alvos.total)||0;
-    const gastoTotalMes=totContas+gastoCartaoMes(viewMonth)+(s.conjuge||0);
-    const pctOrc = limOrc>0 ? gastoTotalMes/limOrc*100 : null;
-    const cards=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado&&Number(c.limite)>0);
-    const limTot=cards.reduce((a,c)=>a+Number(c.limite),0);
-    const usado=cards.reduce((a,c)=>a+Math.max(0,faturaTotal(c.id,viewMonth)),0);
-    const pctLim = limTot>0 ? usado/limTot*100 : null;
-    const item=(g,lab,val)=>`<div style="flex:1;text-align:center;min-width:0">${g}
-      <div class="note" style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;margin-top:4px">${lab}</div>
-      <b style="font-size:14px;font-variant-numeric:tabular-nums">${val}</b></div>`;
-    let corpo='';
-    if(pctOrc!=null) corpo+=item(gaugeSVG(pctOrc),'Orçamento',Math.round(pctOrc)+'%');
-    corpo+=item(gaugeSVG(pctPagas,{inverte:true}),'Contas pagas',Math.round(pctPagas)+'%');
-    if(pctLim!=null) corpo+=item(gaugeSVG(pctLim),'Limite cartões',Math.round(pctLim)+'%');
-    if(corpo) blocos.painel=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
-      <div style="display:flex;gap:8px;align-items:flex-end">${corpo}</div></div>`;
+    const gastoTotalMes=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(viewMonth)+(s.conjuge||0);
+    const saldo=saldoTotal();
+    const fluxo=b.rec-gastoTotalMes;                       // o que entrou − o que o mês consome
+    const _k=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
+    // ponteiros: saldo = quanto cobre dos gastos do mês · fluxo = -100%..+100% da maior ponta · gastos = quanto sobrou do que entrou
+    const pSaldo=Math.max(0,Math.min(100, gastoTotalMes>0 ? saldo/gastoTotalMes*100 : (saldo>0?100:0)));
+    const base=Math.max(b.rec,gastoTotalMes,1);
+    const pFluxo=Math.max(0,Math.min(100, 50+50*(fluxo/base)));
+    const pGasto=Math.max(0,Math.min(100, b.rec>0 ? (1-gastoTotalMes/b.rec)*100 : 0));
+    const item=(pct,lab,val)=>`<div style="flex:1;text-align:center;min-width:0">${gaugeSVG(pct)}
+      <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:5px">${lab}</div>
+      <b style="font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.3px">${val}</b></div>`;
+    blocos.painel=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        ${item(pSaldo,'Saldo',_k(saldo))}
+        ${item(pFluxo,'Fluxo de caixa',_k(fluxo))}
+        ${item(pGasto,'Gastos',_k(-gastoTotalMes))}
+      </div></div>`;
   }
   // TENDÊNCIA DE SALDO — dia a dia
   {
     const svg=tendenciaSaldoSVG(viewMonth);
     if(svg){
       blocos.tendencia=`<div class="card" style="margin-bottom:0">
-        <div style="display:flex;align-items:baseline;justify-content:space-between">
-          <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
-          <b style="font-size:14px;font-variant-numeric:tabular-nums">${brl(saldoTotal())}</b>
-        </div>
-        <div style="margin-top:8px">${svg}</div>
+        <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
+        <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">Hoje</div>
+        <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(saldoTotal())}</div>
+        <div style="margin-top:4px">${svg}</div>
         <div class="note" style="font-size:10.5px;margin-top:2px">Saldo das contas dia a dia. Toque num ponto pra ver o valor.</div>
       </div>`;
     }
@@ -5900,9 +5899,8 @@ function gaugeSVG(pct, opts){
     const x1=cx+r*Math.cos(A1), y1=cy-r*Math.sin(A1);
     return `<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}" fill="none" stroke="${cor}" stroke-width="10" stroke-linecap="round"></path>`;
   };
-  // zonas: normal = verde→laranja→vermelho · invertido (quanto mais, melhor) = vermelho→laranja→verde
-  const Z = opts.inverte ? [[0,45,'#d64545'],[45,75,'#e0a020'],[75,100,'#1f9d6b']]
-                         : [[0,60,'#1f9d6b'],[60,85,'#e0a020'],[85,100,'#d64545']];
+  // zonas fixas como nos apps de referência: vermelho (ruim) à esquerda → verde (bom) à direita
+  const Z = [[0,34,'#e05545'],[34,67,'#f0a532'],[67,100,'#38b06f']];
   const ang=-90+180*p/100;
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}

@@ -708,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.97"; /* z4 */
+const APP_VER = "8.98"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5565,6 +5565,7 @@ function retroPinta(){
       <div class="rt-val">${s.v}</div>
       <div class="rt-sub">${s.sub}</div>
     </div>
+    <button onclick="event.stopPropagation();compartilharRetro()" style="margin:6px auto 0;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);color:#fff;border-radius:30px;padding:11px 20px;font-size:14px;font-weight:700">📤 Compartilhar</button>
     <div class="rt-dica">toque à direita pra avançar · à esquerda pra voltar</div>`;
   try{ vibra(10); }catch(e){}
   if(s.conf){
@@ -5579,6 +5580,63 @@ function retroPinta(){
       el.appendChild(c);
     }
   }
+}
+// transforma o slide atual da Retrô numa imagem de stories e abre o compartilhar do iPhone
+async function compartilharRetro(){
+  try{
+    const r=window._retro; if(!r) return;
+    const s=r.slides[r.i];
+    const W=1080,H=1920;
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d');
+    // fundo: mesmas cores do slide
+    const cores=(s.bg.match(/#[0-9a-fA-F]{3,8}/g)||['#3b1d6e','#12081f']);
+    const g=ctx.createLinearGradient(0,0,W*0.55,H);
+    g.addColorStop(0,cores[0]); g.addColorStop(1,cores[1]||cores[0]);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // brilho suave no topo
+    const rad=ctx.createRadialGradient(W*0.25,H*0.16,60,W*0.25,H*0.16,700);
+    rad.addColorStop(0,'rgba(255,255,255,.10)'); rad.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=rad; ctx.fillRect(0,0,W,H);
+    const limpa=(t)=>{ const d=document.createElement('div'); d.innerHTML=t||''; return d.textContent||''; };
+    const F='-apple-system,BlinkMacSystemFont,"SF Pro Display",Segoe UI,Roboto,sans-serif';
+    ctx.textAlign='center'; ctx.fillStyle='#fff';
+    // marca
+    ctx.font='800 44px '+F; ctx.fillText('Gestor', W/2, 170);
+    ctx.globalAlpha=.6; ctx.font='700 26px '+F; ctx.fillText('C O N T R O L E   F I N A N C E I R O', W/2, 218); ctx.globalAlpha=1;
+    // emoji
+    ctx.font='260px '+F; ctx.fillText(s.e, W/2, H*0.42);
+    // título
+    ctx.globalAlpha=.85; ctx.font='700 40px '+F;
+    ctx.fillText(limpa(s.t).toUpperCase(), W/2, H*0.50); ctx.globalAlpha=1;
+    // valor (encolhe se for longo)
+    const val=limpa(s.v);
+    let fs=118; ctx.font='800 '+fs+'px '+F;
+    while(ctx.measureText(val).width>W*0.86 && fs>54){ fs-=6; ctx.font='800 '+fs+'px '+F; }
+    ctx.fillText(val, W/2, H*0.50+fs+40);
+    // subtítulo com quebra de linha
+    ctx.globalAlpha=.85; ctx.font='400 40px '+F;
+    const palavras=limpa(s.sub).split(' '); const linhas=[]; let lin='';
+    for(const w of palavras){ const t=(lin?lin+' ':'')+w;
+      if(ctx.measureText(t).width>W*0.78){ linhas.push(lin); lin=w; } else lin=t; }
+    if(lin) linhas.push(lin);
+    let y=H*0.50+fs+140;
+    for(const l of linhas.slice(0,4)){ ctx.fillText(l, W/2, y); y+=56; }
+    ctx.globalAlpha=1;
+    // rodapé
+    ctx.globalAlpha=.55; ctx.font='700 30px '+F;
+    ctx.fillText('meu mês no Gestor ✨', W/2, H-120); ctx.globalAlpha=1;
+    // compartilhar
+    const blob=await new Promise(res=>cv.toBlob(res,'image/png'));
+    const file=new File([blob],'retro-gestor.png',{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file]});
+    }else{
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='retro-gestor.png'; a.click();
+      toast('Imagem salva 📥');
+    }
+    try{ vibra(15); }catch(e){}
+  }catch(e){ if(e&&e.name!=='AbortError') toast('Não deu pra compartilhar agora'); }
 }
 function retroNav(dir){
   const r=window._retro; if(!r) return;

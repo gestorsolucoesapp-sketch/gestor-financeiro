@@ -550,6 +550,13 @@ body.scrolling .fab{opacity:.25}
   .tabbar .tb-pill{transition:none}
   .tabbar button.on .i{animation:none}
 }
+
+@keyframes anelgira{to{stroke-dashoffset:0}}
+
+#content.telanova.dirL>.card, #content.telanova.dirL>div>.card{animation-name:cardinL}
+#content.telanova.dirR>.card, #content.telanova.dirR>div>.card{animation-name:cardinR}
+@keyframes cardinL{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes cardinR{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -701,7 +708,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "8.95"; /* z4 */
+const APP_VER = "8.96"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2473,6 +2480,38 @@ const _EYE_OFF='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stro
 function atualizarOlho(){ const b=$('eyeBtn'); if(b){ b.innerHTML = HIDEVAL?_EYE_OFF:_EYE_ON; b.style.opacity = HIDEVAL?'1':'.75'; } }
 function toggleHideVal(){ HIDEVAL=!HIDEVAL; localStorage.setItem('gf_hide_val',HIDEVAL?'1':'0'); atualizarOlho(); render(); toast(HIDEVAL?'Valores ocultos 👁️':'Valores visíveis'); }
 window._telaNova=false;
+// arrastar o dedo (esq/dir) troca o mês nas telas com seletor
+(function(){
+  let x0=0,y0=0,ativo=false;
+  function scrollavel(el){
+    while(el && el!==document.body){
+      try{
+        const cs=getComputedStyle(el);
+        if((cs.overflowX==='auto'||cs.overflowX==='scroll') && el.scrollWidth>el.clientWidth+4) return true;
+      }catch(e){}
+      el=el.parentElement;
+    }
+    return false;
+  }
+  document.addEventListener('touchstart',(e)=>{
+    ativo=false;
+    if($('onb')||$('retro')||document.querySelector('.sheet.open,.sheetwrap.open,#lockScreen,#devGate')) return;
+    if(!['home','trans','relatorios','planejamento','cartoes','fatura'].includes(tab)) return;
+    const t=e.target;
+    if(t.closest('input,select,textarea,button,.monthnav,svg')) return;
+    if(scrollavel(t)) return;
+    x0=e.touches[0].clientX; y0=e.touches[0].clientY; ativo=true;
+  },{passive:true});
+  document.addEventListener('touchend',(e)=>{
+    if(!ativo) return; ativo=false;
+    const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0;
+    if(Math.abs(dx)<64 || Math.abs(dy)>46 || Math.abs(dx)<Math.abs(dy)*1.6) return;
+    const dir = dx<0 ? 1 : -1;               // arrasta pra esquerda = mês seguinte
+    window._swDir = dir;
+    const ctx = (tab==='fatura') ? 'fatura' : (tab==='cartoes' ? 'cartoes' : 'trans');
+    shiftMonth(ctx, dir);
+  },{passive:true});
+})();
 function saudacaoViva(){
   try{
     const hr=new Date().getHours();
@@ -2525,8 +2564,12 @@ function _doRender(){
   if(window._telaNova){
     window._telaNova=false;
     const c=$('content');
-    if(c){ c.classList.remove('telanova'); void c.offsetWidth; c.classList.add('telanova');
-      clearTimeout(window._telaNovaT); window._telaNovaT=setTimeout(()=>c.classList.remove('telanova'), 900); }
+    if(c){ c.classList.remove('telanova','dirL','dirR'); void c.offsetWidth;
+      c.classList.add('telanova');
+      if(window._swDir===1) c.classList.add('dirL');
+      else if(window._swDir===-1) c.classList.add('dirR');
+      window._swDir=0;
+      clearTimeout(window._telaNovaT); window._telaNovaT=setTimeout(()=>c.classList.remove('telanova','dirL','dirR'), 900); }
     try{ animarValores(); }catch(e){}
     try{ vibra(8); }catch(e){}
   }
@@ -3941,13 +3984,14 @@ function renderHome(){
       }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
       const _quem = source==='eu' ? '' : (source==='casal' ? ' · Casal' : ' · '+esc(apelidoDe(source)));
       blocos.orcamento=`<div class="card hero" onclick="go('planejamento')" style="margin-bottom:0;cursor:pointer">
-        <div class="lab">Orçamento de ${mesNome(viewMonth)}${_quem}</div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-          <div class="big" style="font-size:24px;margin:0">${brl(_gas)}</div>
-          <div style="font-size:14px;opacity:.75">de ${brl(_lim)}</div>
-          <div style="margin-left:auto;font-weight:800;font-size:15px;color:${_cor}">${Math.round(_pct)}%</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="flex:1;min-width:0">
+            <div class="lab">Orçamento de ${mesNome(viewMonth)}${_quem}</div>
+            <div class="big" style="font-size:24px;margin:4px 0 0">${brl(_gas)}</div>
+            <div style="font-size:13px;opacity:.75;margin-top:1px">de ${brl(_lim)}</div>
+          </div>
+          <div style="flex:0 0 auto">${anelProgSVG(_pct,_cor,76)}</div>
         </div>
-        ${barraOrc(_gas,_lim,true,12)}
         <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_cor};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
           ${_emoji} <b style="color:${_cor}">${orcFaltaTxt(_gas,_lim).replace(/^./,m=>m.toUpperCase())}</b>
         </div>
@@ -5533,6 +5577,20 @@ function retroNav(dir){
   r.i=n; retroPinta();
 }
 function fecharRetro(){ const el=$('retro'); if(el) el.remove(); window._retro=null; }
+// anel de progresso circular (usado no orçamento da home)
+function anelProgSVG(pct, cor, tam){
+  tam=tam||74; const r=(tam-10)/2, cx=tam/2, cy=tam/2, C=2*Math.PI*r;
+  const p=Math.max(0,Math.min(100,pct));
+  const len=C*p/100;
+  const uid=++_svgUid;
+  return `<svg width="${tam}" height="${tam}" viewBox="0 0 ${tam} ${tam}" style="display:block">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="8"></circle>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${cor}" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="${len.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"
+      style="stroke-dashoffset:${len.toFixed(1)};animation:anelgira .9s cubic-bezier(.25,.9,.3,1) .15s forwards"></circle>
+    <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="${tam>=70?15:13}" font-weight="800" fill="${cor}" style="font-variant-numeric:tabular-nums">${Math.round(p)}%</text>
+  </svg>`;
+}
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');

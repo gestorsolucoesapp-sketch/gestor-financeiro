@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.18"; /* z4 */
+const APP_VER = "9.19"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3447,8 +3447,16 @@ function ordemSalva(key,defaultOrder,disponiveis,ancoras){
   });
   return out;
 }
+function ordemTravada(){ try{ return localStorage.getItem('gf_ordem_travada')==='1'; }catch(e){ return false; } }
+function alternarTravaOrdem(){
+  const novo=!ordemTravada();
+  try{ localStorage.setItem('gf_ordem_travada', novo?'1':'0'); }catch(e){}
+  toast(novo?'Ordem travada 🔒':'Ordem liberada — arraste pelo ⠿');
+  render();
+}
 function makeSortable(containerId,storageKey){
   const cont=$(containerId); if(!cont) return;
+  if(ordemTravada()){ cont.querySelectorAll('.drag-handle').forEach(x=>x.style.display='none'); return; }
   cont.querySelectorAll(':scope > .sortable-item').forEach(item=>{
     const handle=item.querySelector('.drag-handle');
     if(!handle || handle._bound) return;
@@ -5742,6 +5750,49 @@ function orcsDoMes(d){
   const am=ymd(firstOfMonth(d)).slice(0,7);   // "2026-08" — aceita também "2026-08-01"
   return DATA.orcamentos.filter(o=>String(o.ano_mes||'').slice(0,7)===am && Number(o.limite)>0 && (srcOk(o.user_id)||orcEspelho(o)));
 }
+// detalhe da categoria: evolução de 6 meses + lançamentos do mês
+function abrirCategoria(catId, ym){
+  try{
+    const d = ym ? new Date(ym+'-01T00:00:00') : viewMonth;
+    const cat = catById(catId) || {nome:'Sem categoria', icone:'•'};
+    const cor = corCategoria(catId);
+    // evolução 6 meses
+    const vals=[], labs=[];
+    for(let i=5;i>=0;i--){
+      const m=new Date(d.getFullYear(), d.getMonth()-i, 1);
+      const gs=gastosPorCategoria(m);
+      const achou=gs.find(g=>String(g.id)===String(catId));
+      vals.push(achou?achou.valor:0);
+      labs.push(m.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
+    }
+    const ini=ymd(firstOfMonth(d)), fim=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+    const lista=DATA.lancamentos.filter(l=>l.tipo==='despesa' && srcOk(l.user_id) && !ehLancQuitacao(l)
+      && String(l.categoria_id||'_sem')===String(catId) && inMonthRep(l,d))
+      .sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+    const total=lista.reduce((a,l)=>a+(Number(l.valor)||0),0);
+    const media=vals.reduce((a,v)=>a+v,0)/6;
+    const varia= vals[4]>0 ? ((vals[5]-vals[4])/vals[4]*100) : null;
+    openSheet(`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">
+        <div class="dot" style="background:${cor}22;color:${cor};flex:0 0 auto">${cat.icone||'•'}</div>
+        <div style="flex:1;min-width:0">
+          <h2 style="margin:0;font-size:18px">${esc(cat.nome)}</h2>
+          <div class="note">${mesNome(d)} · ${lista.length} lançamento(s)</div>
+        </div>
+        <div style="text-align:right"><b style="font-size:19px;font-variant-numeric:tabular-nums">${brl(total)}</b></div>
+      </div>
+      <div style="margin:12px 0 4px">${areaChartSVG([{vals, cor, nome:esc(cat.nome)}], labs, {h:130})}</div>
+      <div class="note" style="text-align:center;margin-bottom:10px">
+        média 6 meses ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
+      </div>
+      <div style="max-height:44vh;overflow:auto">
+        ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">
+          <div class="mid"><div class="t">${esc(l.descricao||'—')}</div>
+            <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}${l.cartao_id?' · '+esc((cartaoById(l.cartao_id)||{}).nome||'cartão'):''}${l.status==='pendente'?' · <span style="color:#e0a020">pendente</span>':''}</div></div>
+          <div class="amt r">${brl(l.valor)}</div></div>`).join(''):'<div class="note" style="text-align:center;padding:18px">Nenhum lançamento neste mês.</div>'}
+      </div>`);
+  }catch(e){ toast('Não consegui abrir a categoria'); }
+}
 function painelMesHTML(d){
   const b=balancoMes(d);
   const s=saidasMes(d);
@@ -5831,7 +5882,8 @@ function renderDash(){
       cards.push(`<div class="card" style="margin-bottom:0">
         <h3 style="margin:0 0 6px;font-size:15px">Despesas por categoria</h3>
         <div style="display:flex;justify-content:center">${donutSVG(seg,tot)}</div>
-        ${gs.slice(0,5).map(g=>`<div style="display:flex;align-items:center;gap:9px;font-size:13px;margin-top:8px">
+        <div class="note" style="text-align:center;font-size:10.5px;margin-top:2px">Toque numa categoria para ver os lançamentos e a evolução.</div>
+        ${gs.slice(0,5).map(g=>`<div class="tap" onclick="abrirCategoria('${g.id||'_sem'}')" style="display:flex;align-items:center;gap:9px;font-size:13px;margin-top:8px;cursor:pointer">
           <i style="width:10px;height:10px;border-radius:3px;background:${corCategoria(g.id)};flex:0 0 auto"></i>
           <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.icone||''} ${esc(g.nome)}</span>
           <b style="font-variant-numeric:tabular-nums">${brl(g.valor)}</b>
@@ -5922,7 +5974,10 @@ function renderDash(){
     html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocosD[k]}</div>`;
   });
   html+=`</div>`;
-  html+=`<div class="note" style="text-align:center;margin:4px 0 10px">Arraste os cards pelo ⠿ para reordenar · mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
+  html+=`<div style="display:flex;justify-content:center;margin:2px 0 8px">
+    <button class="btn ghost" onclick="alternarTravaOrdem()" style="font-size:13px;padding:9px 16px">${ordemTravada()?'🔒 Ordem travada · tocar para liberar':'🔓 Travar esta ordem'}</button>
+  </div>
+  <div class="note" style="text-align:center;margin:0 0 10px">${ordemTravada()?'Os cards estão fixos do seu jeito.':'Arraste pelo ⠿ e depois trave.'} Mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
   $('content').innerHTML=html;
   makeSortable('dashSortable','gf_order_dash');
 }
@@ -8556,7 +8611,18 @@ async function saveLanc(id){
       if(!confirm('⚠️ Você já lançou "'+desc+'" de '+brl(valor)+' nesta data.\n\nLançar mesmo assim?')) return;
     }else if(!avisarValorRepetido(valor, desc)) return;
   }
-  if(lancType!=='transferencia' && !window._meio){toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
+  // categoria é obrigatória (menos em transferência, que não tem categoria)
+  if(lancType!=='transferencia'){
+    const _cs=$('lCatSel');
+    const _cv=_cs?String(_cs.value||'').trim():'';
+    if(!_cv || _cv==='__nova__'){
+      window._salvandoLanc=false;
+      toast('Escolha uma categoria 🏷️');
+      try{ _cs.focus(); _cs.style.borderColor='var(--red)'; setTimeout(()=>{_cs.style.borderColor='';},1800); }catch(e){}
+      return;
+    }
+  }
+  if(lancType!=='transferencia' && !window._meio){window._salvandoLanc=false;toast(lancType==='receita'?'Escolha Recebido ou A receber':'Escolha como pagar: Débito, A prazo ou Cartão');return;}
   const isCardPurchase = (lancType!=='transferencia' && window._meio==='cartao');
   if(!isCardPurchase && !window._lancStatus){toast('Escolha uma opção acima pra continuar');return;}
 

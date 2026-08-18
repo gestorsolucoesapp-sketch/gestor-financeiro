@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.09"; /* z4 */
+const APP_VER = "9.10"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6073,7 +6073,7 @@ function tendenciaSaldoSVG(d){
     const porDia={};
     for(const l of DATA.lancamentos){
       const _hj=ymd(new Date());
-      const pendFuturo = l.status==='pendente' && l.data>=_hj && !l.cartao_id;
+      const pendFuturo = l.status==='pendente' && l.data>=_hj && !l.cartao_id && l.tipo!=='transferencia';
       if(l.status!=='pago' && !pendFuturo) continue;
       const v=Number(l.valor)||0; if(!v) continue;
       let delta=0;
@@ -6089,6 +6089,15 @@ function tendenciaSaldoSVG(d){
     }
     const hoje=ymd(new Date());
     const ultimo=fim.getDate();   // mês atual e futuro seguem até o fim com a previsão dos pendentes
+    // o que falta das despesas do(a) parceiro(a) também sai até o fim do mês (mesma régua do Balanço)
+    try{
+      const sM=saidasMes(d);
+      const faltaConj=Math.max(0,(sM.conjuge||0)-(sM.pagoConjuge||0));
+      if(faltaConj>0){
+        const keyC=ymd(fim);
+        if(keyC>=hoje) porDia[keyC]=(porDia[keyC]||0)-faltaConj;
+      }
+    }catch(e){}
     // as faturas dos cartões também saem da conta: joga o que falta pagar no dia do vencimento
     try{
       const cs=DATA.cartoes.filter(c=>srcOk(c.user_id)&&!c.arquivado);

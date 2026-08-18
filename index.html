@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.15"; /* z4 */
+const APP_VER = "9.16"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5668,6 +5668,38 @@ function retroNav(dir){
 }
 function fecharRetro(){ const el=$('retro'); if(el) el.remove(); window._retro=null; }
 // anel de progresso circular (usado no orçamento da home)
+// barras de orçamento com linha da meta tracejada (uma barra por meta)
+// itens: [{nome, ico, gasto, limite}]
+function orcBarrasSVG(itens){
+  if(!itens||!itens.length) return '';
+  const W=340, alturaLinha=44, padT=16, padB=20, padL=6, padR=10;
+  const H=padT+itens.length*alturaLinha+padB;
+  // escala: a maior referência é o maior entre gasto e limite (a meta vira a linha de 78%)
+  const maxRef=Math.max(...itens.map(i=>Math.max(i.gasto,i.limite,1)));
+  const larg=(W-padL-padR);
+  const xMeta=(lim)=>padL+larg*(lim/maxRef)*0.98;
+  const uid=++_svgUid;
+  let corpo='';
+  itens.forEach((it,i)=>{
+    const y=padT+i*alturaLinha;
+    const pct=it.limite>0?it.gasto/it.limite*100:0;
+    const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+    const wBar=Math.max(3, larg*(it.gasto/maxRef)*0.98);
+    const xm=xMeta(it.limite);
+    const falta=it.limite-it.gasto;
+    corpo+=`
+      <text x="${padL}" y="${y+9}" font-size="11.5" font-weight="700" fill="var(--ink)">${it.ico||''} ${esc(String(it.nome).slice(0,26))}</text>
+      <text x="${W-padR}" y="${y+9}" text-anchor="end" font-size="11.5" font-weight="800" fill="${cor}" style="font-variant-numeric:tabular-nums">${Math.round(pct)}%</text>
+      <rect x="${padL}" y="${y+15}" width="${larg}" height="13" rx="6.5" fill="var(--line)" opacity=".55"></rect>
+      <rect x="${padL}" y="${y+15}" width="${wBar.toFixed(1)}" height="13" rx="6.5" fill="${cor}">
+        <animate attributeName="width" from="0" to="${wBar.toFixed(1)}" dur="0.85s" begin="${(i*0.08).toFixed(2)}s" fill="freeze" calcMode="spline" keySplines="0.25 0.9 0.3 1" keyTimes="0;1"/>
+      </rect>
+      <line x1="${xm.toFixed(1)}" y1="${y+11}" x2="${xm.toFixed(1)}" y2="${y+32}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="3 3" opacity=".85"></line>
+      <text x="${Math.min(W-padR, xm+4).toFixed(1)}" y="${y+41}" text-anchor="${xm>W*0.75?'end':'start'}" font-size="9.5" fill="var(--muted)">meta ${brl(it.limite).replace('R$ ','')}</text>
+      <text x="${padL}" y="${y+41}" font-size="9.5" fill="${falta>=0?'var(--muted)':cor}">${falta>=0?'falta '+brl(falta).replace('R$ ',''):'passou '+brl(-falta).replace('R$ ','')}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${corpo}</svg>`;
+}
 function anelProgSVG(pct, cor, tam){
   tam=tam||74; const r=(tam-10)/2, cx=tam/2, cy=tam/2, C=2*Math.PI*r;
   const p=Math.max(0,Math.min(100,pct));
@@ -5823,9 +5855,16 @@ function renderDash(){
           <div class="note" style="font-size:10px">de ${brl(lim)}</div>
         </div>`;
       }).join('');
+      const itensB=os.map(o=>{
+        const r=orcRotulo(o);
+        return {nome:(r.nome||'Meta').replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''),
+                ico:r.ico, gasto:gastoOrc(o,viewMonth), limite:Number(o.limite)||0};
+      }).filter(i=>i.limite>0);
       cards.push(`<div class="card tap" onclick="go('planejamento')" style="margin-bottom:0">
         <h3 style="margin:0 0 10px;font-size:15px">Orçamentos do mês</h3>
         <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;row-gap:14px">${aneis}</div>
+        ${itensB.length?`<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">${orcBarrasSVG(itensB)}</div>
+        <div class="note" style="font-size:10.5px;margin-top:2px">A linha tracejada é a meta de cada orçamento.</div>`:''}
       </div>`);
     }
     if(false){

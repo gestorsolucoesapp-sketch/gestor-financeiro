@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.13"; /* z4 */
+const APP_VER = "9.14"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1449,7 +1449,8 @@ function mostrarLock(){
   d.innerHTML=`<div class="lk-ico">🔒</div><h2>Gestor Financeiro</h2>
     <p>Use o Face ID para desbloquear os seus dados.</p>
     <button class="btn" onclick="tentarDesbloqueio()">Desbloquear</button>
-    <button class="btn ghost" onclick="sairDoLock()">Entrar com outra conta</button>`;
+    <button class="btn ghost" onclick="sairDoLock()">Entrar com outra conta</button>
+    <button class="btn ghost" style="opacity:.7;font-size:13px" onclick="desligarFaceId()">Não usar Face ID neste aparelho</button>`;
   document.body.appendChild(d);
 }
 async function tentarDesbloqueio(){
@@ -1465,6 +1466,12 @@ async function tentarDesbloqueio(){
   }catch(e){ /* usuário cancelou — a tela continua bloqueada */ }
 }
 function fecharLock(){ const d=$('lockScreen'); if(d) d.remove(); _lockAtivo=false; }
+function desligarFaceId(){
+  if(!confirm('Desligar o bloqueio por Face ID neste aparelho? Você pode religar em Mais → Segurança.')) return;
+  try{ localStorage.removeItem('gf_faceid'); }catch(e){}
+  fecharLock();
+  toast('Bloqueio desligado neste aparelho');
+}
 async function sairDoLock(){ localStorage.removeItem('gf_faceid'); fecharLock(); try{ await sb.auth.signOut(); }catch(e){} location.reload(); }
 // bloqueia ao abrir e ao voltar do background (depois de 60s fora)
 let _saiuEm=0;
@@ -6130,6 +6137,14 @@ function tendenciaSaldoSVG(d){
         }
       }
     }catch(e){}
+    // ÂNCORA OFICIAL: o fim do mês é o mesmo número que a home calcula (balancoFechamento).
+    // Para meses futuros, a largada é o fechamento do mês anterior — a corrente não quebra.
+    let alvoFim=null, alvoIni=null;
+    try{
+      alvoFim=balancoFechamento(d);
+      const mAnt=new Date(d.getFullYear(),d.getMonth()-1,1);
+      if(iniS>hoje) alvoIni=balancoFechamento(mAnt);
+    }catch(e){}
     const vals=[]; let acc=base;
     for(let dd=1;dd<=ultimo;dd++){
       const key=ymd(new Date(d.getFullYear(),d.getMonth(),dd));
@@ -6137,6 +6152,27 @@ function tendenciaSaldoSVG(d){
       vals.push(acc);
     }
     if(vals.length<2) return '';
+    // corrige a curva para bater com os números oficiais, sem mexer no passado já realizado
+    try{
+      const n=vals.length;
+      if(alvoIni!=null){                       // mês futuro: começa no fechamento do mês anterior
+        const shift=alvoIni-(vals[0]-(porDia[ymd(new Date(d.getFullYear(),d.getMonth(),1))]||0));
+        for(let i=0;i<n;i++) vals[i]+=shift;
+      }
+      if(alvoFim!=null && isFinite(alvoFim)){
+        const err=alvoFim-vals[n-1];
+        if(Math.abs(err)>0.005){
+          // distribui só nos dias que ainda não aconteceram (mês futuro = todos)
+          let i0=0;
+          if(iniS<=hoje && ymd(fim)>=hoje){ i0=Math.max(0,new Date().getDate()-1); }
+          const span=(n-1)-i0;
+          for(let i=i0;i<n;i++){
+            const w = span>0 ? (i-i0)/span : 1;
+            vals[i]+=err*w;
+          }
+        }
+      }
+    }catch(e){}
     const W=340,H=170,padL=52,padR=10,padT=14,padB=22;
     let mn=Math.min(...vals), mx=Math.max(...vals);
     if(mx-mn<1){ mx+=1; mn-=1; }

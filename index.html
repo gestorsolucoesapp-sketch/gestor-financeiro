@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.12"; /* z4 */
+const APP_VER = "9.13"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1451,7 +1451,6 @@ function mostrarLock(){
     <button class="btn" onclick="tentarDesbloqueio()">Desbloquear</button>
     <button class="btn ghost" onclick="sairDoLock()">Entrar com outra conta</button>`;
   document.body.appendChild(d);
-  setTimeout(tentarDesbloqueio, 350);
 }
 async function tentarDesbloqueio(){
   try{
@@ -6073,18 +6072,16 @@ function tendenciaSaldoSVG(d){
     if(!ids.size) return '';
     let base=contas.reduce((a,c)=>a+(Number(c.saldo_inicial)||0),0);
     const iniS=ymd(ini);
+    const _hj=ymd(new Date());
     const porDia={};
     for(const l of DATA.lancamentos){
-      const _hj=ymd(new Date());
-      const pendFuturo = l.status==='pendente' && l.data>=_hj && !l.cartao_id && l.tipo!=='transferencia';
-      if(l.status!=='pago' && !pendFuturo) continue;
+      const ehPend = l.status==='pendente' && !l.cartao_id && l.tipo!=='transferencia';
+      if(l.status!=='pago' && !ehPend) continue;
       const v=Number(l.valor)||0; if(!v) continue;
       let delta=0;
       if(l.tipo==='receita' && ids.has(l.conta_id)) delta=v;
       else if(l.tipo==='despesa' && ids.has(l.conta_id) && !l.cartao_id) delta=-v;
       else if(l.tipo==='transferencia'){
-        // daqui pra frente, transferência que sai pra investimento (ou sem conta destino visível)
-        // não é gasto — o dinheiro continua sendo seu. Mesma régua do Balanço.
         const _dest=contaById(l.conta_destino_id);
         const _destInvisivel = !_dest || _dest.eh_investimento || _esp.has(_dest.id) || !ids.has(_dest.id);
         if(l.data>=_hj && _destInvisivel && ids.has(l.conta_id)) continue;
@@ -6092,33 +6089,45 @@ function tendenciaSaldoSVG(d){
         if(ids.has(l.conta_destino_id)) delta+=v;
       }
       if(!delta) continue;
-      if(l.data<iniS) base+=delta;
-      else if(l.data<=ymd(fim)) porDia[l.data]=(porDia[l.data]||0)+delta;
+      // pendente atrasado conta como se resolvesse HOJE — mesma régua do Balanço (a receber/a pagar)
+      const efData = (ehPend && l.data<_hj) ? _hj : l.data;
+      if(efData<iniS) base+=delta;
+      else if(efData<=ymd(fim)) porDia[efData]=(porDia[efData]||0)+delta;
     }
-    const hoje=ymd(new Date());
-    const ultimo=fim.getDate();   // mês atual e futuro seguem até o fim com a previsão dos pendentes
-    // o que falta das despesas do(a) parceiro(a) também sai até o fim do mês (mesma régua do Balanço)
+    const hoje=_hj;
+    const ultimo=fim.getDate();
+    // faturas restantes + parte do(a) parceiro(a), mês a mês, de hoje até o mês visto:
+    // o que vence antes do mês visto sai da BASE (por isso setembro começa com o fechamento de agosto)
     try{
-      const sM=saidasMes(d);
-      const faltaConj=Math.max(0,(sM.conjuge||0)-(sM.pagoConjuge||0));
-      if(faltaConj>0){
-        const keyC=ymd(fim);
-        if(keyC>=hoje) porDia[keyC]=(porDia[keyC]||0)-faltaConj;
-      }
-    }catch(e){}
-    // as faturas dos cartões também saem da conta: joga o que falta pagar no dia do vencimento
-    try{
-      const cs=DATA.cartoes.filter(c=>srcOk(c.user_id)&&!c.arquivado);
-      for(const c of cs){
-        const totFat=faturaTotal(c.id,d);
-        if(!(totFat>0)) continue;
-        const pi=(typeof faturaPagaInfo==='function')?faturaPagaInfo(c.id,d):null;
-        const jaPago=pi&&pi.pago?Number(pi.pago)||0:0;
-        const falta=Math.max(0,totFat-jaPago);
-        if(!(falta>0)) continue;
-        const dia=Math.min(Number(c.dia_vencimento)||1, fim.getDate());
-        const key=ymd(new Date(d.getFullYear(),d.getMonth(),dia));
-        if(key>=hoje) porDia[key]=(porDia[key]||0)-falta;   // só o que ainda não saiu
+      if(ymd(fim)>=hoje){
+        const cs=DATA.cartoes.filter(c=>srcOk(c.user_id)&&!c.arquivado);
+        let mm=firstOfMonth(new Date());
+        while(ymd(firstOfMonth(mm))<=ymd(firstOfMonth(d))){
+          const fimM=new Date(mm.getFullYear(),mm.getMonth()+1,0);
+          for(const c of cs){
+            const totFat=faturaTotal(c.id,mm);
+            if(!(totFat>0)) continue;
+            const pi=(typeof faturaPagaInfo==='function')?faturaPagaInfo(c.id,mm):null;
+            const falta=Math.max(0,totFat-((pi&&pi.pago)?Number(pi.pago)||0:0));
+            if(!(falta>0)) continue;
+            const key=ymd(new Date(mm.getFullYear(),mm.getMonth(),Math.min(Number(c.dia_vencimento)||1,fimM.getDate())));
+            if(key<hoje) continue;
+            if(key<iniS) base-=falta;
+            else if(key<=ymd(fim)) porDia[key]=(porDia[key]||0)-falta;
+          }
+          try{
+            const sM=saidasMes(mm);
+            const faltaConj=Math.max(0,(sM.conjuge||0)-(sM.pagoConjuge||0));
+            if(faltaConj>0){
+              const keyC=ymd(fimM);
+              if(keyC>=hoje){
+                if(keyC<iniS) base-=faltaConj;
+                else if(keyC<=ymd(fim)) porDia[keyC]=(porDia[keyC]||0)-faltaConj;
+              }
+            }
+          }catch(e){}
+          mm=new Date(mm.getFullYear(),mm.getMonth()+1,1);
+        }
       }
     }catch(e){}
     const vals=[]; let acc=base;

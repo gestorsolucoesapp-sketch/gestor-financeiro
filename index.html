@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.24"; /* z4 */
+const APP_VER = "9.25"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4161,13 +4161,14 @@ function renderHome(){
       try{
         const _c=projCfg();
         if(_c.inicial>0){
-          const _sim=simularAportes({...(_c), partida:_inv, meses:72});
+          const _mesesProj=Number(_c.meses)||72;
+          const _sim=simularAportes({...(_c), partida:_inv, meses:_mesesProj});
           const _ult=_sim.linhas[_sim.linhas.length-1];
           const _apHoje=aporteProjetadoMes(new Date());
           const _pctBar=Math.min(100,Math.max(4,_inv/_ult.liquido*100));
           _proj6=`<div class="tap" onclick="go('projinvest')" style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:14px;padding:11px 13px">
             <div style="display:flex;align-items:baseline;gap:8px">
-              <span style="font-size:12px;opacity:.8">📈 Em 6 anos</span>
+              <span style="font-size:12px;opacity:.8">📈 Em ${_mesesProj%12===0?(_mesesProj/12)+(_mesesProj===12?' ano':' anos'):_mesesProj+' meses'}</span>
               <b style="margin-left:auto;font-size:18px">${brl(_ult.liquido)}</b>
             </div>
             <div class="prog" style="margin-top:8px;height:7px;border-radius:7px;background:rgba(255,255,255,.16);overflow:hidden">
@@ -6767,8 +6768,20 @@ function aporteProjetadoMes(d){
     return Math.round(v*100)/100;
   }catch(e){ return 0; }
 }
+function mudarPrazoProj(m){
+  try{
+    const c=JSON.parse(localStorage.getItem('gf_proj_aportes')||'{}')||{};
+    c.meses=m;
+    localStorage.setItem('gf_proj_aportes', JSON.stringify(c));
+  }catch(e){}
+  render();
+}
 function renderProjInvest(){
-  const c=projCfg();
+  const c0=projCfg();
+  // o que já está investido hoje entra na conta (é dinheiro rendendo de verdade)
+  let _invHoje=0;
+  try{ _invHoje = totalInvestidoContas() + investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }catch(e){}
+  const c={...c0, partida: c0.partida>0 ? c0.partida : _invHoje};
   const s=simularAportes(c);
   const base=firstOfMonth(new Date());
   const mesLbl=i=>{ const d=new Date(base.getFullYear(),base.getMonth()+i,1); return d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); };
@@ -6781,6 +6794,12 @@ function renderProjInvest(){
   const maxS=Math.max(...s.linhas.map(l=>l.liquido),1);
 
   let html=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Projeção de aportes</b><span></span></div>`;
+  html+=`<div style="display:flex;gap:6px;margin-bottom:12px">
+    ${[[60,'5 anos'],[72,'6 anos'],[120,'10 anos'],[240,'20 anos']].map(([m,lab])=>`
+      <button onclick="mudarPrazoProj(${m})" style="flex:1;padding:9px 4px;border-radius:12px;font-size:12.5px;font-weight:700;
+        background:${c.meses===m?'var(--card)':'var(--line)'};color:${c.meses===m?'var(--ink)':'var(--muted)'};
+        box-shadow:${c.meses===m?'var(--shadow-1)':'none'}">${lab}</button>`).join('')}
+  </div>`;
   html+=`<div class="card hero">
     <div class="lab">Em ${c.meses} ${c.meses===1?'mês':'meses'} · líquido no resgate</div>
     <div class="big" style="font-size:30px">${brl(s.liquido)}</div>
@@ -6792,6 +6811,7 @@ function renderProjInvest(){
     <div class="note" style="color:rgba(255,255,255,.8);margin-top:8px">
       ${indexNome(c.idx)} ${indexAA(c.idx)?`<b>${indexAA(c.idx).toFixed(2).replace('.',',')}% a.a.</b>`:'<b>indisponível</b>'} · rendendo <b>${c.pctSelic}%</b> = <b>${txAA.toFixed(2).replace('.',',')}% a.a.</b>
     </div>
+    ${c.partida>0?`<div class="note" style="color:rgba(255,255,255,.72);margin-top:6px">Partindo dos <b>${brl(c.partida)}</b> que você já tem investido${c0.partida>0?'':' hoje'}.</div>`:''}
   </div>`;
 
   // gráfico de barras da evolução

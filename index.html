@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.22"; /* z4 */
+const APP_VER = "9.23"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6168,7 +6168,7 @@ function _suave(pts){ // catmull-rom → bézier: linha orgânica, sem quinas
 // séries: [{vals:[...], cor:'#hex', nome:''}] · labels: ['jan',...]
 function areaChartSVG(series, labels, opts){
   opts=opts||{};
-  const W=opts.w||340, H=opts.h||150, padL=6, padR=6, padT=12, padB=20;
+  const W=opts.w||340, H=opts.h||150, padL=6, padR=6, padT=20, padB=20;
   const n=Math.max(...series.map(s=>s.vals.length));
   if(n<2) return '';
   const maxV=Math.max(1,...series.flatMap(s=>s.vals));
@@ -6186,6 +6186,12 @@ function areaChartSVG(series, labels, opts){
     corpo+=`<path d="${area}" fill="url(#ag${uid}_${si})"></path>
       <path d="${linha}" fill="none" stroke="${s.cor}" stroke-width="2.4" stroke-linecap="round"
         style="stroke-dasharray:1200;stroke-dashoffset:1200;animation:svgdraw 1.1s ease ${si*0.15}s forwards"></path>`;
+    // valor na ponta da curva (com contorno pra ler sobre a área colorida)
+    const _ult=s.vals[s.vals.length-1];
+    const _kk=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
+    corpo+=`<text x="${(X(s.vals.length-1)-2).toFixed(1)}" y="${(Y(_ult)-9).toFixed(1)}" text-anchor="end" font-size="11" font-weight="800" fill="${s.cor}"
+      stroke="var(--card)" stroke-width="3.2" paint-order="stroke"
+      style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .35s ease ${(1.0+si*0.12).toFixed(2)}s forwards">${_kk(_ult)}</text>`;
     // pontos tocáveis com o valor
     s.vals.forEach((v,i)=>{
       corpo+=`<circle cx="${X(i)}" cy="${Y(v)}" r="10" fill="transparent" onclick="toast('${(labels[i]||'')} · ${(s.nome||'')} ${brl(v).replace(/'/g,'')}')"></circle>

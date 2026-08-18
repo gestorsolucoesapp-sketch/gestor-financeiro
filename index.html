@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.11"; /* z4 */
+const APP_VER = "9.12"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5694,7 +5694,7 @@ function painelMesHTML(d){
   // fluxo: sobrando → esquerda (verde) · zerado → meio · negativo → direto na zona vermelha
   const pFluxo = fluxo>=0
     ? Math.max(0, 50-50*Math.min(1,fluxo/base))
-    : Math.min(100, 72+28*Math.min(1,Math.abs(fluxo)/base));
+    : Math.min(100, 80+20*Math.min(1,Math.abs(fluxo)/base));
   const pGasto=Math.max(0,Math.min(100, b.rec>0 ? gastoTotalMes/b.rec*100 : 100));
   const itens=[
     {p:pSaldo, lab:'Saldo', val:_k(saldo), inv:true},
@@ -6083,9 +6083,11 @@ function tendenciaSaldoSVG(d){
       if(l.tipo==='receita' && ids.has(l.conta_id)) delta=v;
       else if(l.tipo==='despesa' && ids.has(l.conta_id) && !l.cartao_id) delta=-v;
       else if(l.tipo==='transferencia'){
-        // aporte pra investimento daqui pra frente: não é gasto (mesma régua do Balanço)
+        // daqui pra frente, transferência que sai pra investimento (ou sem conta destino visível)
+        // não é gasto — o dinheiro continua sendo seu. Mesma régua do Balanço.
         const _dest=contaById(l.conta_destino_id);
-        if(l.data>=_hj && _dest && (_dest.eh_investimento || _esp.has(_dest.id))) continue;
+        const _destInvisivel = !_dest || _dest.eh_investimento || _esp.has(_dest.id) || !ids.has(_dest.id);
+        if(l.data>=_hj && _destInvisivel && ids.has(l.conta_id)) continue;
         if(ids.has(l.conta_id)) delta-=v;
         if(ids.has(l.conta_destino_id)) delta+=v;
       }

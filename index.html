@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.07"; /* z4 */
+const APP_VER = "9.08"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3041,6 +3041,17 @@ function gastoCategoriaMes(catId,d){
     s+=Number(l.valor)||0;
   }
   return s;
+}
+// série com a MESMA régua do card da home: contas (pagas+a pagar) + cartão por fatura + despesas da Carol
+function evolucaoMesesOficial(n){
+  const out=[];
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-i,1);
+    const b=balancoMes(d), s=saidasMes(d);
+    const desp=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(d)+(s.conjuge||0);
+    out.push({mes:d, rec:b.rec, desp});
+  }
+  return out;
 }
 function evolucaoMeses(n,allSources){
   const out=[];
@@ -5726,7 +5737,7 @@ function renderDash(){
   const tend=tendenciaCardHTML(viewMonth); if(tend) cards.push(tend);
   // 3) receitas × despesas (6 meses)
   try{
-    const ev=evolucaoMeses(6);
+    const ev=evolucaoMesesOficial(6);
     const labs=ev.map(m=>m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
     const u=ev[ev.length-1]||{rec:0,desp:0};
     const sU=u.rec-u.desp;
@@ -5862,7 +5873,7 @@ function renderRelatorios(){
   bcat+=`</div>`;
   blocos.categoria=bcat;
   // EVOLUÇÃO 6 meses — curvas de área (receitas × despesas) com resultado por mês
-  const ev=evolucaoMeses(6);
+  const ev=evolucaoMesesOficial(6);
   const labs=ev.map(m=>m.mes.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
   const ultimo=ev[ev.length-1]||{rec:0,desp:0};
   const saldoU=ultimo.rec-ultimo.desp;

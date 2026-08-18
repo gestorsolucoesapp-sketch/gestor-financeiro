@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.19"; /* z4 */
+const APP_VER = "9.20"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5814,14 +5814,7 @@ function painelMesHTML(d){
     {p:pFluxo, lab:'Fluxo de caixa', val:_k(fluxo), min:'-'+_k(base), max:'+'+_k(base), meio:(fluxo>=0?'+':'')+_k(fluxo)},
     {p:pGasto, lab:'Gastos', val:_k(-gastoTotalMes), min:'0', max:_k(b.rec), meio:Math.round(pGasto)+'%'}
   ];
-  // orçamento da Carol: a linha real de alvo 'conjuge' do mês
-  try{
-    const oC=orcsDoMes(d).find(o=>(o.alvo==='conjuge')&&!orcEspelho(o));
-    if(oC){
-      const gC=gastoOrc(oC,d), limC=Number(oC.limite)||0;
-      if(limC>0) itens.push({p:Math.max(0,Math.min(100,gC/limC*100)), lab:'Orç. '+nomeConjuge(), val:_k(gC), min:'0', max:_k(limC), meio:Math.round(gC/limC*100)+'%'});
-    }
-  }catch(e){}
+  // (o orçamento do(a) parceiro(a) aparece no card "Orçamentos do mês", em velocímetro próprio)
   const quatro=itens.length>3;
   const item=(o)=>`<div style="flex:${quatro?'0 0 46%':'1'};text-align:center;min-width:0">${gaugeSVG(o.p,{inverte:!!o.inv,min:o.min,max:o.max,valor:o.meio})}
     <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:5px">${o.lab}</div>
@@ -5895,13 +5888,13 @@ function renderDash(){
   try{
     const os=orcsDoMes(viewMonth);
     if(os.length){
+      const _kk=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
       const aneis=os.map(o=>{
         const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
         const pct=lim>0?g/lim*100:0;
-        const cor=pct>=90?'#d6473a':pct>=70?'#e0a020':'#1f9d6b';
         const r=orcRotulo(o);
-        return `<div style="flex:0 0 ${os.length>2?'31%':'46%'};text-align:center;min-width:0">
-          ${anelProgSVG(pct,cor,os.length>2?70:82)}
+        return `<div style="flex:0 0 ${os.length>2?'46%':'46%'};text-align:center;min-width:0">
+          ${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}
           <div class="note" style="font-size:10px;letter-spacing:.4px;text-transform:uppercase;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ico} ${esc(r.nome.replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''))}</div>
           <b style="font-size:13.5px;font-variant-numeric:tabular-nums">${brl(g)}</b>
           <div class="note" style="font-size:10px">de ${brl(lim)}</div>
@@ -6195,7 +6188,9 @@ function gaugeSVG(pct, opts){
     ? `<text x="${cx-r-2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.min||''}</text>
        <text x="${cx+r+2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.max||''}</text>` : '';
   const noPonteiro = opts.valor
-    ? `<text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)" style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .4s ease .85s forwards">${opts.valor}</text>` : '';
+    ? `<text x="${cx}" y="${cy-14}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)"
+         stroke="var(--card)" stroke-width="3.5" paint-order="stroke"
+         style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .4s ease .85s forwards">${opts.valor}</text>` : '';
   return `<svg viewBox="0 0 ${W} ${H2}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
     ${lim}

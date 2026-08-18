@@ -557,6 +557,13 @@ body.scrolling .fab{opacity:.25}
 #content.telanova.dirR>.card, #content.telanova.dirR>div>.card{animation-name:cardinR}
 @keyframes cardinL{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
 @keyframes cardinR{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+
+/* revelar ao rolar: o card entra em cena quando aparece na tela */
+#content .revelar{opacity:0;transform:translateY(16px)}
+#content .revelar.inview{animation:cardin .45s cubic-bezier(.25,.9,.3,1) forwards}
+@media (prefers-reduced-motion: reduce){
+  #content .revelar{opacity:1;transform:none;animation:none}
+}
 </style>
 </head>
 <body>
@@ -709,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.20"; /* z4 */
+const APP_VER = "9.21"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2534,6 +2541,39 @@ function saudacaoViva(){
   }catch(e){}
 }
 setInterval(saudacaoViva, 60000);
+// dispara as animações conforme o card aparece na tela (e de novo, se voltar)
+function ativarRevelacao(){
+  try{
+    if(!('IntersectionObserver' in window)) return;
+    const cont=$('content'); if(!cont) return;
+    if(window._revObs) window._revObs.disconnect();
+    const reanimar=(el)=>{
+      // reinicia as animações SMIL dos SVGs (gauges, barras, anéis)
+      el.querySelectorAll('animate,animateTransform').forEach(a=>{ try{ a.beginElement(); }catch(e){} });
+      // e as animações CSS de dentro (linhas que se desenham, pontos que pipocam)
+      try{ el.getAnimations({subtree:true}).forEach(a=>{ try{ a.cancel(); a.play(); }catch(e){} }); }catch(e){}
+    };
+    window._revObs=new IntersectionObserver((ents)=>{
+      ents.forEach(en=>{
+        const el=en.target;
+        if(en.isIntersecting){
+          if(!el.classList.contains('inview')){
+            el.classList.add('inview');
+            requestAnimationFrame(()=>reanimar(el));
+          }
+        }else{
+          el.classList.remove('inview');   // saiu de vista: prepara pra animar de novo na volta
+        }
+      });
+    },{root:cont, threshold:0.14, rootMargin:'0px 0px -6% 0px'});
+    const alvos=cont.querySelectorAll(':scope > .sortable-item, :scope > .card, :scope > div > .card');
+    alvos.forEach((el,i)=>{
+      el.classList.add('revelar');
+      el.style.animationDelay=(Math.min(i,4)*0.04)+'s';
+      window._revObs.observe(el);
+    });
+  }catch(e){}
+}
 function moverPillTab(){
   try{
     const bar=$('tabbar'), pill=$('tbPill'); if(!bar||!pill) return;
@@ -2581,6 +2621,7 @@ function _doRender(){
   else if(tab==='tutorial')renderTutorial();
   injetarDemoBanner();
   try{ centralizarHoje(); }catch(e){}
+  requestAnimationFrame(()=>{ try{ ativarRevelacao(); }catch(e){} });
   if(window._telaNova){
     window._telaNova=false;
     const c=$('content');
@@ -5973,6 +6014,7 @@ function renderDash(){
   <div class="note" style="text-align:center;margin:0 0 10px">${ordemTravada()?'Os cards estão fixos do seu jeito.':'Arraste pelo ⠿ e depois trave.'} Mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
   $('content').innerHTML=html;
   makeSortable('dashSortable','gf_order_dash');
+  requestAnimationFrame(ativarRevelacao);
 }
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;

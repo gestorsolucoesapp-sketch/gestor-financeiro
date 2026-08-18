@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.14"; /* z4 */
+const APP_VER = "9.15"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5682,6 +5682,30 @@ function anelProgSVG(pct, cor, tam){
   </svg>`;
 }
 // orçamentos vigentes do mês (linhas de DATA.orcamentos com limite>0)
+// resultado do mês (mesma régua da home): o que ele rende − o que ele consome
+function resultadoMes(d){
+  const b=balancoMes(d), s=saidasMes(d);
+  return (b.rec||0) - ((s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(d)+(s.conjuge||0));
+}
+// fechamento encadeado: mês atual = balanço oficial · meses à frente = fechamento anterior + resultado do mês
+function fechamentoEncadeado(d){
+  const atual=firstOfMonth(new Date()), alvo=firstOfMonth(d);
+  if(ymd(alvo)<=ymd(atual)) return balancoFechamento(d);
+  let acc=balancoFechamento(new Date());
+  let m=new Date(atual.getFullYear(),atual.getMonth()+1,1);
+  let guarda=0;
+  while(ymd(firstOfMonth(m))<=ymd(alvo) && guarda++<60){
+    acc+=resultadoMes(m);
+    m=new Date(m.getFullYear(),m.getMonth()+1,1);
+  }
+  return acc;
+}
+// saldo de largada do mês: hoje (mês atual) ou o fechamento do mês anterior (meses à frente)
+function saldoLargada(d){
+  const atual=firstOfMonth(new Date()), alvo=firstOfMonth(d);
+  if(ymd(alvo)<=ymd(atual)) return saldoTotal();
+  return fechamentoEncadeado(new Date(d.getFullYear(),d.getMonth()-1,1));
+}
 function orcsDoMes(d){
   const am=ymd(firstOfMonth(d)).slice(0,7)+'-01';
   return DATA.orcamentos.filter(o=>String(o.ano_mes).slice(0,10)===am && Number(o.limite)>0 && (o.user_id===USER.id||orcEspelho(o)));
@@ -5690,7 +5714,7 @@ function painelMesHTML(d){
   const b=balancoMes(d);
   const s=saidasMes(d);
   const gastoTotalMes=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(d)+(s.conjuge||0);
-  const saldo=saldoTotal();
+  const saldo=(typeof saldoLargada==='function')?saldoLargada(d):saldoTotal();
   const fluxo=b.rec-gastoTotalMes;
   const _k=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
   // saldo e fluxo: quanto mais, melhor → ponteiro pra direita (verde)
@@ -5727,10 +5751,13 @@ function painelMesHTML(d){
 function tendenciaCardHTML(d){
   const svg=tendenciaSaldoSVG(d);
   if(!svg) return '';
+  const _fut=ymd(firstOfMonth(d))>ymd(firstOfMonth(new Date()));
+  const _lab=_fut?'Começa o mês com':'Hoje';
+  const _val=_fut?saldoLargada(d):saldoTotal();
   return `<div class="card" style="margin-bottom:0">
     <h3 style="margin:0;font-size:15px">Tendência de saldo</h3>
-    <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">Hoje</div>
-    <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(saldoTotal())}</div>
+    <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:8px">${_lab}</div>
+    <div style="font-size:26px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:1px 0 4px">${brl(_val)}</div>
     <div style="margin-top:4px">${svg}</div>
     <div class="note" style="font-size:10.5px;margin-top:2px">Saldo dia a dia — dias futuros usam a previsão (pendentes). Toque num ponto pra ver o valor.</div>
   </div>`;
@@ -6141,9 +6168,8 @@ function tendenciaSaldoSVG(d){
     // Para meses futuros, a largada é o fechamento do mês anterior — a corrente não quebra.
     let alvoFim=null, alvoIni=null;
     try{
-      alvoFim=balancoFechamento(d);
-      const mAnt=new Date(d.getFullYear(),d.getMonth()-1,1);
-      if(iniS>hoje) alvoIni=balancoFechamento(mAnt);
+      alvoFim=fechamentoEncadeado(d);
+      if(iniS>hoje) alvoIni=saldoLargada(d);
     }catch(e){}
     const vals=[]; let acc=base;
     for(let dd=1;dd<=ultimo;dd++){

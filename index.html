@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.21"; /* z4 */
+const APP_VER = "9.22"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2556,16 +2556,21 @@ function ativarRevelacao(){
     window._revObs=new IntersectionObserver((ents)=>{
       ents.forEach(en=>{
         const el=en.target;
-        if(en.isIntersecting){
+        const r=en.intersectionRatio;
+        if(r>=0.12){
           if(!el.classList.contains('inview')){
             el.classList.add('inview');
             requestAnimationFrame(()=>reanimar(el));
           }
-        }else{
-          el.classList.remove('inview');   // saiu de vista: prepara pra animar de novo na volta
+        }else if(r<=0.02){
+          // saiu de vista (por cima OU por baixo): rearma pra animar de novo na volta
+          if(el.classList.contains('inview')){
+            el.classList.remove('inview');
+            void el.offsetWidth;           // reflow: garante que a animação recomeça do zero
+          }
         }
       });
-    },{root:cont, threshold:0.14, rootMargin:'0px 0px -6% 0px'});
+    },{root:cont, threshold:[0,0.02,0.12,0.4], rootMargin:'-2% 0px -2% 0px'});
     const alvos=cont.querySelectorAll(':scope > .sortable-item, :scope > .card, :scope > div > .card');
     alvos.forEach((el,i)=>{
       el.classList.add('revelar');

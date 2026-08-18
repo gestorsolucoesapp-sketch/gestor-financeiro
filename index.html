@@ -709,7 +709,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.17"; /* z4 */
+const APP_VER = "9.18"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5759,20 +5759,20 @@ function painelMesHTML(d){
     : Math.min(100, 80+20*Math.min(1,Math.abs(fluxo)/base));
   const pGasto=Math.max(0,Math.min(100, b.rec>0 ? gastoTotalMes/b.rec*100 : 100));
   const itens=[
-    {p:pSaldo, lab:'Saldo', val:_k(saldo), inv:true},
-    {p:pFluxo, lab:'Fluxo de caixa', val:_k(fluxo)},
-    {p:pGasto, lab:'Gastos', val:_k(-gastoTotalMes)}
+    {p:pSaldo, lab:'Saldo', val:_k(saldo), inv:true, min:'0', max:_k(gastoTotalMes), meio:Math.round(pSaldo)+'%'},
+    {p:pFluxo, lab:'Fluxo de caixa', val:_k(fluxo), min:'-'+_k(base), max:'+'+_k(base), meio:(fluxo>=0?'+':'')+_k(fluxo)},
+    {p:pGasto, lab:'Gastos', val:_k(-gastoTotalMes), min:'0', max:_k(b.rec), meio:Math.round(pGasto)+'%'}
   ];
   // orçamento da Carol: a linha real de alvo 'conjuge' do mês
   try{
     const oC=orcsDoMes(d).find(o=>(o.alvo==='conjuge')&&!orcEspelho(o));
     if(oC){
       const gC=gastoOrc(oC,d), limC=Number(oC.limite)||0;
-      if(limC>0) itens.push({p:Math.max(0,Math.min(100,gC/limC*100)), lab:'Orç. '+nomeConjuge(), val:_k(gC)});
+      if(limC>0) itens.push({p:Math.max(0,Math.min(100,gC/limC*100)), lab:'Orç. '+nomeConjuge(), val:_k(gC), min:'0', max:_k(limC), meio:Math.round(gC/limC*100)+'%'});
     }
   }catch(e){}
   const quatro=itens.length>3;
-  const item=(o)=>`<div style="flex:${quatro?'0 0 46%':'1'};text-align:center;min-width:0">${gaugeSVG(o.p,{inverte:!!o.inv})}
+  const item=(o)=>`<div style="flex:${quatro?'0 0 46%':'1'};text-align:center;min-width:0">${gaugeSVG(o.p,{inverte:!!o.inv,min:o.min,max:o.max,valor:o.meio})}
     <div class="note" style="font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-top:5px">${o.lab}</div>
     <b style="font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.3px">${o.val}</b></div>`;
   return `<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 8px;font-size:15px">Painel do mês</h3>
@@ -5911,9 +5911,20 @@ function renderDash(){
         </div></div>`);
     }
   }catch(e){}
-  html+=cards.map(c=>`<div style="margin-bottom:14px">${c}</div>`).join('');
-  html+=`<div class="note" style="text-align:center;margin:4px 0 10px">Mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
+  // cada card vira um bloco com chave, pra você arrastar e a ordem ficar salva
+  const blocosD={};
+  const chaves=['painel','tendencia','recdesp','categorias','orcamentos','patrimonio'];
+  cards.forEach((c,i)=>{ if(c) blocosD[chaves[i]||('extra'+i)]=c; });
+  const ordemD=ordemSalva('gf_order_dash',chaves,Object.keys(blocosD));
+  html+=`<div id="dashSortable">`;
+  ordemD.forEach(k=>{
+    if(!blocosD[k]) return;
+    html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocosD[k]}</div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="note" style="text-align:center;margin:4px 0 10px">Arraste os cards pelo ⠿ para reordenar · mais análises em <b onclick="go('relatorios')" style="color:var(--mint)">Relatórios</b></div>`;
   $('content').innerHTML=html;
+  makeSortable('dashSortable','gf_order_dash');
 }
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
@@ -6124,14 +6135,22 @@ function gaugeSVG(pct, opts){
   const Z = opts.inverte ? [[0,34,'#e05545'],[34,67,'#f0a532'],[67,100,'#38b06f']]
                          : [[0,34,'#38b06f'],[34,67,'#f0a532'],[67,100,'#e05545']];
   const ang=-90+180*p/100;
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
+  const H2=H+(opts.min!=null||opts.max!=null?11:0);
+  const lim = (opts.min!=null||opts.max!=null)
+    ? `<text x="${cx-r-2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.min||''}</text>
+       <text x="${cx+r+2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.max||''}</text>` : '';
+  const noPonteiro = opts.valor
+    ? `<text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)" style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .4s ease .85s forwards">${opts.valor}</text>` : '';
+  return `<svg viewBox="0 0 ${W} ${H2}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
+    ${lim}
     <g transform="rotate(${ang.toFixed(1)} ${cx} ${cy})">
       <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round">
         <animateTransform attributeName="transform" type="rotate" from="${(-90-ang).toFixed(1)} ${cx} ${cy}" to="0 ${cx} ${cy}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.25 0.9 0.35 1.2" keyTimes="0;1"/>
       </line>
     </g>
     <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
+    ${noPonteiro}
   </svg>`;
 }
 // tendência do saldo dia a dia no mês (com grade e eixo)

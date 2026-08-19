@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.28"; /* z4 */
+const APP_VER = "9.29"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6819,11 +6819,6 @@ function simCfg(){
   let c={pmt:1000, r:1.0, n:120, pv:0};
   try{ c=Object.assign(c, JSON.parse(localStorage.getItem('gf_sim')||'{}')); }catch(e){}
   return c;
-}
-function simSet(k,v){
-  const c=simCfg(); c[k]=Number(v);
-  try{ localStorage.setItem('gf_sim', JSON.stringify(c)); }catch(e){}
-  simPintar();
 }
 function simUsarMeus(){
   let inv=0;

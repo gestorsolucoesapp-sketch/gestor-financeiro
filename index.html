@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.25"; /* z4 */
+const APP_VER = "9.26"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4660,7 +4660,13 @@ async function efetivarConfirma(){
   if(aportes.length===1){ alocarAporte(Number(aportes[0].valor)||0); return; }
   toast(ids.length+(r&&r.queued?' baixa(s) offline — sincroniza depois':' baixa(s) efetivada(s) ✅'));
 }
+function filtrarConta(v){
+  window._transConta=v||'';
+  try{ localStorage.setItem('gf_trans_conta', window._transConta); }catch(e){}
+  render();
+}
 function renderTrans(){
+  if(window._transConta===undefined){ try{ window._transConta=localStorage.getItem('gf_trans_conta')||''; }catch(e){ window._transConta=''; } }
   const ini=firstOfMonth(viewMonth), fim=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0);
   let list=DATA.lancamentos.filter(l=>{
     if(!srcOk(l.user_id)) return false;
@@ -4679,6 +4685,12 @@ function renderTrans(){
   });
   list.sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1));
   const f=window._transFilter||'all';
+  // filtro por origem (conta ou cartão) — vale para qualquer aba, principalmente Despesas
+  const _org=window._transConta||'';
+  if(_org){
+    if(_org.startsWith('k:')){ const kid=_org.slice(2); list=list.filter(l=>String(l.cartao_id||'')===kid); }
+    else { const cid=_org.slice(2); list=list.filter(l=>String(l.conta_id||'')===cid && !l.cartao_id); }
+  }
   if(f==='receita') list=list.filter(l=>l.tipo==='receita');
   else if(f==='despesa') list=list.filter(l=>l.tipo==='despesa');
   else if(f==='transferencia') list=list.filter(l=>l.tipo==='transferencia');
@@ -4690,6 +4702,31 @@ function renderTrans(){
     <button class="${f==='despesa'?'on':''}" onclick="verTrans('despesa')">Despesas</button>
     <button class="${f==='transferencia'?'on':''}" onclick="verTrans('transferencia')">Transf.</button>
   </div>`;
+  {
+    const _cs=DATA.contas.filter(c=>srcOk(c.user_id)&&!c.arquivada&&!c.eh_investimento);
+    const _ks=DATA.cartoes.filter(c=>srcOk(c.user_id)&&!c.arquivado);
+    html+=`<div style="display:flex;gap:8px;align-items:center;margin:0 0 10px">
+      <select onchange="filtrarConta(this.value)" style="flex:1;padding:11px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:14px">
+        <option value=""${!_org?' selected':''}>🏦 Todas as contas e cartões</option>
+        <optgroup label="Contas">
+          ${_cs.map(c=>`<option value="c:${c.id}"${_org==='c:'+c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
+        </optgroup>
+        <optgroup label="Cartões">
+          ${_ks.map(c=>`<option value="k:${c.id}"${_org==='k:'+c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
+        </optgroup>
+      </select>
+      ${_org?`<button onclick="filtrarConta('')" style="padding:11px 14px;border-radius:12px;background:var(--line);color:var(--ink);font-size:13px;font-weight:700">limpar</button>`:''}
+    </div>`;
+    if(_org){
+      const _tot=list.reduce((a,l)=>a+(l.tipo==='receita'?Number(l.valor):-Number(l.valor)),0);
+      const _nomeOrg=_org.startsWith('k:')?((cartaoById(_org.slice(2))||{}).nome||'cartão'):((contaById(_org.slice(2))||{}).nome||'conta');
+      html+=`<div class="card" style="padding:11px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        <div><div class="note" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.6px">${esc(_nomeOrg)} · ${mesNome(viewMonth)}</div>
+          <b style="font-size:15px">${list.length} lançamento(s)</b></div>
+        <b style="font-size:17px;font-variant-numeric:tabular-nums;color:${_tot<0?'var(--coral)':'var(--mint)'}">${_tot>=0?'+':''}${brl(_tot)}</b>
+      </div>`;
+    }
+  }
   if(f==='pendente'){
     list=[...list].sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
     if(!list.length){

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.27"; /* z4 */
+const APP_VER = "9.28"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6828,7 +6828,9 @@ function simSet(k,v){
 function simUsarMeus(){
   let inv=0;
   try{ inv = totalInvestidoContas() + investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }catch(e){}
-  simSet('pv', Math.round(inv));
+  const v=Math.min(200000, Math.round(inv/500)*500);
+  simSet('pv', v);
+  const sl=document.querySelector('#content input[oninput*="\'pv\'"]'); if(sl) sl.value=v;
   toast('Partindo do seu total investido 📈');
 }
 function simSerie(c){
@@ -6837,18 +6839,29 @@ function simSerie(c){
   for(let i=0;i<c.n;i++){ s=s*(1+r)+c.pmt; vals.push(s); }
   return vals;
 }
-function simPintar(){
-  const box=$('simBox'); if(!box) return;
-  const c=simCfg();
+function simFmtSlider(k,c){
+  if(k==='pmt') return brl(c.pmt);
+  if(k==='r') return c.r.toFixed(2).replace('.',',')+'%';
+  if(k==='n') return c.n+(c.n>=12?` · ${(c.n/12).toFixed(c.n%12?1:0)} anos`:' meses');
+  return brl(c.pv);
+}
+// atualiza SÓ os resultados (o slider nunca é recriado — por isso o arrasto fica fluido)
+function simPintarOut(){
+  const out=$('simOut'); if(!out) return;
+  const c=window._simC||simCfg();
   const vals=simSerie(c);
   const fim=vals[vals.length-1]||0;
   const aportado=(Number(c.pv)||0)+c.pmt*c.n;
   const juros=fim-aportado;
-  // rótulos do eixo: a cada ~1/5 do prazo, em anos quando fizer sentido
-  const passo=Math.max(1,Math.round(c.n/5));
-  const labs=vals.map((_,i)=>((i+1)%passo===0||i===vals.length-1)?(c.n>=24?((i+1)/12).toFixed(0)+'a':(i+1)+'m'):'');
+  // amostra no máximo ~40 pontos: gráfico leve mesmo com 360 meses
+  const passoAm=Math.max(1,Math.ceil(vals.length/40));
+  const amostra=vals.filter((_,i)=>i%passoAm===0 || i===vals.length-1);
+  const labs=amostra.map((_,i)=>{
+    const mesReal=Math.min(vals.length,(i+1)*passoAm);
+    return (i%Math.ceil(amostra.length/5)===0||i===amostra.length-1) ? (c.n>=24?(mesReal/12).toFixed(0)+'a':mesReal+'m') : '';
+  });
   const _pct=v=>v.toFixed(2).replace('.',',');
-  box.innerHTML=`
+  out.innerHTML=`
     <div class="card hero" style="margin-bottom:14px">
       <div class="lab">Em ${c.n} meses${c.n>=12?` (${(c.n/12).toFixed(c.n%12?1:0)} anos)`:''}</div>
       <div class="big">${brl(fim)}</div>
@@ -6859,8 +6872,7 @@ function simPintar(){
     </div>
     <div class="card" style="margin-bottom:14px">
       <h3 style="margin:0 0 6px;font-size:15px">Evolução</h3>
-      ${areaChartSVG([{vals, cor:'#1f9d8a', nome:'montante'}], labs, {h:170})}
-      <div class="note" style="font-size:10.5px">Toque num ponto pra ver o valor daquele mês.</div>
+      ${areaChartSVG([{vals:amostra, cor:'#1f9d8a', nome:'montante'}], labs, {h:170})}
     </div>
     <div class="card" style="margin-bottom:14px">
       <div style="text-align:center;font-size:15px;line-height:1.9;font-variant-numeric:tabular-nums">
@@ -6871,28 +6883,42 @@ function simPintar(){
         </div>
         <div style="font-size:20px;font-weight:800;margin-top:8px">${brl(fim)}</div>
       </div>
-    </div>
+    </div>`;
+}
+function simSet(k,v){
+  const c=window._simC||(window._simC=simCfg());
+  c[k]=Number(v);
+  const lab=$('simv_'+k); if(lab) lab.textContent=simFmtSlider(k,c);
+  // recalcula no ritmo da tela, sem enfileirar trabalho
+  if(!window._simRAF){
+    window._simRAF=requestAnimationFrame(()=>{ window._simRAF=null; simPintarOut(); });
+  }
+  // grava a preferência só quando o dedo para
+  clearTimeout(window._simSave);
+  window._simSave=setTimeout(()=>{ try{ localStorage.setItem('gf_sim', JSON.stringify(c)); }catch(e){} }, 400);
+}
+function simPintar(){ simPintarOut(); }
+function renderSimulador(){
+  const c=window._simC=simCfg();
+  const campos=[['pmt','Aporte mensal (PMT)',50,10000,50],
+                ['r','Juros ao mês (r)',0.1,3,0.05],
+                ['n','Meses (n)',6,360,6],
+                ['pv','Valor inicial (PV)',0,200000,500]];
+  $('content').innerHTML=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Simulador</b><span></span></div>
+    <div id="simOut"></div>
     <div class="card">
-      ${[['pmt','Aporte mensal (PMT)',50,10000,50,brl(c.pmt)],
-         ['r','Juros ao mês (r)',0.1,3,0.05,_pct(c.r)+'%'],
-         ['n','Meses (n)',6,360,6,c.n+(c.n>=12?` · ${(c.n/12).toFixed(c.n%12?1:0)} anos`:'')],
-         ['pv','Valor inicial (PV)',0,200000,500,brl(c.pv)]
-        ].map(([k,lab,mn,mx,st,txt])=>`
+      ${campos.map(([k,lab,mn,mx,st])=>`
         <div style="margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
             <span style="font-size:13px;font-weight:700">${lab}</span>
-            <b style="font-size:14px;font-variant-numeric:tabular-nums">${txt}</b>
+            <b id="simv_${k}" style="font-size:14px;font-variant-numeric:tabular-nums">${simFmtSlider(k,c)}</b>
           </div>
           <input type="range" min="${mn}" max="${mx}" step="${st}" value="${c[k]}"
-            oninput="simSet('${k}',this.value)" style="width:100%;accent-color:var(--mint);height:26px">
+            oninput="simSet('${k}',this.value)" style="width:100%;accent-color:var(--mint);height:28px">
         </div>`).join('')}
       <button class="btn ghost" onclick="simUsarMeus()" style="font-size:13.5px">Usar meu total investido como valor inicial</button>
     </div>`;
-}
-function renderSimulador(){
-  $('content').innerHTML=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Simulador</b><span></span></div>
-    <div id="simBox"></div>`;
-  simPintar();
+  simPintarOut();
 }
 function renderProjInvest(){
   const c0=projCfg();

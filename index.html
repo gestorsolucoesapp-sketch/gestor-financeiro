@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.29"; /* z4 */
+const APP_VER = "9.30"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9316,12 +9316,14 @@ function reajustarConta(id){
   openSheet(`
     <h2>Reajustar saldo</h2>
     <p class="note" style="font-size:14px">Saldo calculado hoje em <b>${esc(c.nome)}</b>: <b>${brl(atual)}</b>.<br>Informe quanto você <b>realmente</b> tem agora nessa conta. O app cria um lançamento com a diferença na categoria <b>"Reajuste em contas"</b> pra deixar o saldo batendo.</p>
-    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="text" autocomplete="off" placeholder=""></div>
+    <div class="field"><label>Saldo real agora (R$)</label><input id="rjValor" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0,00"
+  onkeydown="if(event.key==='Enter'){event.preventDefault();reajustarConfirma(this.dataset.cid);}"></div>
     
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn ghost" style="flex:1;border:1.5px solid var(--line-2)" onclick="closeSheet()">Cancelar</button>
       <button class="btn coral" style="flex:1" onclick="reajustarConfirma('${id}')">Reajustar</button></div>
   `);
+  setTimeout(()=>{ const i=$('rjValor'); if(i){ i.dataset.cid=id; try{ i.focus(); }catch(e){} } }, 250);
 }
 async function reajustarConfirma(id){
   const c=DATA.contas.find(x=>x.id===id); if(!c) return;

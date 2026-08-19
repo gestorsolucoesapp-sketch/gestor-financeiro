@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.26"; /* z4 */
+const APP_VER = "9.27"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2619,6 +2619,7 @@ function _doRender(){
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='projinvest')renderProjInvest();
+  else if(tab==='simulador')renderSimulador();
   else if(tab==='tema')renderTema();
   else if(tab==='agenda')renderAgenda();
   else if(tab==='assistente')renderAssistente();
@@ -6813,6 +6814,86 @@ function mudarPrazoProj(m){
   }catch(e){}
   render();
 }
+// ====== SIMULADOR DE APORTES (sliders + fórmula + curva ao vivo) ======
+function simCfg(){
+  let c={pmt:1000, r:1.0, n:120, pv:0};
+  try{ c=Object.assign(c, JSON.parse(localStorage.getItem('gf_sim')||'{}')); }catch(e){}
+  return c;
+}
+function simSet(k,v){
+  const c=simCfg(); c[k]=Number(v);
+  try{ localStorage.setItem('gf_sim', JSON.stringify(c)); }catch(e){}
+  simPintar();
+}
+function simUsarMeus(){
+  let inv=0;
+  try{ inv = totalInvestidoContas() + investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0); }catch(e){}
+  simSet('pv', Math.round(inv));
+  toast('Partindo do seu total investido 📈');
+}
+function simSerie(c){
+  const r=c.r/100, vals=[];
+  let s=Number(c.pv)||0;
+  for(let i=0;i<c.n;i++){ s=s*(1+r)+c.pmt; vals.push(s); }
+  return vals;
+}
+function simPintar(){
+  const box=$('simBox'); if(!box) return;
+  const c=simCfg();
+  const vals=simSerie(c);
+  const fim=vals[vals.length-1]||0;
+  const aportado=(Number(c.pv)||0)+c.pmt*c.n;
+  const juros=fim-aportado;
+  // rótulos do eixo: a cada ~1/5 do prazo, em anos quando fizer sentido
+  const passo=Math.max(1,Math.round(c.n/5));
+  const labs=vals.map((_,i)=>((i+1)%passo===0||i===vals.length-1)?(c.n>=24?((i+1)/12).toFixed(0)+'a':(i+1)+'m'):'');
+  const _pct=v=>v.toFixed(2).replace('.',',');
+  box.innerHTML=`
+    <div class="card hero" style="margin-bottom:14px">
+      <div class="lab">Em ${c.n} meses${c.n>=12?` (${(c.n/12).toFixed(c.n%12?1:0)} anos)`:''}</div>
+      <div class="big">${brl(fim)}</div>
+      <div class="balrow">
+        <div class="b" style="flex:1"><div class="l">Aportado</div><div class="v">${brl(aportado)}</div></div>
+        <div class="b" style="flex:1"><div class="l">Juros</div><div class="v" style="color:#7ef0b8">+${brl(juros)}</div></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin:0 0 6px;font-size:15px">Evolução</h3>
+      ${areaChartSVG([{vals, cor:'#1f9d8a', nome:'montante'}], labs, {h:170})}
+      <div class="note" style="font-size:10.5px">Toque num ponto pra ver o valor daquele mês.</div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div style="text-align:center;font-size:15px;line-height:1.9;font-variant-numeric:tabular-nums">
+        <div style="opacity:.7;font-size:12.5px;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px">Fórmula</div>
+        <b>VF = PMT × [(1+r)<sup>n</sup> − 1] ÷ r</b>${(Number(c.pv)||0)>0?'<b> + PV(1+r)<sup>n</sup></b>':''}
+        <div style="opacity:.75;font-size:13.5px;margin-top:6px">
+          = ${brl(c.pmt)} × [(1+${_pct(c.r)}%)<sup>${c.n}</sup> − 1] ÷ ${_pct(c.r)}%${(Number(c.pv)||0)>0?` + ${brl(c.pv)}`:''}
+        </div>
+        <div style="font-size:20px;font-weight:800;margin-top:8px">${brl(fim)}</div>
+      </div>
+    </div>
+    <div class="card">
+      ${[['pmt','Aporte mensal (PMT)',50,10000,50,brl(c.pmt)],
+         ['r','Juros ao mês (r)',0.1,3,0.05,_pct(c.r)+'%'],
+         ['n','Meses (n)',6,360,6,c.n+(c.n>=12?` · ${(c.n/12).toFixed(c.n%12?1:0)} anos`:'')],
+         ['pv','Valor inicial (PV)',0,200000,500,brl(c.pv)]
+        ].map(([k,lab,mn,mx,st,txt])=>`
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+            <span style="font-size:13px;font-weight:700">${lab}</span>
+            <b style="font-size:14px;font-variant-numeric:tabular-nums">${txt}</b>
+          </div>
+          <input type="range" min="${mn}" max="${mx}" step="${st}" value="${c[k]}"
+            oninput="simSet('${k}',this.value)" style="width:100%;accent-color:var(--mint);height:26px">
+        </div>`).join('')}
+      <button class="btn ghost" onclick="simUsarMeus()" style="font-size:13.5px">Usar meu total investido como valor inicial</button>
+    </div>`;
+}
+function renderSimulador(){
+  $('content').innerHTML=`<div class="subhead"><span onclick="go('investimentos')">‹ Investir</span><b>Simulador</b><span></span></div>
+    <div id="simBox"></div>`;
+  simPintar();
+}
 function renderProjInvest(){
   const c0=projCfg();
   // o que já está investido hoje entra na conta (é dinheiro rendendo de verdade)
@@ -6943,6 +7024,12 @@ function renderInvestimentos(){
       <div class="b"><div class="l">Rendimento</div><div class="v ${rend<0?'r':'g'}">${rend>=0?'+':''}${brl(rend)}</div></div>
     </div>
     <div class="balrow"><div class="b" style="flex:1"><div class="l">Patrimônio (contas + investimentos)</div><div class="v">${brl(patr)}</div></div></div>
+  </div>`;
+  html+=`<div class="card tap" onclick="go('simulador')" style="cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:24px">🧮</span>
+    <div style="flex:1"><b style="font-size:14px">Simulador</b>
+      <div class="note">Mexa no aporte, nos juros e no prazo e veja a curva mudar</div></div>
+    <span style="opacity:.6">›</span>
   </div>`;
   html+=`<div class="card" onclick="go('projinvest')" style="cursor:pointer;border:1px solid var(--mint);padding:12px 14px">
     <div style="display:flex;align-items:center;gap:11px">

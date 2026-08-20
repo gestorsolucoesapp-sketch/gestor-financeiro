@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.34"; /* z4 */
+const APP_VER = "9.35"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6281,15 +6281,17 @@ function gaugeSVG(pct, opts){
   };
   // padrão (gastos): verde à esquerda → vermelho à direita
   // inverte:true (saldo, fluxo — quanto mais, melhor): vermelho à esquerda → verde à direita
-  const Z = opts.inverte ? [[0,34,'#e05545'],[34,67,'#f0a532'],[67,100,'#38b06f']]
-                         : [[0,34,'#38b06f'],[34,67,'#f0a532'],[67,100,'#e05545']];
+  // mesmos limiares que o app usa nos alertas: até 70% tranquilo, 70–90 atenção, 90+ perigo
+  const Z = opts.inverte ? [[0,30,'#e05545'],[30,50,'#f0a532'],[50,100,'#38b06f']]
+                         : [[0,70,'#38b06f'],[70,90,'#f0a532'],[90,100,'#e05545']];
   const ang=-90+180*p/100;
   const H2=H+(opts.min!=null||opts.max!=null?11:0);
   const lim = (opts.min!=null||opts.max!=null)
     ? `<text x="${cx-r-2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.min||''}</text>
        <text x="${cx+r+2}" y="${cy+16}" text-anchor="middle" font-size="8.5" fill="var(--muted)">${opts.max||''}</text>` : '';
+  const _tx = (p>32 && p<68) ? (p<50 ? cx+23 : cx-23) : cx;   // desvia da agulha
   const noPonteiro = opts.valor
-    ? `<text x="${cx}" y="${cy-14}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)"
+    ? `<text x="${_tx}" y="${cy-14}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)"
          stroke="var(--card)" stroke-width="3.5" paint-order="stroke"
          style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .6s ease 2.1s forwards">${opts.valor}</text>` : '';
   return `<svg viewBox="0 0 ${W} ${H2}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">

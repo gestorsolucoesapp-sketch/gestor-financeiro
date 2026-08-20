@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.33"; /* z4 */
+const APP_VER = "9.34"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4078,23 +4078,27 @@ function renderHome(){
             <div style="font-size:13px;opacity:.75;margin-top:1px">de ${brl(_lim)}</div>
           </div>
           <div style="flex:0 0 122px;text-align:center">
-            <div style="font-size:14px;font-weight:800;color:${_cor};font-variant-numeric:tabular-nums;line-height:1.2;margin-bottom:1px">
+            <div style="font-size:12.5px;font-weight:800;color:${_cor};font-variant-numeric:tabular-nums;white-space:nowrap;margin-bottom:1px">
               ${_emoji} ${orcFaltaTxt(_gas,_lim).replace(/ para o limite/,'').replace(/^./,m=>m.toUpperCase())}
             </div>
             ${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%'})}
           </div>
         </div>
-        ${_fix.length?`<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-          ${_fix.map(f=>`<div>
-            <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
-              <span>${f.icone}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.nome)}</span>
-              <span style="opacity:.8">${brl(f.g)} / ${brl(f.lm)}</span>
-              <b style="color:${orcCor(f.pct,true)}">${Math.round(f.pct)}%</b>
-            </div>
-            ${barraOrc(f.g,f.lm,true,7)}
-            <div class="note" style="color:rgba(255,255,255,.7);font-size:11px;margin-top:3px">${orcFaltaTxt(f.g,f.lm)}</div>
-          </div>`).join('')}
-        </div>`:''}
+        ${(()=>{
+          // se a única meta fixada é a mesma coisa que o total do card, não repete nada
+          const _uteis=_fix.filter(f=>!(Math.abs(f.g-_gas)<0.01 && Math.abs(f.lm-_lim)<0.01));
+          if(!_uteis.length) return '';
+          return `<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+            ${_uteis.map(f=>`<div>
+              <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
+                <span>${f.icone}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.nome)}</span>
+                <span style="opacity:.8">${brl(f.g)} / ${brl(f.lm)}</span>
+                <b style="color:${orcCor(f.pct,true)}">${Math.round(f.pct)}%</b>
+              </div>
+              ${barraOrc(f.g,f.lm,true,7)}
+            </div>`).join('')}
+          </div>`;
+        })()}
       </div>`;
     }catch(e){ blocos.orcamento=''; }
   })();
@@ -6287,7 +6291,7 @@ function gaugeSVG(pct, opts){
   const noPonteiro = opts.valor
     ? `<text x="${cx}" y="${cy-14}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)"
          stroke="var(--card)" stroke-width="3.5" paint-order="stroke"
-         style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .5s ease 1.15s forwards">${opts.valor}</text>` : '';
+         style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .6s ease 2.1s forwards">${opts.valor}</text>` : '';
   return `<svg viewBox="0 0 ${W} ${H2}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
     ${lim}
@@ -6295,7 +6299,7 @@ function gaugeSVG(pct, opts){
       <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round">
         <animateTransform attributeName="transform" type="rotate"
           values="${(-90-ang).toFixed(1)} ${cx} ${cy}; ${(Math.min(6,Math.abs(ang+90)*0.06)).toFixed(1)} ${cx} ${cy}; 0 ${cx} ${cy}"
-          keyTimes="0;0.78;1" dur="1.9s" begin="0.15s" fill="freeze"
+          keyTimes="0;0.78;1" dur="3.1s" begin="0.2s" fill="freeze"
           calcMode="spline" keySplines="0.16 0.7 0.2 1; 0.4 0 0.3 1"/>
       </line>
     </g>

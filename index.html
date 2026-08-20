@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.30"; /* z4 */
+const APP_VER = "9.31"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4077,7 +4077,7 @@ function renderHome(){
             <div class="big" style="font-size:24px;margin:4px 0 0">${brl(_gas)}</div>
             <div style="font-size:13px;opacity:.75;margin-top:1px">de ${brl(_lim)}</div>
           </div>
-          <div style="flex:0 0 auto">${anelProgSVG(_pct,_cor,76)}</div>
+          <div style="flex:0 0 118px">${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%'})}</div>
         </div>
         <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_cor};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
           ${_emoji} <b style="color:${_cor}">${orcFaltaTxt(_gas,_lim).replace(/^./,m=>m.toUpperCase())}</b>
@@ -5978,14 +5978,14 @@ function renderDash(){
         const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
         const pct=lim>0?g/lim*100:0;
         const r=orcRotulo(o);
-        return `<div style="flex:0 0 ${os.length>2?'46%':'46%'};text-align:center;min-width:0">
-          ${(()=>{ const f=lim-g; const c=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
-            return `<div style="font-size:15px;font-weight:800;color:${c};font-variant-numeric:tabular-nums;margin-bottom:2px">
-              ${f>=0?'falta '+brl(f):'passou '+brl(-f)}</div>`; })()}
-          ${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}
-          <div class="note" style="font-size:10px;letter-spacing:.4px;text-transform:uppercase;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ico} ${esc(r.nome.replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''))}</div>
-          <b style="font-size:13.5px;font-variant-numeric:tabular-nums">${brl(g)}</b>
-          <div class="note" style="font-size:10px">de ${brl(lim)}</div>
+        const _f=lim-g, _c=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+        return `<div style="flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;text-align:left">
+          <div style="flex:0 0 104px">${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:16px;font-weight:800;color:${_c};font-variant-numeric:tabular-nums">${_f>=0?'falta '+brl(_f):'passou '+brl(-_f)}</div>
+            <div class="note" style="font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ico} ${esc(r.nome.replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''))}</div>
+            <div style="font-size:13px;font-variant-numeric:tabular-nums;margin-top:2px"><b>${brl(g)}</b> <span class="note">de ${brl(lim)}</span></div>
+          </div>
         </div>`;
       }).join('');
       const itensB=os.map(o=>{

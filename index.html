@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.32"; /* z4 */
+const APP_VER = "9.33"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4077,10 +4077,12 @@ function renderHome(){
             <div class="big" style="font-size:24px;margin:4px 0 0">${brl(_gas)}</div>
             <div style="font-size:13px;opacity:.75;margin-top:1px">de ${brl(_lim)}</div>
           </div>
-          <div style="flex:0 0 118px">${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%'})}</div>
-        </div>
-        <div style="margin-top:9px;background:rgba(255,255,255,.12);border-left:3px solid ${_cor};border-radius:9px;padding:8px 11px;font-size:13px;line-height:1.35">
-          ${_emoji} <b style="color:${_cor}">${orcFaltaTxt(_gas,_lim).replace(/^./,m=>m.toUpperCase())}</b>
+          <div style="flex:0 0 122px;text-align:center">
+            <div style="font-size:14px;font-weight:800;color:${_cor};font-variant-numeric:tabular-nums;line-height:1.2;margin-bottom:1px">
+              ${_emoji} ${orcFaltaTxt(_gas,_lim).replace(/ para o limite/,'').replace(/^./,m=>m.toUpperCase())}
+            </div>
+            ${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%'})}
+          </div>
         </div>
         ${_fix.length?`<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
           ${_fix.map(f=>`<div>

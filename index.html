@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.31"; /* z4 */
+const APP_VER = "9.32"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6285,13 +6285,16 @@ function gaugeSVG(pct, opts){
   const noPonteiro = opts.valor
     ? `<text x="${cx}" y="${cy-14}" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--ink)"
          stroke="var(--card)" stroke-width="3.5" paint-order="stroke"
-         style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .4s ease .85s forwards">${opts.valor}</text>` : '';
+         style="font-variant-numeric:tabular-nums;opacity:0;animation:svgpop .5s ease 1.15s forwards">${opts.valor}</text>` : '';
   return `<svg viewBox="0 0 ${W} ${H2}" style="width:100%;max-width:118px;height:auto;display:block;margin:0 auto">
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
     ${lim}
     <g transform="rotate(${ang.toFixed(1)} ${cx} ${cy})">
       <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round">
-        <animateTransform attributeName="transform" type="rotate" from="${(-90-ang).toFixed(1)} ${cx} ${cy}" to="0 ${cx} ${cy}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.25 0.9 0.35 1.2" keyTimes="0;1"/>
+        <animateTransform attributeName="transform" type="rotate"
+          values="${(-90-ang).toFixed(1)} ${cx} ${cy}; ${(Math.min(6,Math.abs(ang+90)*0.06)).toFixed(1)} ${cx} ${cy}; 0 ${cx} ${cy}"
+          keyTimes="0;0.78;1" dur="1.9s" begin="0.15s" fill="freeze"
+          calcMode="spline" keySplines="0.16 0.7 0.2 1; 0.4 0 0.3 1"/>
       </line>
     </g>
     <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>

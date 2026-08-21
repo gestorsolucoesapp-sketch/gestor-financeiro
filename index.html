@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.36"; /* z4 */
+const APP_VER = "9.37"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6904,6 +6904,57 @@ function simSet(k,v){
   window._simSave=setTimeout(()=>{ try{ localStorage.setItem('gf_sim', JSON.stringify(c)); }catch(e){} }, 400);
 }
 function simPintar(){ simPintarOut(); }
+// ====== COTAÇÃO DO BITCOIN ======
+function pintarBTC(d){
+  const el=$('btcBox'); if(!el||!d) return;
+  const sub=d.pct>=0;
+  const cor=sub?'var(--green)':'var(--red)';
+  const mins=Math.max(0,Math.round((Date.now()-d.ts)/60000));
+  const quando = mins<1?'agora':(mins<60?`há ${mins} min`:`há ${Math.round(mins/60)}h`);
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="dot" style="background:#f7931a22;color:#f7931a;flex:0 0 auto;font-weight:900">₿</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700">Bitcoin <span class="note" style="font-weight:500">· BRL</span></div>
+        <div style="font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.4px">${brl(d.v)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:14px;font-weight:800;color:${cor};font-variant-numeric:tabular-nums">${sub?'▲':'▼'} ${Math.abs(d.pct).toFixed(2).replace('.',',')}%</div>
+        <div class="note" style="font-size:10px">hoje</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">
+      <span class="note" style="font-size:10.5px">mín ${brl(d.min)} · máx ${brl(d.max)}</span>
+      <span class="note tap" onclick="carregarBTC(true)" style="font-size:10.5px;cursor:pointer">↻ ${quando}</span>
+    </div>`;
+}
+async function carregarBTC(force){
+  let cache=null;
+  try{ cache=JSON.parse(localStorage.getItem('gf_btc')||'null'); }catch(e){}
+  if(cache && !force && (Date.now()-cache.ts)<10*60*1000){ pintarBTC(cache); return; }
+  if(cache) pintarBTC(cache);   // mostra o último valor enquanto busca o novo
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(), 8000);
+    const r=await fetch('https://economia.awesomeapi.com.br/last/BTC-BRL',{cache:'no-store',signal:ctrl.signal});
+    clearTimeout(t);
+    const j=await r.json();
+    const b=j&&j.BTCBRL; if(!b) throw new Error('sem dados');
+    const d={v:Number(b.bid)||0, pct:Number(b.pctChange)||0, min:Number(b.low)||0, max:Number(b.high)||0, ts:Date.now()};
+    if(!(d.v>0)) throw new Error('valor inválido');
+    try{ localStorage.setItem('gf_btc', JSON.stringify(d)); }catch(e){}
+    pintarBTC(d);
+    if(force) toast('Cotação atualizada ₿');
+  }catch(e){
+    if(!cache){
+      const el=$('btcBox');
+      if(el) el.innerHTML=`<div style="display:flex;align-items:center;gap:10px">
+        <div class="dot" style="background:#f7931a22;color:#f7931a;font-weight:900">₿</div>
+        <div style="flex:1"><b style="font-size:13.5px">Bitcoin</b><div class="note">cotação indisponível agora</div></div>
+        <span class="note tap" onclick="carregarBTC(true)" style="cursor:pointer">↻</span></div>`;
+    }
+  }
+}
 function renderSimulador(){
   const c=window._simC=simCfg();
   const campos=[['pmt','Aporte mensal (PMT)',50,10000,50],
@@ -7057,6 +7108,10 @@ function renderInvestimentos(){
     </div>
     <div class="balrow"><div class="b" style="flex:1"><div class="l">Patrimônio (contas + investimentos)</div><div class="v">${brl(patr)}</div></div></div>
   </div>`;
+  html+=`<div class="card" id="btcBox" style="padding:13px 15px">
+    <div class="note" style="text-align:center">carregando cotação…</div>
+  </div>`;
+  setTimeout(()=>{ try{ carregarBTC(); }catch(e){} }, 60);
   html+=`<div class="card tap" onclick="go('simulador')" style="cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:12px">
     <span style="font-size:24px">🧮</span>
     <div style="flex:1"><b style="font-size:14px">Simulador</b>

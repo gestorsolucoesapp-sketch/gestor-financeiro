@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.51"; /* z4 */
+const APP_VER = "9.52"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7971,7 +7971,7 @@ async function scanFatura(ev){
   openSheet(painel(1));
   try{
     const {data:{session}} = await sb.auth.getSession();
-    let arr=[]; let falhas=0; let ultimoErro='';
+    let arr=[]; let falhas=0; let ultimoErro=''; let ignoradosSrv=[];
     for(let i=0;i<files.length;i++){
       try{ const el=document.querySelector('.sheet-scroll'); if(el) el.innerHTML=painel(i+1); }catch(e){}
       try{
@@ -7991,6 +7991,7 @@ async function scanFatura(ev){
           continue;
         }
         if(Array.isArray(data.itens)) arr=arr.concat(data.itens);
+        if(Array.isArray(data.ignorados)) ignoradosSrv=ignoradosSrv.concat(data.ignorados);
       }catch(e){ falhas++; ultimoErro=String(e&&e.message||e); }
     }
     // tira repetições entre as fotos (a mesma compra pode estar em dois prints)
@@ -8003,10 +8004,12 @@ async function scanFatura(ev){
     }
     if(!arr.length){
       closeSheet();
-      toast(falhas?('Não consegui ler: '+ultimoErro).slice(0,90):'Não achei compras 🤔 tente imagens mais nítidas');
+      if(ignoradosSrv.length) toast(`Nada pra importar — ${ignoradosSrv.length} item(ns) eram transferência/Pix ou pagamento, não compra`);
+      else toast(falhas?('Não consegui ler: '+ultimoErro).slice(0,90):'Não achei compras 🤔 tente imagens mais nítidas');
       return;
     }
     if(falhas) toast(`${falhas} imagem(ns) não deram certo`);
+    else if(ignoradosSrv.length) toast(`Deixei ${ignoradosSrv.length} item(ns) de fora: transferência/Pix ou pagamento não é compra`);
     // vira itens da prévia
     const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
     // quantas despesas com esse mesmo valor+data JA existem? (2 compras de R$20 no mesmo dia

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.41"; /* z4 */
+const APP_VER = "9.42"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7656,10 +7656,16 @@ async function scanFatura(ev){
       let cartaoPorBanco='';
       try{
         if(banco){
-          const bn=_normTxt(banco).replace(/\b(bank|banco|cartao|card)\b/g,'').trim();
+          const bn=_normTxt(banco).replace(/\b(bank|banco|cartao|card)\b/g,'').replace(/\s+/g,' ').trim();
           if(bn.length>=2){
-            const cands=DATA.cartoes.filter(c=>c.user_id===USER.id && !c.arquivado && _normTxt(c.nome).includes(bn));
-            if(cands.length===1) cartaoPorBanco=cands[0].id;
+            const meus=DATA.cartoes.filter(c=>c.user_id===USER.id && !c.arquivado);
+            const cands=meus.filter(c=>_normTxt(c.nome).includes(bn));
+            // 1º) nome do cartão idêntico ao do banco ("Mercado pago" ganha de "Linha crédito mercado pago")
+            const exatos=cands.filter(c=>_normTxt(c.nome)===bn);
+            if(exatos.length===1) cartaoPorBanco=exatos[0].id;
+            // 2º) senão, só decide sozinho quando existe um único compatível ("C6 Bank" → "C6 cartão")
+            else if(exatos.length===0 && cands.length===1) cartaoPorBanco=cands[0].id;
+            // com dois iguais (Nubank × Nubank Orion) fica em branco: você escolhe
           }
         }
       }catch(e){}

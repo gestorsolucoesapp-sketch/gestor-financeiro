@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.40"; /* z4 */
+const APP_VER = "9.41"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7491,7 +7491,7 @@ function renderPreviaImport(){
       <div class="impTop">
         <input type="checkbox" ${x.incluir?'checked':''} onchange="impToggle(${i},this.checked)" style="width:20px;height:20px;flex:0 0 auto">
         <span class="impTag" style="background:${tintBg(x.tipo==='receita'?'#2f8f66':'#e5484d')};color:${cor}">${x.tipo==='receita'?'RECEITA':'DESPESA'}</span>
-        ${x.viaCartao?`<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">CARTÃO ••${x.finalCart}</span>`:''}
+        ${x.viaCartao?`<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">${x.finalCart?('CARTÃO ••'+x.finalCart):(x.banco?('CARTÃO · '+esc(x.banco)):'CARTÃO')}</span>`:''}
         <span class="impV" style="color:${cor}">${brl(x.valor)}</span>
       </div>
       ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
@@ -7651,6 +7651,18 @@ async function scanFatura(ev){
       const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
       const desc = (x.desc||'Compra').toString().slice(0,60);
       const fin = x.final ? String(x.final).replace(/\D/g,'').slice(-4) : null;
+      const banco = x.banco ? String(x.banco) : '';
+      // se o final não foi mapeado, tenta pelo nome do banco (só se houver UM cartão compatível)
+      let cartaoPorBanco='';
+      try{
+        if(banco){
+          const bn=_normTxt(banco).replace(/\b(bank|banco|cartao|card)\b/g,'').trim();
+          if(bn.length>=2){
+            const cands=DATA.cartoes.filter(c=>c.user_id===USER.id && !c.arquivado && _normTxt(c.nome).includes(bn));
+            if(cands.length===1) cartaoPorBanco=cands[0].id;
+          }
+        }
+      }catch(e){}
       const viaCartao = String(x.origem||'credito')==='credito';
       const dup = DATA.lancamentos.some(l=> Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2 && _normTxt(l.descricao)===_normTxt(desc));
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
@@ -7663,7 +7675,8 @@ async function scanFatura(ev){
       }catch(e){}
       return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
         parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
-        cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : '', conta_id:'', categoria_id:cat };
+        banco,
+        cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : cartaoPorBanco, conta_id:'', categoria_id:cat };
     }).filter(x=>x.valor>0);
     window._impItens = itens;
     renderPreviaImport();

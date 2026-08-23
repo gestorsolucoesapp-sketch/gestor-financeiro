@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.49"; /* z4 */
+const APP_VER = "9.50"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2615,6 +2615,7 @@ function _doRender(){
   else if(tab==='config')renderConfig();
   else if(tab==='dash')renderDash();
   else if(tab==='relatorios')renderRelatorios();
+  else if(tab==='diagnostico')renderDiagnostico();
   else if(tab==='planejamento')renderPlanejamento();
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
@@ -5316,9 +5317,254 @@ async function excluirDup(id){
   DATA.lancamentos=DATA.lancamentos.filter(x=>x.id!==id);
   toast('Apagado ✅'); abrirAuditoriaDup(); render();
 }
+// ================= DIAGNÓSTICO FINANCEIRO =================
+// Transforma o histórico em 5 indicadores que planejador financeiro olha primeiro.
+const DIAG_ESS_KEY='gf_cat_essencial';
+const DIAG_INFL_KEY='gf_diag_inflacao';
+// palavras que denunciam gasto essencial (usadas só quando você ainda não classificou a categoria)
+const DIAG_ESS_PADRAO=[
+  /moradia|aluguel|condomin|luz|energia|agua|gas\b|iptu/,
+  /aliment|mercado|supermerc/,
+  /saude|farmac|remedio|plano de saude|medic/,
+  /celular|internet|telefone/,
+  /combustivel|transporte|onibus|camionete|carro\b/,
+  /imposto|seguro|banco|tarifa/,
+  /educac|escola|faculdade|curso|creche/,
+  /ana livia|clarinha|filh|crianc/,
+  /empresa|fornecedor/
+];
+function diagEssMapa(){ try{ return JSON.parse(localStorage.getItem(DIAG_ESS_KEY)||'{}'); }catch(e){ return {}; } }
+function diagSetEss(id,v){ try{ const m=diagEssMapa(); m[id]=!!v; localStorage.setItem(DIAG_ESS_KEY,JSON.stringify(m)); }catch(e){} }
+function diagEhEssencial(cat){
+  if(!cat) return false;
+  const m=diagEssMapa();
+  if(Object.prototype.hasOwnProperty.call(m,cat.id)) return !!m[cat.id];
+  const n=_normTxt(cat.nome);
+  return DIAG_ESS_PADRAO.some(re=>re.test(n));
+}
+function diagInflacao(){ const v=Number(localStorage.getItem(DIAG_INFL_KEY)); return (v>0&&v<50)?v:4.5; }
+function diagSetInflacao(v){ try{ localStorage.setItem(DIAG_INFL_KEY,String(v)); }catch(e){} render(); }
+function _mediana(a){
+  const v=a.filter(x=>isFinite(x)).slice().sort((x,y)=>x-y);
+  if(!v.length) return 0;
+  const m=Math.floor(v.length/2);
+  return v.length%2 ? v[m] : (v[m-1]+v[m])/2;
+}
+// núcleo: roda tudo em cima dos meses JÁ FECHADOS (o mês corrente ainda está pela metade)
+function diagCalc(){
+  const hoje=new Date();
+  let serie=evolucaoMesesOficial(7);
+  const ult=serie[serie.length-1];
+  if(ult && ult.mes.getFullYear()===hoje.getFullYear() && ult.mes.getMonth()===hoje.getMonth()) serie=serie.slice(0,-1);
+  serie=serie.filter(m=>(m.rec>0||m.desp>0));
+  // descarta mês com histórico furado (importação parcial): receita muito abaixo da mediana
+  const medRecBruta=_mediana(serie.map(m=>m.rec));
+  const descartados = medRecBruta>0 ? serie.filter(m=>m.rec < medRecBruta*0.3).length : 0;
+  if(medRecBruta>0) serie=serie.filter(m=>m.rec >= medRecBruta*0.3);
+  const n=serie.length;
+  const recs=serie.map(m=>m.rec), desps=serie.map(m=>m.desp);
+  const recTot=recs.reduce((a,b)=>a+b,0), despTot=desps.reduce((a,b)=>a+b,0);
+  // taxa de poupança: quanto % da receita sobrou (o indicador que mais prevê independência)
+  const taxaPoup = recTot>0 ? (recTot-despTot)/recTot*100 : 0;
+  // comprometimento: quanto % da receita já está consumida
+  const compr = recTot>0 ? despTot/recTot*100 : 0;
+  // mediana blinda contra o mês da impressora de R$ 1.536
+  const despMediana=_mediana(desps), recMediana=_mediana(recs);
+  // essencial x supérfluo: proporção medida lançamento a lançamento
+  let ess=0, sup=0, semCat=0;
+  serie.forEach(m=>{
+    for(const l of DATA.lancamentos){
+      if(l.tipo!=='despesa') continue;
+      if(!inMonthRep(l,m.mes)) continue;
+      if(!noScope(l)) continue;
+      if(ehLancQuitacao(l)) continue;
+      const v=Number(l.valor)||0;
+      const cat=l.categoria_id?DATA.categorias.find(c=>c.id===l.categoria_id):null;
+      if(!cat){ semCat+=v; continue; }
+      if(diagEhEssencial(cat)) ess+=v; else sup+=v;
+    }
+  });
+  const baseClass=ess+sup;
+  const pctEss = baseClass>0 ? ess/baseClass*100 : 0;
+  // reserva de emergência: quantos meses de gasto ESSENCIAL o seu dinheiro líquido cobre
+  const essMes = despMediana * (pctEss/100);
+  const liquido = saldoTotal() + totalInvestidoContas();
+  const mesesReserva = essMes>0 ? liquido/essMes : 0;
+  // patrimônio em valor real: o que o dinheiro parado perde pra inflação
+  const patr=patrimonioTotal(), infl=diagInflacao();
+  const real10 = patr/Math.pow(1+infl/100,10);
+  const cdi=cdiAA(), taxaReal = ((1+cdi/100)/(1+infl/100)-1)*100;
+  return {n, serie, descartados, recTot, despTot, taxaPoup, compr, despMediana, recMediana,
+          pctEss, ess, sup, semCat, essMes, liquido, mesesReserva, patr, infl, real10, cdi, taxaReal};
+}
+// gastos que se repetem quase todo mês — assinatura esquecida mora aqui
+function diagVazamentos(serie){
+  const mapa={};
+  serie.forEach((m,idx)=>{
+    for(const l of DATA.lancamentos){
+      if(l.tipo!=='despesa') continue;
+      if(!inMonthRep(l,m.mes)) continue;
+      if(!noScope(l)) continue;
+      if(ehLancQuitacao(l)) continue;
+      const k=_normTxt(l.descricao||'').slice(0,26);
+      if(k.length<3) continue;
+      if(!mapa[k]) mapa[k]={nome:(l.descricao||'').trim(), meses:new Set(), total:0, n:0};
+      mapa[k].meses.add(idx); mapa[k].total+=Number(l.valor)||0; mapa[k].n++;
+    }
+  });
+  return Object.values(mapa)
+    .filter(x=>x.meses.size>=Math.min(3,serie.length))
+    .map(x=>({nome:x.nome, meses:x.meses.size, media:x.total/x.meses.size, total:x.total}))
+    .sort((a,b)=>b.total-a.total).slice(0,8);
+}
+function _diagCard(titulo, sub, gauge, valorTxt, cor, veredito, extra){
+  return `<div class="card reveal" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="flex:0 0 108px">${gauge}</div>
+      <div style="flex:1;min-width:0">
+        <div class="note" style="margin:0">${titulo}</div>
+        <div style="font-weight:800;font-size:22px;color:${cor};line-height:1.15">${valorTxt}</div>
+        <div style="color:var(--muted);font-size:11.5px;margin-top:2px">${sub}</div>
+      </div>
+    </div>
+    <div style="font-size:13px;line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">${veredito}</div>
+    ${extra||''}</div>`;
+}
+function renderDiagnostico(){
+  const d=diagCalc();
+  let h=`<div class="page-title">Diagnóstico</div>`;
+  if(d.n<2){
+    h+=`<div class="card"><div class="empty"><div class="ico">${ICON('target',30)}</div>
+      <p>Preciso de pelo menos <b>2 meses fechados</b> de histórico pra te dar um diagnóstico honesto.<br>Volte quando o mês virar.</p></div></div>`;
+    $('content').innerHTML=h; return;
+  }
+  h+=`<div class="note" style="margin-top:-8px;margin-bottom:14px">Base: <b>${d.n} ${d.n===1?'mês fechado':'meses fechados'}</b> · o mês corrente fica de fora porque ainda não acabou${d.descartados?` · ${d.descartados} mês(es) ignorado(s) por histórico incompleto`:''}</div>`;
+  if(d.n<3) h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #f0a532">
+    <div style="font-size:13px;line-height:1.5">⚠️ <b>Leia com reserva.</b> Com ${d.n} ${d.n===1?'mês':'meses'} de base, um gasto atípico distorce tudo.
+    A partir de 6 meses fechados esses números ficam confiáveis.</div></div>`;
+
+  // 1) TAXA DE POUPANÇA
+  const tp=d.taxaPoup;
+  const corTp = tp>=20?'#38b06f':tp>=10?'#f0a532':'#e05545';
+  const vTp = tp>=20 ? `Excelente. Guardar 20% ou mais é o patamar de quem constrói patrimônio de verdade.`
+    : tp>=10 ? `Razoável, mas apertado. A referência clássica é <b>20%</b> — você está a ${(20-tp).toFixed(1)} pontos disso.`
+    : tp>=0 ? `Zona de risco. Sobra pouco, e qualquer imprevisto vira dívida. Subir pra 10% já muda o jogo.`
+    : `Você está gastando <b>mais do que ganha</b>. Esse é o número mais urgente do app hoje.`;
+  h+=_diagCard('Taxa de poupança', `Sobrou ${brl(d.recTot-d.despTot)} de ${brl(d.recTot)} em ${d.n} meses`,
+    gaugeSVG(Math.max(0,Math.min(100,tp/30*100)),{inverte:true,min:'0%',max:'30%',valor:tp.toFixed(0)+'%'}),
+    tp.toFixed(1).replace('.',',')+'%', corTp, vTp);
+
+  // 2) RESERVA DE EMERGÊNCIA
+  const mr=d.mesesReserva, meta6=d.essMes*6, falta=Math.max(0,meta6-d.liquido);
+  const corMr = mr>=6?'#38b06f':mr>=3?'#f0a532':'#e05545';
+  const vMr = d.essMes<=0 ? `Classifique suas categorias como essenciais pra eu calcular isso.`
+    : mr>=6 ? `Blindado. Você aguenta ${mr.toFixed(1).replace('.',',')} meses sem receber nada.`
+    : mr>=3 ? `Aceitável, mas o padrão é 6 meses. Faltam <b>${brl(falta)}</b> pra chegar lá.`
+    : `Frágil. Com gasto essencial de ${brl(d.essMes)}/mês, a meta de 6 meses é ${brl(meta6)} — faltam <b>${brl(falta)}</b>.`;
+  h+=_diagCard('Reserva de emergência', `${brl(d.liquido)} líquido ÷ ${brl(d.essMes)} de gasto essencial`,
+    gaugeSVG(Math.max(0,Math.min(100,mr/12*100)),{inverte:true,min:'0',max:'12m',valor:mr.toFixed(1).replace('.',',')+'m'}),
+    mr.toFixed(1).replace('.',',')+' meses', corMr, vMr);
+
+  // 3) COMPROMETIMENTO DE RENDA
+  const cp=d.compr;
+  const corCp = cp<70?'#38b06f':cp<90?'#f0a532':'#e05545';
+  const vCp = cp<70 ? `Folga saudável: ${(100-cp).toFixed(0)}% da renda fica livre.`
+    : cp<90 ? `Apertado. Só ${(100-cp).toFixed(0)}% da renda sobra — pouco espaço pra imprevisto.`
+    : `Sufocante. Praticamente tudo que entra já tem destino antes de você decidir.`;
+  h+=_diagCard('Comprometimento de renda', `${brl(d.despTot)} de saídas para ${brl(d.recTot)} de entradas`,
+    gaugeSVG(Math.max(0,Math.min(100,cp)),{min:'0%',max:'100%',valor:cp.toFixed(0)+'%'}),
+    cp.toFixed(0)+'% da renda', corCp, vCp);
+
+  // 4) ESSENCIAL x SUPÉRFLUO
+  const pe=d.pctEss, ps=100-pe;
+  const corPe = ps<=30?'#38b06f':ps<=45?'#f0a532':'#e05545';
+  h+=`<div class="card reveal" style="margin-bottom:12px">
+    <div class="note" style="margin:0 0 8px">Essencial × supérfluo</div>
+    <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--line)">
+      <div style="width:${pe.toFixed(1)}%;background:#38b06f"></div>
+      <div style="width:${ps.toFixed(1)}%;background:#f0a532"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:7px">
+      <span><b style="color:#38b06f">${pe.toFixed(0)}%</b> essencial · ${brl(d.ess)}</span>
+      <span><b style="color:#f0a532">${ps.toFixed(0)}%</b> supérfluo · ${brl(d.sup)}</span>
+    </div>
+    <div style="font-size:13px;line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
+      ${ps<=30?`Enxuto. Sobra pouco pra cortar — o caminho aqui é aumentar receita, não apertar mais.`
+       :ps<=45?`Equilibrado. Numa emergência você consegue cortar até <b style="color:${corPe}">${brl(d.sup/d.n)}/mês</b> sem perder o essencial.`
+       :`Metade do seu dinheiro é opcional. Isso é <b>poder de fogo</b>: dá pra cortar <b style="color:${corPe}">${brl(d.sup/d.n)}/mês</b> se precisar.`}
+      ${d.semCat>0?`<br><span style="color:var(--muted);font-size:12px">⚠️ ${brl(d.semCat)} ficaram de fora por não terem categoria.</span>`:''}
+    </div>
+    <button class="btn-sec" style="margin-top:10px" onclick="diagAbrirCategorias()">Ajustar o que é essencial</button></div>`;
+
+  // 5) PATRIMÔNIO EM VALOR REAL
+  const perda=d.patr-d.real10;
+  h+=`<div class="card reveal" style="margin-bottom:12px">
+    <div class="note" style="margin:0 0 4px">Patrimônio em valor real</div>
+    <div style="font-weight:800;font-size:22px">${brl(d.patr)}</div>
+    <div style="font-size:13px;line-height:1.6;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
+      Parado, sem render nada, em <b>10 anos</b> esse dinheiro compraria o equivalente a
+      <b style="color:#e05545">${brl(d.real10)}</b> de hoje — perda de ${brl(perda)} só pra inflação.
+      <br><br>Com o CDI a <b>${d.cdi.toFixed(2).replace('.',',')}% a.a.</b> e inflação de ${d.infl.toFixed(1).replace('.',',')}%,
+      seu ganho <b>real</b> é de <b style="color:${d.taxaReal>0?'#38b06f':'#e05545'}">${d.taxaReal.toFixed(2).replace('.',',')}% a.a.</b> —
+      é esse número que faz seu patrimônio crescer, não o nominal.
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <span style="font-size:12.5px;color:var(--muted);flex:0 0 auto">Inflação usada:</span>
+      <input type="number" step="0.1" value="${d.infl}" onchange="diagSetInflacao(this.value)"
+        style="width:80px;padding:8px 10px;border-radius:10px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:14px">
+      <span style="font-size:12.5px;color:var(--muted)">% a.a.</span>
+    </div></div>`;
+
+  // 6) VAZAMENTOS RECORRENTES
+  const vz=diagVazamentos(d.serie);
+  if(vz.length){
+    const somaVz=vz.reduce((a,x)=>a+x.media,0);
+    h+=`<div class="card reveal" style="margin-bottom:12px">
+      <div class="note" style="margin:0 0 2px">Gastos que se repetem todo mês</div>
+      <div style="font-weight:800;font-size:22px">${brl(somaVz)}<span style="font-size:13px;font-weight:600;color:var(--muted)">/mês</span></div>
+      <div style="color:var(--muted);font-size:11.5px;margin-bottom:10px">São ${brl(somaVz*12)} por ano no automático</div>`;
+    vz.forEach(x=>{
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line-2);font-size:13.5px">
+        <div style="min-width:0;flex:1"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.nome)}</div>
+        <div style="color:var(--muted);font-size:11.5px">apareceu em ${x.meses} dos ${d.n} meses</div></div>
+        <div style="font-weight:700;flex:0 0 auto;margin-left:10px">${brl(x.media)}</div></div>`;
+    });
+    h+=`<div style="font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5">Passe o olho: assinatura esquecida costuma se esconder nesta lista.</div></div>`;
+  }
+  $('content').innerHTML=h;
+}
+// sheet pra você dizer o que é essencial de verdade na SUA vida
+function diagAbrirCategorias(){
+  const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&(c.tipo==='despesa'||!c.tipo))
+    .sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+  let h=`<h2 style="margin:0 0 6px">O que é essencial?</h2>
+    <p style="color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 14px">
+      Essencial = o que você <b>não consegue cortar</b> num aperto (moradia, comida, remédio, transporte pro trabalho).
+      Isso define sua reserva de emergência.</p>`;
+  cats.forEach(c=>{
+    const on=diagEhEssencial(c);
+    h+=`<div class="lrow" onclick="diagToggleCat('${c.id}')" id="dcat${c.id}" style="cursor:pointer">
+      <div class="dot" style="background:${tintBg(on?'#38b06f':'#f0a532')};color:${on?'#38b06f':'#f0a532'};font-size:16px">${c.icone||'•'}</div>
+      <div class="mid"><div class="t">${esc(c.nome)}</div>
+      <div class="s" id="dcatL${c.id}">${on?'Essencial':'Supérfluo'}</div></div>
+      <div class="amt" id="dcatI${c.id}" style="font-size:18px">${on?'✅':'⚪️'}</div></div>`;
+  });
+  h+=`<button class="btn" style="margin-top:12px" onclick="closeSheet();render()">Pronto</button>`;
+  openSheet(h);
+}
+function diagToggleCat(id){
+  const cat=DATA.categorias.find(c=>c.id===id); if(!cat) return;
+  const novo=!diagEhEssencial(cat);
+  diagSetEss(id,novo);
+  const l=document.getElementById('dcatL'+id), i=document.getElementById('dcatI'+id);
+  if(l) l.textContent=novo?'Essencial':'Supérfluo';
+  if(i) i.textContent=novo?'✅':'⚪️';
+}
+
 function renderConfig(){
   let html=`<div class="page-title">Mais</div>`;
   html+=`<div class="card">
+    ${hubItem('target','🩺 Diagnóstico','Taxa de poupança, reserva de emergência e vazamentos',"go('diagnostico')",'#2f8f66')}
     ${hubItem('chart','Relatórios','Gráficos de gastos e evolução',"go('relatorios')",'#3b6fd6')}
     ${hubItem('target','Planejamento','Orçamento por categoria',"go('planejamento')",'#e0a020')}
     ${hubItem('trend','Investimentos','Poupança, renda fixa e patrimônio',"go('investimentos')",'#2f8f66')}

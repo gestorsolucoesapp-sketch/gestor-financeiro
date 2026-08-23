@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.48"; /* z4 */
+const APP_VER = "9.49"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7479,11 +7479,9 @@ function openImportBanco(){
     </p>
     <input type="file" id="impFotoCam" accept="image/*" capture="environment" style="display:none" onchange="scanFatura(event)">
     <input type="file" id="impFotoGal" accept="image/*" multiple style="display:none" onchange="scanFatura(event)">
-    <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
     <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoGal').click()">🖼️ Ler prints de notificações (pode escolher vários)</button>
     <button class="btn outline" style="margin-top:8px" onclick="document.getElementById('impFotoCam').click()">📸 Fotografar fatura</button>
-    <button class="btn ghost" style="margin-top:6px" onclick="colarPrint()">📋 Colar print copiado</button>
-    <button class="btn-sec" style="margin-top:8px" onclick="document.getElementById('impFotoGal').click()">🖼️ Escolher da galeria</button>`);
+    <button class="btn ghost" style="margin-top:6px" onclick="colarPrint()">📋 Colar print copiado</button>`);
   setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
 }
 function analisarImport(){
@@ -7854,11 +7852,13 @@ async function confirmarImport(){
     if(x.viaCartao){
       if(x.finalCart) setMapFinal(x.finalCart,x.cartao_id); // memoriza p/ próxima vez
       if(x.banco) setMapBanco(x.banco,x.cartao_id);          // e memoriza pelo nome do banco
+      if(x.categoria_id) lembrarCatEstab(x.desc,x.categoria_id); // memoriza a categoria do lugar
       const cartao=cartaoById(x.cartao_id);
       const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
       rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
         cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
     }else{
+      if(x.categoria_id) lembrarCatEstab(x.desc,x.categoria_id);
       rows.push({user_id:USER.id,tipo:x.tipo,descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
         conta_id:x.conta_id,categoria_id:x.categoria_id||null});
     }

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.44"; /* z4 */
+const APP_VER = "9.46"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7445,9 +7445,9 @@ function openImportBanco(){
       Ou toque abaixo para enviar a imagem e transcrever o texto:
     </p>
     <input type="file" id="impFotoCam" accept="image/*" capture="environment" style="display:none" onchange="scanFatura(event)">
+    <input type="file" id="impFotoGal" accept="image/*" multiple style="display:none" onchange="scanFatura(event)">
     <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
-    <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
-    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoGal').click()">🖼️ Ler print de notificações (galeria)</button>
+    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoGal').click()">🖼️ Ler prints de notificações (pode escolher vários)</button>
     <button class="btn outline" style="margin-top:8px" onclick="document.getElementById('impFotoCam').click()">📸 Fotografar fatura</button>
     <button class="btn ghost" style="margin-top:6px" onclick="colarPrint()">📋 Colar print copiado</button>
     <button class="btn-sec" style="margin-top:8px" onclick="document.getElementById('impFotoGal').click()">🖼️ Escolher da galeria</button>`);
@@ -7664,35 +7664,56 @@ function catDoEstabelecimento(desc){
 }
 // ===== SCANNER DE FATURA COM IA =====
 async function scanFatura(ev){
-  const file = ev.target.files && ev.target.files[0];
+  const files = ev.target && ev.target.files ? Array.from(ev.target.files) : [];
   if(ev.target) ev.target.value='';
-  if(!file) return;
-  openSheet(`<div style="text-align:center;padding:30px 10px">
+  if(!files.length) return;
+  const total=files.length;
+  const painel=(i)=>`<div style="text-align:center;padding:30px 10px">
     <div style="font-size:44px;margin-bottom:12px">📸</div>
-    <h2 style="margin:0 0 6px">Lendo a imagem…</h2>
+    <h2 style="margin:0 0 6px">Lendo ${total>1?`imagem ${i} de ${total}…`:'a imagem…'}</h2>
     <p style="color:var(--muted);font-size:13.5px">Fatura ou print de notificações — a IA separa cada compra. Uns segundinhos ⏳</p>
-    <div class="spin" style="margin:18px auto 0"></div></div>`);
+    ${total>1?`<div style="height:6px;border-radius:6px;background:var(--line);margin:14px auto 0;max-width:220px;overflow:hidden">
+      <div style="height:100%;width:${Math.round((i-1)/total*100)}%;background:var(--mint);transition:width .3s"></div></div>`:''}
+    <div class="spin" style="margin:18px auto 0"></div></div>`;
+  openSheet(painel(1));
   try{
-    // comprime a imagem pra não estourar (fatura grande)
-    const b64 = await _fileParaBase64Comprimido(file);
     const {data:{session}} = await sb.auth.getSession();
-    const r = await fetch(SUPABASE_URL+'/functions/v1/ler-fatura',{
-      method:'POST',
-      headers:{ 'content-type':'application/json',
-        'authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),
-        'apikey':SUPABASE_KEY },
-      body: JSON.stringify({ imagem:b64, media_type:'image/jpeg' })
-    });
-    const data = await r.json();
-    if(data.error){
+    let arr=[]; let falhas=0; let ultimoErro='';
+    for(let i=0;i<files.length;i++){
+      try{ const el=document.querySelector('.sheet-scroll'); if(el) el.innerHTML=painel(i+1); }catch(e){}
+      try{
+        const b64 = await _fileParaBase64Comprimido(files[i]);
+        const r = await fetch(SUPABASE_URL+'/functions/v1/ler-fatura',{
+          method:'POST',
+          headers:{ 'content-type':'application/json',
+            'authorization':'Bearer '+(session?session.access_token:SUPABASE_KEY),
+            'apikey':SUPABASE_KEY },
+          body: JSON.stringify({ imagem:b64, media_type:'image/jpeg' })
+        });
+        const data = await r.json();
+        if(data.error){
+          falhas++; ultimoErro=data.error;
+          if(r.status===403){ closeSheet(); toast('Scanner não liberado nesta conta'); return; }
+          if(r.status===429){ closeSheet(); toast('Você atingiu o limite de leituras do mês'); return; }
+          continue;
+        }
+        if(Array.isArray(data.itens)) arr=arr.concat(data.itens);
+      }catch(e){ falhas++; ultimoErro=String(e&&e.message||e); }
+    }
+    // tira repetições entre as fotos (a mesma compra pode estar em dois prints)
+    {
+      const vistos=new Set();
+      arr=arr.filter(x=>{
+        const k=`${Math.abs(Number(x&&x.valor)||0)}|${x&&x.data||''}|${_normTxt(String((x&&x.desc)||''))}`;
+        if(vistos.has(k)) return false; vistos.add(k); return true;
+      });
+    }
+    if(!arr.length){
       closeSheet();
-      if(r.status===403){ toast('Scanner não liberado nesta conta'); }
-      else if(r.status===429){ toast('Você atingiu o limite de leituras do mês'); }
-      else toast('Erro: '+data.error);
+      toast(falhas?('Não consegui ler: '+ultimoErro).slice(0,90):'Não achei compras 🤔 tente imagens mais nítidas');
       return;
     }
-    const arr = Array.isArray(data.itens)?data.itens:[];
-    if(!arr.length){ closeSheet(); toast('Não achei compras na foto 🤔 tente uma imagem mais nítida'); return; }
+    if(falhas) toast(`${falhas} imagem(ns) não deram certo`);
     // vira itens da prévia
     const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
     const itens = arr.map(x=>{

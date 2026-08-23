@@ -1,5 +1,5 @@
 // Gestor Soluções · Service Worker (offline shell + push)
-const CACHE = 'gf-shell-v242';
+const CACHE = 'gf-shell-v244';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',

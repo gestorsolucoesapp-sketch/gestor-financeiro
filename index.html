@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.50"; /* z4 */
+const APP_VER = "9.51"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5359,8 +5359,12 @@ function diagCalc(){
   serie=serie.filter(m=>(m.rec>0||m.desp>0));
   // descarta mês com histórico furado (importação parcial): receita muito abaixo da mediana
   const medRecBruta=_mediana(serie.map(m=>m.rec));
-  const descartados = medRecBruta>0 ? serie.filter(m=>m.rec < medRecBruta*0.3).length : 0;
-  if(medRecBruta>0) serie=serie.filter(m=>m.rec >= medRecBruta*0.3);
+  let descartados=0;
+  if(medRecBruta>0){
+    const limpa=serie.filter(m=>m.rec >= medRecBruta*0.3);
+    // só aplica o descarte se ainda sobrar base pra calcular
+    if(limpa.length>=1){ descartados=serie.length-limpa.length; serie=limpa; }
+  }
   const n=serie.length;
   const recs=serie.map(m=>m.rec), desps=serie.map(m=>m.desp);
   const recTot=recs.reduce((a,b)=>a+b,0), despTot=desps.reduce((a,b)=>a+b,0);
@@ -5433,15 +5437,15 @@ function _diagCard(titulo, sub, gauge, valorTxt, cor, veredito, extra){
 function renderDiagnostico(){
   const d=diagCalc();
   let h=`<div class="page-title">Diagnóstico</div>`;
-  if(d.n<2){
+  if(d.n<1){
     h+=`<div class="card"><div class="empty"><div class="ico">${ICON('target',30)}</div>
-      <p>Preciso de pelo menos <b>2 meses fechados</b> de histórico pra te dar um diagnóstico honesto.<br>Volte quando o mês virar.</p></div></div>`;
+      <p>Ainda não tenho <b>nenhum mês fechado</b> com movimento pra analisar.<br>Assim que ${mesNome(new Date())} virar, o diagnóstico aparece aqui.</p></div></div>`;
     $('content').innerHTML=h; return;
   }
   h+=`<div class="note" style="margin-top:-8px;margin-bottom:14px">Base: <b>${d.n} ${d.n===1?'mês fechado':'meses fechados'}</b> · o mês corrente fica de fora porque ainda não acabou${d.descartados?` · ${d.descartados} mês(es) ignorado(s) por histórico incompleto`:''}</div>`;
   if(d.n<3) h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #f0a532">
-    <div style="font-size:13px;line-height:1.5">⚠️ <b>Leia com reserva.</b> Com ${d.n} ${d.n===1?'mês':'meses'} de base, um gasto atípico distorce tudo.
-    A partir de 6 meses fechados esses números ficam confiáveis.</div></div>`;
+    <div style="font-size:13px;line-height:1.55">⚠️ <b>Leia com reserva.</b> Estou trabalhando com ${d.n===1?'<b>um único mês</b>':`<b>${d.n} meses</b>`} de base — um gasto atípico (uma compra grande, uma fatura antiga importada) distorce todos os números abaixo.
+    <br><br>Isso <b>não</b> é retrato da sua vida financeira ainda. A partir de 3 meses fechados começa a fazer sentido; com 6, fica confiável.</div></div>`;
 
   // 1) TAXA DE POUPANÇA
   const tp=d.taxaPoup;

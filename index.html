@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.46"; /* z4 */
+const APP_VER = "9.47"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7342,6 +7342,38 @@ function closeSheet(){window._addLoop=null;$('modalRoot').innerHTML='';document.
 const MAPFINAL_KEY='gf_map_cartao_final';
 function mapFinal(){ try{ return JSON.parse(localStorage.getItem(MAPFINAL_KEY)||'{}'); }catch(e){ return {}; } }
 function setMapFinal(f,cid){ try{ const m=mapFinal(); m[f]=cid; localStorage.setItem(MAPFINAL_KEY,JSON.stringify(m)); }catch(e){} }
+// memoria: nome do banco -> cartao escolhido (usada quando a notificacao nao traz os 4 digitos)
+const MAPBANCO_KEY='gf_map_cartao_banco';
+function _bancoChave(b){ return _normTxt(b).replace(/\b(bank|banco|cartao|card|credito|pagamentos|s a|sa)\b/g,'').replace(/\s+/g,' ').trim(); }
+function mapBanco(){ try{ return JSON.parse(localStorage.getItem(MAPBANCO_KEY)||'{}'); }catch(e){ return {}; } }
+function setMapBanco(b,cid){ try{ const k=_bancoChave(b); if(!k||!cid) return; const m=mapBanco(); m[k]=cid; localStorage.setItem(MAPBANCO_KEY,JSON.stringify(m)); }catch(e){} }
+// limpa o nome do estabelecimento: tira cidade/UF grudada no fim e sufixos de razao social
+const CIDADES_RUIDO=['sao jose do rio pardo','sao jose do rio','sao joao da boa vista','espirito santo do pinhal','sao sebastiao da grama','aguas da prata','pocos de caldas','ribeirao preto','sao carlos','mogi guacu','mogi mirim','sao paulo','belo horizonte','campinas','mococa','guaxupe','caconde','divinolandia','tapiratiba','casa branca','itobi','muzambinho','franca','araras','limeira','piracicaba','araraquara','jaguariuna'].sort((a,b)=>b.split(' ').length-a.split(' ').length);
+function _limparNomeLoja(d){
+  const orig=String(d||'').replace(/\s+/g,' ').trim();
+  let s=orig;
+  s=s.replace(/\s*[-–,]?\s*\b(BRA|BRASIL|BR)\b\.?\s*$/i,'');
+  s=s.replace(/\s*[-–,]?\s*\b(SP|MG|RJ|PR|SC|RS|MS|MT|GO|BA|PE|CE)\b\.?\s*$/i,'');
+  s=s.replace(/\s+(ltda|me|epp|eireli|s\/a|s\.a\.?)\s*$/i,'');
+  for(let p=0;p<2;p++){
+    const n=_normTxt(s); let cortou=false;
+    for(const c of CIDADES_RUIDO){
+      if(n===c) break;
+      if(n.endsWith(' '+c)){
+        const q=c.split(' ').length;
+        const resto=s.split(/\s+/).slice(0,-q).join(' ').trim();
+        if(resto.length>=4){ s=resto; cortou=true; }
+        break;
+      }
+    }
+    if(!cortou) break;
+  }
+  s=s.replace(/\s*[-–,]\s*$/,'').trim();
+  return s || orig;
+}
+// nao e compra: pagamento de fatura, estorno, pix, boleto e afins
+const RE_NAO_COMPRA=/(nu pagament|pagamento de fatura|pagamento fatura|pagto fatura|pag fatura|pagamento recebido|pagamento efetuado|estorno|cancelad|recusad|\bpix\b|transferenc|\bted\b|\bdoc\b|boleto|rendiment|cashback|resgate)/;
+function _naoEhCompra(d){ try{ return RE_NAO_COMPRA.test(_normTxt(d)); }catch(e){ return false; } }
 function _num(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.'))||0; }
 function _capWords(s){
   return String(s).replace(/\s+/g,' ').trim().toLowerCase()
@@ -7401,6 +7433,7 @@ function parseNotifBanco(txt){
     else desc = ehReceita?'Recebimento':'Compra';
     if(!desc) desc = ehReceita?'Recebimento':'Compra';
 
+    desc=_limparNomeLoja(desc);
     const chave=`${ehReceita?'r':'d'}|${valor.toFixed(2)}|${data}|${desc}`;
     if(vistos.has(chave)) return; vistos.add(chave);
 
@@ -7495,13 +7528,15 @@ function renderPreviaImport(){
         <span class="impV" style="color:${cor}">${brl(x.valor)}</span>
       </div>
       ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
+      ${x.naoCompra?`<div class="impWarn">🚫 Parece pagamento de fatura / estorno — não é compra</div>`:''}
+      ${(x.viaCartao&&!x.cartao_id)?`<div class="impWarn">💳 Escolha o cartão abaixo (o banco veio sem os 4 dígitos)</div>`:''}
       <div class="impGrid">
         <div class="full"><input value="${String(x.desc).replace(/"/g,'&quot;')}" onchange="impSet(${i},'desc',this.value)" placeholder="Descrição"></div>
         <div><input type="date" value="${x.data}" onchange="impSet(${i},'data',this.value)"></div>
         <div><select onchange="impSet(${i},'categoria_id',this.value)">${_optsCats(x.tipo,x.categoria_id)}</select></div>
         <div class="full">${
           x.viaCartao
-          ? `<select onchange="impSet(${i},'cartao_id',this.value)">${_optsCartoes(x.cartao_id)}</select>`
+          ? `<select ${x.cartao_id?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetCartao(${i},this.value,this)">${_optsCartoes(x.cartao_id)}</select>`
           : `<select onchange="impSet(${i},'conta_id',this.value)">${_optsContas(x.conta_id)}</select>`
         }</div>
       </div>
@@ -7514,6 +7549,15 @@ function renderPreviaImport(){
 function impToggle(i,v){ if(window._impItens&&window._impItens[i]){ window._impItens[i].incluir=v; renderPreviaImport(); } }
 function impMarcarTodos(v){ (window._impItens||[]).forEach(x=>x.incluir=v); renderPreviaImport(); }
 function impSet(i,k,v){ if(window._impItens&&window._impItens[i]) window._impItens[i][k]=v; }
+// escolher o cartao na previa: guarda e apaga o destaque laranja sem redesenhar a lista
+function impSetCartao(i,v,el){
+  impSet(i,'cartao_id',v);
+  try{
+    if(el){ el.style.borderColor=v?'':'#e0a020'; el.style.boxShadow=v?'':'0 0 0 2px rgba(224,160,32,.18)'; }
+    const card=document.getElementById('impC'+i);
+    if(card && v){ const w=[...card.querySelectorAll('.impWarn')].find(x=>x.textContent.indexOf('Escolha o cartão')>=0); if(w) w.remove(); }
+  }catch(e){}
+}
 // ===== IMPORTAR FATURA POR FOTO (sem IA) =====
 async function lerFotoFatura(ev){
   const file = ev.target.files && ev.target.files[0];
@@ -7719,15 +7763,18 @@ async function scanFatura(ev){
     const itens = arr.map(x=>{
       const valor = Math.abs(Number(x.valor)||0);
       const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
-      const desc = (x.desc||'Compra').toString().slice(0,60);
+      const desc = _limparNomeLoja((x.desc||'Compra').toString().slice(0,60));
       const fin = x.final ? String(x.final).replace(/\D/g,'').slice(-4) : null;
       const banco = x.banco ? String(x.banco) : '';
       // se o final não foi mapeado, tenta pelo nome do banco (só se houver UM cartão compatível)
       let cartaoPorBanco='';
       try{
         if(banco){
-          const bn=_normTxt(banco).replace(/\b(bank|banco|cartao|card)\b/g,'').replace(/\s+/g,' ').trim();
-          if(bn.length>=2){
+          const bn=_bancoChave(banco);
+          // 0o) ja escolhi um cartao pra esse banco antes? entao repete
+          const memB=mapBanco()[bn];
+          if(memB && cartaoById(memB)) cartaoPorBanco=memB;
+          if(!cartaoPorBanco && bn.length>=2){
             const meus=DATA.cartoes.filter(c=>c.user_id===USER.id && !c.arquivado);
             const cands=meus.filter(c=>_normTxt(c.nome).includes(bn));
             // 1º) nome do cartão idêntico ao do banco ("Mercado pago" ganha de "Linha crédito mercado pago")
@@ -7743,10 +7790,12 @@ async function scanFatura(ev){
       // mesmo valor + mesma data já basta pra levantar suspeita, mesmo com nome diferente
       // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
       const dup = DATA.lancamentos.some(l=> l.tipo==='despesa' && Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2);
+      // pagamento de fatura, estorno, pix e afins nao sao compra: vem desmarcado e avisado
+      const naoCompra = _naoEhCompra(desc);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
-      const cat = catDoEstabelecimento(desc);
+      const cat = naoCompra?'':catDoEstabelecimento(desc);
       return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
-        parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
+        parcela:x.parcela||null, parcelas:x.parcelas||null, dup, naoCompra, incluir:!dup && !naoCompra && valor>0,
         banco,
         cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : cartaoPorBanco, conta_id:'', categoria_id:cat };
     }).filter(x=>x.valor>0);
@@ -7789,6 +7838,7 @@ async function confirmarImport(){
   sel.forEach(x=>{
     if(x.viaCartao){
       if(x.finalCart) setMapFinal(x.finalCart,x.cartao_id); // memoriza p/ próxima vez
+      if(x.banco) setMapBanco(x.banco,x.cartao_id);          // e memoriza pelo nome do banco
       const cartao=cartaoById(x.cartao_id);
       const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
       rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',

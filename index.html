@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.42"; /* z4 */
+const APP_VER = "9.43"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7613,6 +7613,55 @@ async function colarPrint(){
     toast('Não achei imagem copiada 🤔');
   }catch(e){ toast('Não consegui colar — use a galeria'); }
 }
+// memória: estabelecimento -> categoria que você escolheu da última vez
+const CATMEM_KEY='gf_cat_estab';
+function catMem(){ try{ return JSON.parse(localStorage.getItem(CATMEM_KEY)||'{}'); }catch(e){ return {}; } }
+function lembrarCatEstab(desc,catId){
+  if(!desc||!catId) return;
+  try{ const m=catMem(); m[_normTxt(desc).slice(0,40)]=catId; localStorage.setItem(CATMEM_KEY,JSON.stringify(m)); }catch(e){}
+}
+// pistas do tipo de estabelecimento -> que palavra procurar no nome das suas categorias
+const PISTAS_CAT=[
+  [/(auto ?posto|\bposto\b|combust|gasolina|etanol|ipiranga|shell|petrobr|ale |br mania)/, ['combustivel','carro','transporte']],
+  [/(drogaria|farmac|drogasil|pacheco|raia|panvel)/, ['saude']],
+  [/(supermerc|mercado|hortifruti|acougue|atacad|assai|carrefour|tenda|sonda|fonseca)/, ['alimenta','compras']],
+  [/(restaurante|lanchon|pizzar|burger|hamburg|padaria|cafe|bar |churrasc|sushi|ifood|rappi|espetinho)/, ['alimenta']],
+  [/(uber|99app|99 |taxi|cabify|blablacar|onibus|passagem)/, ['transporte']],
+  [/(netflix|spotify|prime|disney|hbo|max |youtube|apple|google|icloud|microsoft|openai|anthropic)/, ['assinatura']],
+  [/(academia|smartfit|smart fit|crossfit|pilates)/, ['academia']],
+  [/(farm|clinic|hospital|laborat|exame|dentist|odonto|psico|fisiot)/, ['saude']],
+  [/(magalu|americanas|shopee|mercado livre|amazon|aliexpress|shein|renner|riachuelo|centauro)/, ['compras']],
+  [/(cinema|clube|country|eventos|show|ingresso|parque|balada)/, ['lazer']],
+  [/(oficina|mecanic|pneu|autopec|auto pec|borracharia|lavaje|lava jato)/, ['carro','camionete']],
+  [/(posto ipiranga|vap gas|gas )/, ['moradia','combustivel']],
+  [/(escola|colegio|curso|faculdade|treiname|capacit)/, ['ana livia','clarinha','pessoais']],
+  [/(filamento|resina|impress|3d)/, ['filamento','projeto 3d']],
+];
+function sugerirCategoria(desc){
+  try{
+    const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa');
+    if(!cats.length) return '';
+    const tn=_normTxt(desc);
+    // 1º) já escolhi categoria pra esse lugar antes?
+    const mem=catMem()[tn.slice(0,40)];
+    if(mem && cats.some(c=>c.id===mem)) return mem;
+    // 2º) o nome da categoria aparece na descrição (ex.: "Combustível camionete")
+    const diretas=cats.filter(c=>{ const n=_normTxt(c.nome); return n.length>3 && tn.includes(n); })
+                      .sort((a,b)=>_normTxt(b.nome).length-_normTxt(a.nome).length);
+    if(diretas.length) return diretas[0].id;
+    // 3º) pistas do tipo de comércio
+    for(const [re,alvos] of PISTAS_CAT){
+      if(!re.test(tn)) continue;
+      for(const alvo of alvos){
+        const achou=cats.find(c=>_normTxt(c.nome).includes(alvo));
+        if(achou) return achou.id;
+      }
+    }
+    // 4º) semelhança de escrita
+    const parecida=cats.find(c=>_pareceCom(tn,c.nome));
+    return parecida?parecida.id:'';
+  }catch(e){ return ''; }
+}
 // ===== SCANNER DE FATURA COM IA =====
 async function scanFatura(ev){
   const file = ev.target.files && ev.target.files[0];
@@ -7670,15 +7719,11 @@ async function scanFatura(ev){
         }
       }catch(e){}
       const viaCartao = String(x.origem||'credito')==='credito';
-      const dup = DATA.lancamentos.some(l=> Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2 && _normTxt(l.descricao)===_normTxt(desc));
+      // mesmo valor + mesma data já basta pra levantar suspeita, mesmo com nome diferente
+      // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
+      const dup = DATA.lancamentos.some(l=> l.tipo==='despesa' && Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
-      let cat='';
-      try{
-        const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa');
-        const tn=_normTxt(desc);
-        const achou=cats.find(c=>{ const n=_normTxt(c.nome); return n.length>3 && tn.includes(n); }) || cats.find(c=>_pareceCom(tn,c.nome));
-        if(achou) cat=achou.id;
-      }catch(e){}
+      const cat = sugerirCategoria(desc);
       return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
         parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
         banco,

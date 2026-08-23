@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.47"; /* z4 */
+const APP_VER = "9.48"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7527,6 +7527,7 @@ function renderPreviaImport(){
         ${x.viaCartao?`<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">${x.finalCart?('CARTÃO ••'+x.finalCart):(x.banco?('CARTÃO · '+esc(x.banco)):'CARTÃO')}</span>`:''}
         <span class="impV" style="color:${cor}">${brl(x.valor)}</span>
       </div>
+      ${x.hora?`<div style="color:var(--muted);font-size:11.5px;margin:2px 0 0 30px">🕒 ${esc(x.hora)}</div>`:''}
       ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
       ${x.naoCompra?`<div class="impWarn">🚫 Parece pagamento de fatura / estorno — não é compra</div>`:''}
       ${(x.viaCartao&&!x.cartao_id)?`<div class="impWarn">💳 Escolha o cartão abaixo (o banco veio sem os 4 dígitos)</div>`:''}
@@ -7748,7 +7749,7 @@ async function scanFatura(ev){
     {
       const vistos=new Set();
       arr=arr.filter(x=>{
-        const k=`${Math.abs(Number(x&&x.valor)||0)}|${x&&x.data||''}|${_normTxt(String((x&&x.desc)||''))}`;
+        const k=`${Math.abs(Number(x&&x.valor)||0)}|${x&&x.data||''}|${(x&&x.hora)||''}|${_normTxt(String((x&&x.desc)||''))}`;
         if(vistos.has(k)) return false; vistos.add(k); return true;
       });
     }
@@ -7760,6 +7761,18 @@ async function scanFatura(ev){
     if(falhas) toast(`${falhas} imagem(ns) não deram certo`);
     // vira itens da prévia
     const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
+    // quantas despesas com esse mesmo valor+data JA existem? (2 compras de R$20 no mesmo dia
+    // sao 2 compras; so as que ja tem par no banco vem marcadas como duplicada)
+    const _jaTem={};
+    try{
+      DATA.lancamentos.forEach(l=>{
+        if(l.user_id!==USER.id || l.tipo!=='despesa') return;
+        const k=Number(l.valor).toFixed(2)+'|'+String(l.data);
+        _jaTem[k]=(_jaTem[k]||0)+1;
+      });
+    }catch(e){}
+    // as mais antigas do lote casam primeiro com o que ja esta no banco
+    arr.sort((a,b)=>String((a&&a.hora)||'').localeCompare(String((b&&b.hora)||'')));
     const itens = arr.map(x=>{
       const valor = Math.abs(Number(x.valor)||0);
       const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
@@ -7789,7 +7802,9 @@ async function scanFatura(ev){
       const viaCartao = String(x.origem||'credito')==='credito';
       // mesmo valor + mesma data já basta pra levantar suspeita, mesmo com nome diferente
       // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
-      const dup = DATA.lancamentos.some(l=> l.tipo==='despesa' && Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2);
+      const _kd = valor.toFixed(2)+'|'+data2;
+      let dup=false;
+      if((_jaTem[_kd]||0)>0){ dup=true; _jaTem[_kd]--; }
       // pagamento de fatura, estorno, pix e afins nao sao compra: vem desmarcado e avisado
       const naoCompra = _naoEhCompra(desc);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)

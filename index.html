@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.38"; /* z4 */
+const APP_VER = "9.39"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7446,7 +7446,7 @@ function openImportBanco(){
     </p>
     <input type="file" id="impFotoCam" accept="image/*" capture="environment" style="display:none" onchange="scanFatura(event)">
     <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
-    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoCam').click()">📸 Escanear fatura (foto)</button>
+    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoCam').click()">📸 Escanear fatura ou print de notificações</button>
     <button class="btn-sec" style="margin-top:8px" onclick="document.getElementById('impFotoGal').click()">🖼️ Escolher da galeria</button>`);
   setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
 }
@@ -7601,8 +7601,8 @@ async function scanFatura(ev){
   if(!file) return;
   openSheet(`<div style="text-align:center;padding:30px 10px">
     <div style="font-size:44px;margin-bottom:12px">📸</div>
-    <h2 style="margin:0 0 6px">Lendo sua fatura…</h2>
-    <p style="color:var(--muted);font-size:13.5px">A IA está identificando as compras. Uns segundinhos ⏳</p>
+    <h2 style="margin:0 0 6px">Lendo a imagem…</h2>
+    <p style="color:var(--muted);font-size:13.5px">Fatura ou print de notificações — a IA separa cada compra. Uns segundinhos ⏳</p>
     <div class="spin" style="margin:18px auto 0"></div></div>`);
   try{
     // comprime a imagem pra não estourar (fatura grande)
@@ -7626,14 +7626,25 @@ async function scanFatura(ev){
     const arr = Array.isArray(data.itens)?data.itens:[];
     if(!arr.length){ closeSheet(); toast('Não achei compras na foto 🤔 tente uma imagem mais nítida'); return; }
     // vira itens da prévia
+    const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
     const itens = arr.map(x=>{
       const valor = Math.abs(Number(x.valor)||0);
       const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
       const desc = (x.desc||'Compra').toString().slice(0,60);
+      const fin = x.final ? String(x.final).replace(/\D/g,'').slice(-4) : null;
+      const viaCartao = String(x.origem||'credito')==='credito';
       const dup = DATA.lancamentos.some(l=> Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2 && _normTxt(l.descricao)===_normTxt(desc));
-      return { tipo:'despesa', viaCartao:true, finalCart:null, desc, valor, data:data2,
+      // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
+      let cat='';
+      try{
+        const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa');
+        const tn=_normTxt(desc);
+        const achou=cats.find(c=>{ const n=_normTxt(c.nome); return n.length>3 && tn.includes(n); }) || cats.find(c=>_pareceCom(tn,c.nome));
+        if(achou) cat=achou.id;
+      }catch(e){}
+      return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
         parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
-        cartao_id:'', conta_id:'', categoria_id:'' };
+        cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : '', conta_id:'', categoria_id:cat };
     }).filter(x=>x.valor>0);
     window._impItens = itens;
     renderPreviaImport();

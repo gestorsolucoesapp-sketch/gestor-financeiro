@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.39"; /* z4 */
+const APP_VER = "9.40"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7446,7 +7446,10 @@ function openImportBanco(){
     </p>
     <input type="file" id="impFotoCam" accept="image/*" capture="environment" style="display:none" onchange="scanFatura(event)">
     <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
-    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoCam').click()">📸 Escanear fatura ou print de notificações</button>
+    <input type="file" id="impFotoGal" accept="image/*" style="display:none" onchange="scanFatura(event)">
+    <button class="btn" style="background:linear-gradient(135deg,#7c5cff,#5b3fd6)" onclick="document.getElementById('impFotoGal').click()">🖼️ Ler print de notificações (galeria)</button>
+    <button class="btn outline" style="margin-top:8px" onclick="document.getElementById('impFotoCam').click()">📸 Fotografar fatura</button>
+    <button class="btn ghost" style="margin-top:6px" onclick="colarPrint()">📋 Colar print copiado</button>
     <button class="btn-sec" style="margin-top:8px" onclick="document.getElementById('impFotoGal').click()">🖼️ Escolher da galeria</button>`);
   setTimeout(()=>{ const t=$('impTxt'); if(t) t.focus(); },200);
 }
@@ -7594,6 +7597,22 @@ function parseFatura(txt){
   return itens;
 }
 
+// cola a imagem que está na área de transferência (print copiado) e manda pro scanner
+async function colarPrint(){
+  try{
+    if(!navigator.clipboard || !navigator.clipboard.read){ toast('Seu navegador não deixa colar imagem — use a galeria'); return; }
+    const itens=await navigator.clipboard.read();
+    for(const it of itens){
+      const tipo=(it.types||[]).find(t=>t.startsWith('image/'));
+      if(!tipo) continue;
+      const blob=await it.getType(tipo);
+      const file=new File([blob],'print.png',{type:tipo});
+      scanFatura({ target:{ files:[file], value:'' } });
+      return;
+    }
+    toast('Não achei imagem copiada 🤔');
+  }catch(e){ toast('Não consegui colar — use a galeria'); }
+}
 // ===== SCANNER DE FATURA COM IA =====
 async function scanFatura(ev){
   const file = ev.target.files && ev.target.files[0];

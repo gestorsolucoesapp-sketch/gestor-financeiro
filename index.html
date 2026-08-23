@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.43"; /* z4 */
+const APP_VER = "9.44"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7637,7 +7637,7 @@ const PISTAS_CAT=[
   [/(escola|colegio|curso|faculdade|treiname|capacit)/, ['ana livia','clarinha','pessoais']],
   [/(filamento|resina|impress|3d)/, ['filamento','projeto 3d']],
 ];
-function sugerirCategoria(desc){
+function catDoEstabelecimento(desc){
   try{
     const cats=DATA.categorias.filter(c=>c.user_id===USER.id&&c.tipo==='despesa');
     if(!cats.length) return '';
@@ -7723,7 +7723,7 @@ async function scanFatura(ev){
       // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
       const dup = DATA.lancamentos.some(l=> l.tipo==='despesa' && Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data2);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
-      const cat = sugerirCategoria(desc);
+      const cat = catDoEstabelecimento(desc);
       return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
         parcela:x.parcela||null, parcelas:x.parcelas||null, dup, incluir:!dup && valor>0,
         banco,

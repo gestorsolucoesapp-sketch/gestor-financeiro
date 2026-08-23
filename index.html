@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.52"; /* z4 */
+const APP_VER = "9.53"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7749,8 +7749,8 @@ function _optsCartoes(sel){
   return `<option value="">— escolher cartão —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>💳 ${c.nome}</option>`).join('');
 }
 function _optsContas(sel){
-  const cs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado);
-  return cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>💳 ${c.nome}</option>`).join('');
+  const cs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada&&!c.eh_investimento);
+  return `<option value="">— escolher conta —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>🏦 ${c.nome}</option>`).join('');
 }
 function _optsCats(tipo,sel){
   const cs=DATA.categorias.filter(c=>c.user_id===USER.id&&(c.tipo===tipo||!c.tipo));
@@ -7772,13 +7772,16 @@ function renderPreviaImport(){
       <div class="impTop">
         <input type="checkbox" ${x.incluir?'checked':''} onchange="impToggle(${i},this.checked)" style="width:20px;height:20px;flex:0 0 auto">
         <span class="impTag" style="background:${tintBg(x.tipo==='receita'?'#2f8f66':'#e5484d')};color:${cor}">${x.tipo==='receita'?'RECEITA':'DESPESA'}</span>
-        ${x.viaCartao?`<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">${x.finalCart?('CARTÃO ••'+x.finalCart):(x.banco?('CARTÃO · '+esc(x.banco)):'CARTÃO')}</span>`:''}
+        ${x.viaCartao
+          ? `<span class="impTag" style="background:${tintBg('#7c5cff')};color:#7c5cff">${x.finalCart?('CARTÃO ••'+x.finalCart):(x.banco?('CARTÃO · '+esc(x.banco)):'CARTÃO')}</span>`
+          : `<span class="impTag" style="background:${tintBg('#1f9d8a')};color:#1f9d8a">${x.origem==='transferencia'?'PIX/TRANSF.':'DÉBITO'}${x.banco?(' · '+esc(x.banco)):''}</span>`}
         <span class="impV" style="color:${cor}">${brl(x.valor)}</span>
       </div>
       ${x.hora?`<div style="color:var(--muted);font-size:11.5px;margin:2px 0 0 30px">🕒 ${esc(x.hora)}</div>`:''}
       ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
       ${x.naoCompra?`<div class="impWarn">🚫 Parece pagamento de fatura / estorno — não é compra</div>`:''}
       ${(x.viaCartao&&!x.cartao_id)?`<div class="impWarn">💳 Escolha o cartão abaixo (o banco veio sem os 4 dígitos)</div>`:''}
+      ${(!x.viaCartao&&!x.conta_id)?`<div class="impWarn">🏦 Saiu da conta (não é cartão) — escolha a conta abaixo</div>`:''}
       <div class="impGrid">
         <div class="full"><input value="${String(x.desc).replace(/"/g,'&quot;')}" onchange="impSet(${i},'desc',this.value)" placeholder="Descrição"></div>
         <div><input type="date" value="${x.data}" onchange="impSet(${i},'data',this.value)"></div>
@@ -7786,7 +7789,7 @@ function renderPreviaImport(){
         <div class="full">${
           x.viaCartao
           ? `<select ${x.cartao_id?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetCartao(${i},this.value,this)">${_optsCartoes(x.cartao_id)}</select>`
-          : `<select onchange="impSet(${i},'conta_id',this.value)">${_optsContas(x.conta_id)}</select>`
+          : `<select ${x.conta_id?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetConta(${i},this.value,this)">${_optsContas(x.conta_id)}</select>`
         }</div>
       </div>
     </div>`;
@@ -7799,6 +7802,14 @@ function impToggle(i,v){ if(window._impItens&&window._impItens[i]){ window._impI
 function impMarcarTodos(v){ (window._impItens||[]).forEach(x=>x.incluir=v); renderPreviaImport(); }
 function impSet(i,k,v){ if(window._impItens&&window._impItens[i]) window._impItens[i][k]=v; }
 // escolher o cartao na previa: guarda e apaga o destaque laranja sem redesenhar a lista
+function impSetConta(i,v,el){
+  impSet(i,'conta_id',v);
+  try{
+    if(el){ el.style.borderColor=v?'':'#e0a020'; el.style.boxShadow=v?'':'0 0 0 2px rgba(224,160,32,.18)'; }
+    const card=document.getElementById('impC'+i);
+    if(card && v){ const w=[...card.querySelectorAll('.impWarn')].find(x=>x.textContent.indexOf('escolha a conta')>=0); if(w) w.remove(); }
+  }catch(e){}
+}
 function impSetCartao(i,v,el){
   impSet(i,'cartao_id',v);
   try{
@@ -8017,8 +8028,8 @@ async function scanFatura(ev){
     const _jaTem={};
     try{
       DATA.lancamentos.forEach(l=>{
-        if(l.user_id!==USER.id || l.tipo!=='despesa') return;
-        const k=Number(l.valor).toFixed(2)+'|'+String(l.data);
+        if(l.user_id!==USER.id || (l.tipo!=='despesa'&&l.tipo!=='receita')) return;
+        const k=l.tipo+'|'+Number(l.valor).toFixed(2)+'|'+String(l.data);
         _jaTem[k]=(_jaTem[k]||0)+1;
       });
     }catch(e){}
@@ -8050,20 +8061,33 @@ async function scanFatura(ev){
           }
         }
       }catch(e){}
-      const viaCartao = String(x.origem||'credito')==='credito';
+      const origem = String(x.origem||'credito').toLowerCase();
+      const viaCartao = origem==='credito';
+      const tipoMov = String(x.tipo||'despesa').toLowerCase()==='receita' ? 'receita' : 'despesa';
       // mesmo valor + mesma data já basta pra levantar suspeita, mesmo com nome diferente
       // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
-      const _kd = valor.toFixed(2)+'|'+data2;
+      const _kd = tipoMov+'|'+valor.toFixed(2)+'|'+data2;
       let dup=false;
       if((_jaTem[_kd]||0)>0){ dup=true; _jaTem[_kd]--; }
       // pagamento de fatura, estorno, pix e afins nao sao compra: vem desmarcado e avisado
       const naoCompra = _naoEhCompra(desc);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
       const cat = naoCompra?'':catDoEstabelecimento(desc);
-      return { tipo:'despesa', viaCartao, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
+      // Pix/transferência/débito não é cartão: cai na conta. Sugere a conta do banco quando dá pra saber.
+      let contaSug='';
+      if(!viaCartao){
+        const minhas=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada&&!c.eh_investimento);
+        if(banco){
+          const bn=_bancoChave(banco);
+          const cands=bn.length>=2?minhas.filter(c=>_normTxt(c.nome).includes(bn)):[];
+          if(cands.length===1) contaSug=cands[0].id;
+        }
+        if(!contaSug && minhas.length===1) contaSug=minhas[0].id;
+      }
+      return { tipo:tipoMov, viaCartao, origem, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
         parcela:x.parcela||null, parcelas:x.parcelas||null, dup, naoCompra, incluir:!dup && !naoCompra && valor>0,
         banco,
-        cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : cartaoPorBanco, conta_id:'', categoria_id:cat };
+        cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : cartaoPorBanco, conta_id:contaSug, categoria_id:cat };
     }).filter(x=>x.valor>0);
     window._impItens = itens;
     renderPreviaImport();

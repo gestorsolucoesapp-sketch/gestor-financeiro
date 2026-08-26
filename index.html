@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.55"; /* z4 */
+const APP_VER = "9.56"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1689,6 +1689,7 @@ async function baixarBackup(){
       app:'Gestor Financeiro', versao:APP_VER, gerado_em:new Date().toISOString(), user_id:USER.id,
       contas:DATA.contas.filter(meu), cartoes:DATA.cartoes.filter(meu),
       categorias:DATA.categorias.filter(meu), investimentos:DATA.investimentos.filter(meu),
+      orcamentos:DATA.orcamentos.filter(meu),
       lancamentos:DATA.lancamentos.filter(meu)
     };
     const txt=JSON.stringify(dump,null,2);
@@ -1708,6 +1709,71 @@ async function baixarBackup(){
     setTimeout(()=>URL.revokeObjectURL(url),3000);
     toast(dump.lancamentos.length+' lançamentos · backup baixado ✅');
   }catch(e){ toast('Erro no backup: '+(e.message||e)); }
+  finally{ try{ localStorage.setItem('gf_ultimo_backup', new Date().toISOString()); }catch(e){} }
+}
+// quantos dias desde o último backup (null = nunca fez)
+function diasSemBackup(){
+  try{
+    const t=localStorage.getItem('gf_ultimo_backup');
+    if(!t) return null;
+    return Math.floor((Date.now()-new Date(t).getTime())/86400000);
+  }catch(e){ return null; }
+}
+// ===== RESTAURAR BACKUP =====
+// Lê o JSON gerado pelo próprio app e devolve o que estiver faltando.
+// Nunca apaga nem sobrescreve: o que já existe (mesmo id) é ignorado.
+function abrirRestaurar(){
+  openSheet(`<h2 style="margin:0 0 6px">Restaurar backup</h2>
+    <p style="color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px">
+      Escolha um arquivo <b>gestor-backup-….json</b>. Eu comparo com o que já está na sua conta e
+      <b>só adiciono o que estiver faltando</b> — nada é apagado nem sobrescrito.</p>
+    <input type="file" id="arqRestaurar" accept="application/json,.json" style="display:none" onchange="lerArquivoBackup(event)">
+    <button class="btn" onclick="document.getElementById('arqRestaurar').click()">Escolher arquivo</button>
+    <div id="restOut" style="margin-top:14px"></div>`);
+}
+async function lerArquivoBackup(ev){
+  const f=ev&&ev.target&&ev.target.files&&ev.target.files[0];
+  if(!f) return;
+  let d=null;
+  try{ d=JSON.parse(await f.text()); }catch(e){ $('restOut').innerHTML='<div class="impWarn">Arquivo inválido — não consegui ler o JSON.</div>'; return; }
+  if(!d || !Array.isArray(d.lancamentos)){ $('restOut').innerHTML='<div class="impWarn">Esse arquivo não parece um backup do Gestor.</div>'; return; }
+  window._bkp=d;
+  const tabelas=[['contas','Contas'],['cartoes','Cartões'],['categorias','Categorias'],['orcamentos','Orçamentos'],['investimentos','Investimentos'],['lancamentos','Lançamentos']];
+  let faltando=0, html=`<div class="card"><div class="note" style="margin:0 0 8px">Backup de <b>${esc((d.gerado_em||'').slice(0,10))}</b> · versão ${esc(d.versao||'?')}</div>`;
+  tabelas.forEach(([k,label])=>{
+    const arr=Array.isArray(d[k])?d[k]:[];
+    const jaTem=new Set((DATA[k]||[]).map(x=>x.id));
+    const novos=arr.filter(x=>x&&x.id&&!jaTem.has(x.id)).length;
+    faltando+=novos;
+    html+=`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line-2);font-size:13.5px">
+      <span>${label}</span><span style="font-weight:700;color:${novos?'#f0a532':'var(--muted)'}">${novos?('+'+novos):'em dia'}</span></div>`;
+  });
+  html+=`</div>`;
+  html+= faltando
+    ? `<button class="btn" style="margin-top:10px" onclick="aplicarRestauracao()">Restaurar ${faltando} item(ns)</button>`
+    : `<div class="card" style="margin-top:10px"><div style="font-size:13.5px">✅ Nada faltando — sua conta já tem tudo que está nesse backup.</div></div>`;
+  $('restOut').innerHTML=html;
+}
+async function aplicarRestauracao(){
+  const d=window._bkp; if(!d) return;
+  const ordem=[['contas','contas'],['cartoes','cartoes'],['categorias','categorias'],['orcamentos','orcamentos'],['investimentos','investimentos'],['lancamentos','lancamentos']];
+  let total=0, erros=[];
+  $('restOut').innerHTML='<div class="card"><div class="note">Restaurando…</div></div>';
+  for(const [k,tabela] of ordem){
+    const arr=Array.isArray(d[k])?d[k]:[];
+    const jaTem=new Set((DATA[k]||[]).map(x=>x.id));
+    const novos=arr.filter(x=>x&&x.id&&!jaTem.has(x.id)).map(x=>({...x, user_id:USER.id}));
+    if(!novos.length) continue;
+    for(let i=0;i<novos.length;i+=200){
+      const lote=novos.slice(i,i+200);
+      const {error}=await sb.from(tabela).upsert(lote,{onConflict:'id'});
+      if(error) erros.push(tabela+': '+error.message); else total+=lote.length;
+    }
+  }
+  try{ await loadAll(); render(); }catch(e){}
+  closeSheet();
+  toast(erros.length ? (total+' restaurados · '+erros.length+' erro(s)') : (total+' item(ns) restaurados ✅'));
+  if(erros.length) console.warn('restauração:', erros);
 }
 let _temaScope='tudo', _temaWork=null;
 function renderTema(){
@@ -5701,7 +5767,13 @@ function renderConfig(){
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
     ${hubItem('palette','Cores do app','Personalize o tema e todas as cores',"go('tema')",'#e0a020')}
     ${hubItem('download','Importar do Mobills','Suba o CSV exportado',"triggerImport()",'#3b6fd6')}
-    ${hubItem('download','Backup dos dados','Baixe tudo num arquivo (JSON)',"baixarBackup()",'#2f8f66')}
+    ${(()=>{const dd=diasSemBackup();
+      const sub = dd===null ? '⚠️ Você ainda não fez nenhum backup'
+        : dd===0 ? 'Último backup: hoje ✅'
+        : dd>=15 ? `⚠️ Último backup há ${dd} dias`
+        : `Último backup há ${dd} dia${dd===1?'':'s'}`;
+      return hubItem('download','Backup dos dados',sub,"baixarBackup()", (dd===null||dd>=15)?'#e0a020':'#2f8f66');})()}
+    ${hubItem('swap','Restaurar backup','Devolve o que estiver faltando, sem apagar nada',"abrirRestaurar()",'#3b6fd6')}
     ${hubItem('download','Exportar planilha (CSV)','Todos os lançamentos, pra Excel ou contador',"exportarCSV()",'#1f9d8a')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">

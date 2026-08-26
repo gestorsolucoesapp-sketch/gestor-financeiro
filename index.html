@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.53"; /* z4 */
+const APP_VER = "9.54"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2425,6 +2425,21 @@ async function selectAll(table, orderCol, asc){
   }
   return {data:out, error:null};
 }
+// "JWT issued at future" / token expirado: relógio do servidor e do token fora de sincronia.
+// Não é falta de tabela — é só pedir um token novo e tentar de novo.
+function _ehErroToken(e){
+  const m=String((e&&e.message)||e||'').toLowerCase();
+  return m.includes('issued at future')||m.includes('jwt')||m.includes('token is expired')||m.includes('invalid claim');
+}
+async function _renovarSessao(){
+  try{ const {data}=await sb.auth.refreshSession(); if(data&&data.session) return true; }catch(e){}
+  try{ const {data}=await sb.auth.getSession(); return !!(data&&data.session); }catch(e){}
+  return false;
+}
+async function _tentarDeNovo(){
+  try{ $('content').innerHTML='<div class="card"><div class="note">Tentando de novo…</div></div>'; }catch(e){}
+  try{ await _renovarSessao(); await loadAll(); render(); }catch(e){}
+}
 async function loadAll(){
   if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
   try{ carregarSelic(); }catch(e){}
@@ -2442,10 +2457,40 @@ async function loadAll(){
     throw e;
   }
   if(c1.error||c2.error||c3.error||c4.error){
-    const e=c1.error||c2.error||c3.error||c4.error;
+    let e=c1.error||c2.error||c3.error||c4.error;
     if((isNetErr(e)||!navigator.onLine) && loadCache()){ updateOfflinePill(); return; }
-    $('content').innerHTML='<div class="card"><b>Erro ao carregar dados.</b><div class="note">'+esc(e.message)+'<br><br>Verifique se você rodou o SQL das tabelas no Supabase.</div></div>';
-    throw e;
+    // token fora de hora: renova e tenta mais 2 vezes antes de mostrar erro
+    if(_ehErroToken(e) && !window._jwtRetry){
+      window._jwtRetry=1;
+      for(let t=0;t<2;t++){
+        await new Promise(r=>setTimeout(r, 1200*(t+1)));
+        await _renovarSessao();
+        try{
+          const [d1,d2,d3,d4]=await Promise.all([
+            sb.from('contas').select('*').order('criado_em'),
+            sb.from('categorias').select('*').order('nome'),
+            sb.from('cartoes').select('*').order('criado_em'),
+            selectAll('lancamentos','data',false),
+          ]);
+          if(!(d1.error||d2.error||d3.error||d4.error)){
+            c1=d1;c2=d2;c3=d3;c4=d4; e=null; break;
+          }
+          e=d1.error||d2.error||d3.error||d4.error;
+        }catch(err){ e=err; }
+      }
+      window._jwtRetry=0;
+    }
+    if(e){
+      if(loadCache()){ updateOfflinePill(); toast('Usando os dados salvos no aparelho — puxe pra baixo pra tentar de novo'); return; }
+      const relogio=_ehErroToken(e);
+      $('content').innerHTML='<div class="card"><b>Erro ao carregar dados.</b><div class="note">'+esc(e.message)+'<br><br>'+
+        (relogio
+          ? 'Isso costuma ser o relógio do aparelho fora de hora ou a sessão vencida. Confira em <b>Ajustes › Geral › Data e Hora › Definir automaticamente</b>.'
+          : 'Verifique se você rodou o SQL das tabelas no Supabase.')+
+        '</div><button class="btn" style="margin-top:10px" onclick="_tentarDeNovo()">Tentar de novo</button>'+
+        (relogio?'<button class="btn-sec" style="margin-top:8px" onclick="sb.auth.signOut().then(()=>location.reload())">Sair e entrar de novo</button>':'')+'</div>';
+      throw e;
+    }
   }
   DATA.contas=c1.data; DATA.categorias=c2.data; DATA.cartoes=c3.data; DATA.lancamentos=c4.data;
   const o=await selectAll('orcamentos','ano_mes',true);

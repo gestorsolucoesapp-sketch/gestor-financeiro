@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.54"; /* z4 */
+const APP_VER = "9.55"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -730,7 +730,58 @@ try{
 }catch(e){}
 const ADMIN_ID='9edee685-c907-4fb2-9782-41f3ab44e315';
 const WHATS_SUPORTE='5519989543506';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ autoRefreshToken:true, persistSession:true, detectSessionInUrl:false }
+});
+
+// ===== TRAVA ANTI "JWT issued at future" / token vencido =====
+// Intercepta TODA chamada ao Supabase (tabelas, rpc e edge functions).
+// Se voltar 401 por causa do token, renova a sessão e refaz a mesma chamada.
+// O usuário não vê erro nenhum — só demora uns instantes a mais.
+(function(){
+  const _fetch = window.fetch.bind(window);
+  const ehTokenRuim = t => /issued at future|jwt expired|token is expired|invalid claim|jwt|bad_jwt/i.test(String(t||''));
+  let renovando = null;
+  async function renovar(){
+    if(renovando) return renovando;               // uma renovação por vez, mesmo com 10 chamadas juntas
+    renovando = (async()=>{
+      try{ const {data}=await sb.auth.refreshSession(); if(data&&data.session) return data.session.access_token; }catch(e){}
+      try{ const {data}=await sb.auth.getSession(); if(data&&data.session) return data.session.access_token; }catch(e){}
+      return null;
+    })().finally(()=>{ setTimeout(()=>{ renovando=null; }, 300); });
+    return renovando;
+  }
+  window.fetch = async function(entrada, opcoes){
+    const url = typeof entrada==='string' ? entrada : (entrada && entrada.url) || '';
+    const nossa = url.indexOf(SUPABASE_URL)===0;
+    // nunca intercepta o próprio endpoint de login/refresh (senão vira laço infinito)
+    if(!nossa || url.indexOf('/auth/v1/')>=0) return _fetch(entrada, opcoes);
+
+    let r = await _fetch(entrada, opcoes);
+    if(r.status!==401 && r.status!==403) return r;
+
+    let corpo='';
+    try{ corpo = await r.clone().text(); }catch(e){}
+    if(!ehTokenRuim(corpo) && r.status!==401) return r;
+
+    const novo = await renovar();
+    if(!novo) return r;
+
+    // refaz a chamada com o token novo
+    try{
+      const req = new Request(entrada, opcoes);
+      const h = new Headers(req.headers);
+      h.set('Authorization','Bearer '+novo);
+      const corpo2 = (req.method && req.method!=='GET' && req.method!=='HEAD') ? await req.clone().arrayBuffer() : undefined;
+      return await _fetch(req.url, { method:req.method, headers:h, body:corpo2, credentials:req.credentials, mode:req.mode });
+    }catch(e){ return r; }
+  };
+})();
+
+// quando o app volta pro primeiro plano depois de horas parado, já renova o token antes de qualquer clique
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){ try{ sb.auth.refreshSession(); }catch(e){} }
+});
 // captura o ?banco= IMEDIATAMENTE (antes de qualquer auto-update/reload poder engolir)
 (function(){
   try{

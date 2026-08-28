@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.56"; /* z4 */
+const APP_VER = "9.57"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6255,6 +6255,42 @@ function saldoLargada(d){
   if(ymd(alvo)<=ymd(atual)) return saldoTotal();
   return fechamentoEncadeado(new Date(d.getFullYear(),d.getMonth()-1,1));
 }
+// meses seguintes que já têm gasto lançado no mesmo orçamento (o mês visto NÃO entra)
+function orcProximosHTML(d, meses){
+  try{
+    meses = meses || 6;
+    const linhas=[];
+    for(let k=1;k<=meses;k++){
+      const m=new Date(d.getFullYear(), d.getMonth()+k, 1);
+      orcsDoMes(m).forEach(o=>{
+        const g=gastoOrc(o,m), lim=Number(o.limite)||0;
+        if(!(lim>0) || !(g>0)) return;                   // só aparece quando o mês já começou a gastar
+        const r=orcRotulo(o);
+        const pct=g/lim*100;
+        const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+        const falta=lim-g;
+        const nomeM=m.toLocaleDateString('pt-BR',{month:'long'});
+        linhas.push(`<div style="margin-top:11px">
+          <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
+            <span>${r.ico||''}</span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize">${esc(nomeM)}${orcsDoMes(m).length>1?' · '+esc((r.nome||'').replace('Despesas de ','')):''}</span>
+            <b style="color:${cor};font-variant-numeric:tabular-nums">${Math.round(pct)}%</b>
+          </div>
+          ${barraOrc(g,lim,false,7)}
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:2px" class="note">
+            <span style="font-variant-numeric:tabular-nums"><b style="color:${cor}">${falta>=0?'falta '+brl(falta):'passou '+brl(-falta)}</b></span>
+            <span style="font-variant-numeric:tabular-nums">meta ${brl(lim)}</span>
+          </div>
+        </div>`);
+      });
+    }
+    if(!linhas.length) return '';
+    return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="note" style="font-size:10px;letter-spacing:.7px;text-transform:uppercase;margin-bottom:2px">Meses que já começaram</div>
+      ${linhas.join('')}
+    </div>`;
+  }catch(e){ return ''; }
+}
 function orcsDoMes(d){
   const am=ymd(firstOfMonth(d)).slice(0,7);   // "2026-08" — aceita também "2026-08-01"
   return DATA.orcamentos.filter(o=>String(o.ano_mes||'').slice(0,7)===am && Number(o.limite)>0 && (srcOk(o.user_id)||orcEspelho(o)));
@@ -6422,6 +6458,7 @@ function renderDash(){
         <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;row-gap:14px">${aneis}</div>
         ${itensB.length?`<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">${orcBarrasSVG(itensB)}</div>
         <div class="note" style="font-size:10.5px;margin-top:2px">A linha tracejada é a meta de cada orçamento.</div>`:''}
+        ${orcProximosHTML(viewMonth)}
       </div>`);
     }
     if(false){

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.59"; /* z4 */
+const APP_VER = "9.60"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6257,6 +6257,35 @@ function saldoLargada(d){
   return fechamentoEncadeado(new Date(d.getFullYear(),d.getMonth()-1,1));
 }
 // meses seguintes que já têm gasto lançado no mesmo orçamento (o mês visto NÃO entra)
+// quais orçamentos você quer ver no Painel
+function orcOcultos(){ try{ return JSON.parse(localStorage.getItem('gf_orc_ocultos')||'[]')||[]; }catch(e){ return []; } }
+function orcVisivel(o){ return !orcOcultos().includes(orcChave(o)); }
+function orcToggleVisivel(chave){
+  const ocu=orcOcultos();
+  const i=ocu.indexOf(chave);
+  if(i>=0) ocu.splice(i,1); else ocu.push(chave);
+  try{ localStorage.setItem('gf_orc_ocultos', JSON.stringify(ocu)); }catch(e){}
+  abrirEscolhaOrcs();   // mantém a folha aberta com o estado novo
+}
+function abrirEscolhaOrcs(){
+  const os=orcsDoMes(viewMonth);
+  const ocu=orcOcultos();
+  openSheet(`<h2 style="margin:0 0 4px">Mostrar no Painel</h2>
+    <p class="note" style="margin:0 0 12px">Desmarque os orçamentos que não quer ver no card. Eles continuam ativos e valendo — só somem daqui.</p>
+    ${os.map(o=>{
+      const r=orcRotulo(o); const ch=orcChave(o); const on=!ocu.includes(ch);
+      const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
+      return `<label class="lrow" style="cursor:pointer">
+        <input type="checkbox" ${on?'checked':''} onchange="orcToggleVisivel('${ch}')" style="width:20px;height:20px;accent-color:var(--mint);flex:0 0 auto">
+        <div class="mid" style="margin-left:10px"><div class="t">${r.ico||''} ${esc(r.nome)}</div>
+          <div class="s">${brl(g)} de ${brl(lim)}</div></div>
+      </label>`;
+    }).join('')}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn ghost" style="flex:1" onclick="localStorage.setItem('gf_orc_ocultos','[]');abrirEscolhaOrcs()">Mostrar todos</button>
+      <button class="btn" style="flex:1" onclick="closeSheet();render()">Pronto</button>
+    </div>`);
+}
 function orcProximosHTML(d, meses){
   try{
     meses = meses || 6;
@@ -6621,8 +6650,9 @@ function renderDash(){
   }catch(e){}
   // 5) orçamentos do mês — um anel por meta (tudo em gráfico)
   try{
-    const os=orcsDoMes(viewMonth);
-    if(os.length){
+    const _todos=orcsDoMes(viewMonth);
+    const os=_todos.filter(orcVisivel);
+    if(_todos.length){
       const _kk=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
       const aneis=os.map(o=>{
         const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
@@ -6643,11 +6673,16 @@ function renderDash(){
         return {nome:(r.nome||'Meta').replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''),
                 ico:r.ico, gasto:gastoOrc(o,viewMonth), limite:Number(o.limite)||0};
       }).filter(i=>i.limite>0);
-      cards.push(`<div class="card tap" onclick="go('planejamento')" style="margin-bottom:0">
-        <h3 style="margin:0 0 10px;font-size:15px">Orçamentos do mês</h3>
+      const _ocultos=_todos.length-os.length;
+      cards.push(`<div class="card" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <h3 style="margin:0;font-size:15px" onclick="go('planejamento')" class="tap">Orçamentos do mês</h3>
+          <button onclick="event.stopPropagation();abrirEscolhaOrcs()" class="note" style="font-size:11.5px;padding:6px 11px;border-radius:20px;background:var(--line);color:var(--ink);font-weight:700">⚙️ ${_ocultos?_ocultos+' oculto(s)':'escolher'}</button>
+        </div>
         <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;row-gap:14px">${aneis}</div>
         ${itensB.length?`<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">${orcBarrasSVG(itensB)}</div>
         <div class="note" style="font-size:10.5px;margin-top:2px">A linha tracejada é a meta de cada orçamento.</div>`:''}
+        ${os.length?'':`<div class="note" style="text-align:center;padding:14px 4px">Todos os orçamentos estão ocultos aqui. Toque em <b>⚙️ escolher</b> para trazer de volta.</div>`}
         ${orcProximosHTML(viewMonth)}
       </div>`);
     }

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.61"; /* z4 */
+const APP_VER = "9.62"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6265,7 +6265,7 @@ function orcToggleVisivel(chave){
   const i=ocu.indexOf(chave);
   if(i>=0) ocu.splice(i,1); else ocu.push(chave);
   try{ localStorage.setItem('gf_orc_ocultos', JSON.stringify(ocu)); }catch(e){}
-  abrirEscolhaOrcs();   // mantém a folha aberta com o estado novo
+  // sem redesenhar: a folha continua exatamente onde você está
 }
 function abrirEscolhaOrcs(){
   const os=orcsDoMes(viewMonth);
@@ -6358,14 +6358,26 @@ function assistToggle(chave){
   const c=assistCfg();
   if(c.manual[chave]!==undefined) delete c.manual[chave];
   else { const _l=assistLinhas().find(l=>l.chave===chave); c.manual[chave]=Math.round((_l&&_l.sugerido)||0); }
-  assistSalvarCfg(c); renderOrcAuto();
+  assistSalvarCfg(c);
+  _comScrollPreservado(renderOrcAuto);
+}
+// redesenha a tela sem te tirar do lugar onde você estava lendo
+function _comScrollPreservado(fn){
+  const c=$('content');
+  const y=c?c.scrollTop:0;
+  try{ fn(); }catch(e){}
+  requestAnimationFrame(()=>{ const c2=$('content'); if(c2) c2.scrollTop=y; });
 }
 function assistSetManual(chave,v){
   const c=assistCfg(); c.manual[chave]=Math.max(0,Number(String(v).replace(',','.'))||0);
   assistSalvarCfg(c);
   const l=$('as_'+chave.replace(/[^a-z0-9]/gi,'')); if(l) l.textContent='';
 }
-function assistSetFolga(v){ const c=assistCfg(); c.folga=Number(v)||0; assistSalvarCfg(c); renderOrcAuto(); }
+function assistSetFolga(v){
+  const c=assistCfg(); c.folga=Number(v)||0; assistSalvarCfg(c);
+  clearTimeout(window._folgaT);
+  window._folgaT=setTimeout(()=>_comScrollPreservado(renderOrcAuto), 250);
+}
 // monta as linhas: alvos agregados + categorias com histórico
 function assistLinhas(){
   const c=assistCfg(), folga=1+(Number(c.folga)||0)/100;

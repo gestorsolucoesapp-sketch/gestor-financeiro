@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.57"; /* z4 */
+const APP_VER = "9.59"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2779,6 +2779,7 @@ function _doRender(){
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='diagnostico')renderDiagnostico();
   else if(tab==='planejamento')renderPlanejamento();
+  else if(tab==='orcauto')renderOrcAuto();
   else if(tab==='pendencias')renderPendencias();
   else if(tab==='investimentos')renderInvestimentos();
   else if(tab==='projinvest')renderProjInvest();
@@ -6291,6 +6292,195 @@ function orcProximosHTML(d, meses){
     </div>`;
   }catch(e){ return ''; }
 }
+// ================= ASSISTENTE DE ORÇAMENTO =================
+// média do que você gastou por categoria nos últimos N meses fechados
+function mediaGastoCategoria(catId, n){
+  n=n||3; let soma=0, meses=0;
+  for(let k=1;k<=n;k++){
+    const m=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-k, 1);
+    const gs=gastosPorCategoria(m);
+    const achou=gs.find(g=>String(g.id)===String(catId));
+    soma+=achou?achou.valor:0; meses++;
+  }
+  return meses?soma/meses:0;
+}
+function mediaAlvo(k, n){
+  n=n||3; let soma=0, meses=0;
+  for(let i=1;i<=n;i++){
+    const m=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-i, 1);
+    const s=saidasMes(m);
+    let v=0;
+    if(k==='total') v=(s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(m)+(s.conjuge||0);
+    else if(k==='contas') v=(s.pagas||0)+(s.aPagar||0);
+    else if(k==='cartao') v=gastoCartaoMes(m);
+    else if(k==='conjuge') v=(s.conjuge||0);
+    soma+=v; meses++;
+  }
+  return meses?soma/meses:0;
+}
+function arred(v){ return v>=1000 ? Math.ceil(v/50)*50 : Math.ceil(v/10)*10; }
+function assistCfg(){
+  let c={manual:{}, folga:5};
+  try{ c=Object.assign(c, JSON.parse(localStorage.getItem('gf_assist_orc')||'{}')); }catch(e){}
+  return c;
+}
+function assistSalvarCfg(c){ try{ localStorage.setItem('gf_assist_orc', JSON.stringify(c)); }catch(e){} }
+function assistToggle(chave){
+  const c=assistCfg();
+  if(c.manual[chave]!==undefined) delete c.manual[chave];
+  else c.manual[chave]=Math.round(assistLinhas().find(l=>l.chave===chave)?.sugerido||0);
+  assistSalvarCfg(c); renderOrcAuto();
+}
+function assistSetManual(chave,v){
+  const c=assistCfg(); c.manual[chave]=Math.max(0,Number(String(v).replace(',','.'))||0);
+  assistSalvarCfg(c);
+  const l=$('as_'+chave.replace(/[^a-z0-9]/gi,'')); if(l) l.textContent='';
+}
+function assistSetFolga(v){ const c=assistCfg(); c.folga=Number(v)||0; assistSalvarCfg(c); renderOrcAuto(); }
+// monta as linhas: alvos agregados + categorias com histórico
+function assistLinhas(){
+  const c=assistCfg(), folga=1+(Number(c.folga)||0)/100;
+  const linhas=[];
+  orcAlvos().forEach(a=>{
+    const med=mediaAlvo(a.k,3);
+    if(med<=0) return;
+    const chave='alvo:'+a.k;
+    linhas.push({chave, tipo:'alvo', k:a.k, ico:a.ico, nome:a.nome, media:med,
+      sugerido:arred(med*folga), gastoAtual:gastoAlvoMes(a.k,viewMonth), atual:limiteAtual(chave)});
+  });
+  DATA.categorias.filter(x=>x.user_id===USER.id && x.tipo==='despesa').forEach(cat=>{
+    const med=mediaGastoCategoria(cat.id,3);
+    if(med<=0) return;
+    const chave='cat:'+cat.id;
+    const gs=gastosPorCategoria(viewMonth).find(g=>String(g.id)===String(cat.id));
+    linhas.push({chave, tipo:'cat', id:cat.id, ico:cat.icone||'🏷️', nome:cat.nome, media:med,
+      sugerido:arred(med*folga), gastoAtual:gs?gs.valor:0, atual:limiteAtual(chave)});
+  });
+  return linhas.sort((a,b)=>b.media-a.media);
+}
+function gastoAlvoMes(k,d){
+  const s=saidasMes(d);
+  if(k==='total') return (s.pagas||0)+(s.aPagar||0)+gastoCartaoMes(d)+(s.conjuge||0);
+  if(k==='contas') return (s.pagas||0)+(s.aPagar||0);
+  if(k==='cartao') return gastoCartaoMes(d);
+  if(k==='conjuge') return (s.conjuge||0);
+  return 0;
+}
+function limiteAtual(chave){
+  const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
+  const o=DATA.orcamentos.find(x=>x.user_id===USER.id && String(x.ano_mes||'').slice(0,7)===am && orcChave(x)===chave);
+  return o?Number(o.limite)||0:0;
+}
+function renderOrcAuto(){
+  const c=assistCfg();
+  const linhas=assistLinhas();
+  const rec=balancoMes(viewMonth).rec||0;
+  const somaSug=linhas.filter(l=>l.tipo==='alvo'?false:true).reduce((a,l)=>a+(c.manual[l.chave]!==undefined?c.manual[l.chave]:l.sugerido),0);
+  // quem está estourando (≥80% do limite já definido)
+  const risco=linhas.filter(l=>l.atual>0 && l.gastoAtual/l.atual>=0.8)
+                    .sort((a,b)=>(b.gastoAtual/b.atual)-(a.gastoAtual/a.atual));
+  let html=`<div class="subhead"><span onclick="go('planejamento')">‹ Planejar</span><b>Assistente</b><span></span></div>`;
+  html+=monthNav('trans');
+  // 1) alertas de ruptura
+  if(risco.length){
+    html+=`<div class="card" style="margin-bottom:14px;border:1px solid #e8654e">
+      <h3 style="margin:0 0 4px;font-size:15px">🚨 Perto do limite</h3>
+      <div class="note" style="margin-bottom:8px">Passou de 80% do que você definiu para ${mesNome(viewMonth)}.</div>
+      ${risco.map(l=>{
+        const pct=l.gastoAtual/l.atual*100;
+        const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':'#e0a020');
+        return `<div style="margin-top:9px">
+          <div style="display:flex;gap:7px;font-size:13px;align-items:center">
+            <span>${l.ico}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.nome)}</span>
+            <b style="color:${cor};font-variant-numeric:tabular-nums">${Math.round(pct)}%</b>
+          </div>
+          ${barraOrc(l.gastoAtual,l.atual,false,7)}
+          <div class="note" style="font-size:10.5px;margin-top:2px">${brl(l.gastoAtual)} de ${brl(l.atual)} · <b style="color:${cor}">${orcFaltaTxt(l.gastoAtual,l.atual)}</b></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  // 2) leitura estratégica
+  const compr = rec>0 ? somaSug/rec*100 : 0;
+  const sobra = rec-somaSug;
+  html+=`<div class="card" style="margin-bottom:14px">
+    <h3 style="margin:0 0 6px;font-size:15px">💡 Leitura do plano</h3>
+    <div style="font-size:13.5px;line-height:1.6">
+      Suas receitas de ${mesNome(viewMonth)}: <b>${brl(rec)}</b>.<br>
+      Somando os limites sugeridos das categorias: <b>${brl(somaSug)}</b>
+      ${rec>0?`(<b style="color:${compr>90?'#d6473a':compr>75?'#e0a020':'#1f9d6b'}">${Math.round(compr)}% da renda</b>)`:''}.<br>
+      ${rec>0?(sobra>=0
+        ? `Sobrariam <b style="color:var(--green)">${brl(sobra)}</b> para investir.`
+        : `Faltariam <b style="color:var(--red)">${brl(-sobra)}</b> — os limites somam mais do que entra.`):''}
+    </div>
+    <div class="note" style="margin-top:8px;font-size:11.5px;line-height:1.55">
+      Referência clássica (50/30/20): metade da renda para o essencial, 30% para o que dá prazer e <b>20% para investir</b>.
+      Com ${brl(rec)}, isso seria ${brl(rec*0.5)} · ${brl(rec*0.3)} · <b>${brl(rec*0.2)}</b>.
+    </div>
+  </div>`;
+  // 3) folga sobre a média
+  html+=`<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <b style="font-size:13.5px">Folga sobre a média</b>
+      <b style="font-variant-numeric:tabular-nums">${c.folga}%</b>
+    </div>
+    <input type="range" min="-20" max="30" step="5" value="${c.folga}" oninput="assistSetFolga(this.value)" style="width:100%;accent-color:var(--mint);height:28px">
+    <div class="note" style="font-size:11px">Sugestão = média dos últimos 3 meses ${c.folga>=0?'+':'−'} ${Math.abs(c.folga)}%. Negativo = plano de corte.</div>
+  </div>`;
+  // 4) lista
+  html+=`<div class="card">
+    <h3 style="margin:0 0 4px;font-size:15px">Limites sugeridos</h3>
+    <div class="note" style="margin-bottom:10px">Desmarque para definir você mesmo. Só entra o que estiver marcado.</div>
+    ${linhas.map(l=>{
+      const manual=c.manual[l.chave]!==undefined;
+      const val=manual?c.manual[l.chave]:l.sugerido;
+      const idSeguro=l.chave.replace(/[^a-z0-9]/gi,'');
+      return `<div style="padding:10px 0;border-top:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="font-size:18px">${l.ico}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.nome)}</div>
+            <div class="note" style="font-size:10.5px">média 3 meses ${brl(l.media)}${l.atual>0?` · hoje ${brl(l.atual)}`:' · sem limite'}</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px" class="note">
+            <input type="checkbox" ${manual?'':'checked'} onchange="assistToggle('${l.chave}')" style="width:18px;height:18px;accent-color:var(--mint)">auto
+          </label>
+        </div>
+        ${manual
+          ? `<input type="text" inputmode="decimal" value="${val}" oninput="assistSetManual('${l.chave}',this.value)"
+              style="width:100%;margin-top:7px;padding:10px 12px;border-radius:11px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:15px" placeholder="limite (R$)">`
+          : `<div style="margin-top:6px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">${brl(val)}</div>`}
+      </div>`;
+    }).join('')}
+    <button class="btn" style="margin-top:14px" onclick="aplicarOrcamentos()">Aplicar em ${mesNome(viewMonth)}</button>
+    <button class="btn ghost" style="margin-top:6px" onclick="aplicarOrcamentos(6)">Aplicar e repetir por 6 meses</button>
+  </div>`;
+  $('content').innerHTML=html;
+}
+async function aplicarOrcamentos(repetir){
+  const c=assistCfg(), linhas=assistLinhas();
+  if(!linhas.length){ toast('Sem histórico suficiente ainda'); return; }
+  if(!confirm(`Definir ${linhas.length} orçamento(s) para ${mesNome(viewMonth)}${repetir?` e os ${repetir} meses seguintes`:''}?`)) return;
+  let ok=0;
+  const meses=[0]; for(let i=1;i<=(repetir||0);i++) meses.push(i);
+  for(const off of meses){
+    const d=new Date(viewMonth.getFullYear(), viewMonth.getMonth()+off, 1);
+    const am=ymd(d).slice(0,7);
+    for(const l of linhas){
+      const lim=c.manual[l.chave]!==undefined?c.manual[l.chave]:l.sugerido;
+      if(!(lim>0)) continue;
+      const catId=l.tipo==='cat'?l.id:null;
+      const alvo=l.tipo==='cat'?'categoria':l.k;
+      const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && String(o.ano_mes||'').slice(0,7)===am && orcChave(o)===l.chave);
+      const r = ex ? await dbUpdate('orcamentos',{limite:lim},'id',ex.id)
+                   : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:false,alvo:alvo}]);
+      if(!(r&&r.error)) ok++;
+    }
+  }
+  try{ await loadAll(); }catch(e){}
+  toast(`${ok} orçamento(s) definido(s) ✅`);
+  renderOrcAuto();
+}
 function orcsDoMes(d){
   const am=ymd(firstOfMonth(d)).slice(0,7);   // "2026-08" — aceita também "2026-08-01"
   return DATA.orcamentos.filter(o=>String(o.ano_mes||'').slice(0,7)===am && Number(o.limite)>0 && (srcOk(o.user_id)||orcEspelho(o)));
@@ -6934,6 +7124,12 @@ function donutSVG(seg,total){
 function renderPlanejamento(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Planejamento</b><span></span></div>`;
   html+=monthNav('trans');
+  html+=`<div class="card tap" onclick="go('orcauto')" style="cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:14px;border:1px solid var(--mint)">
+    <span style="font-size:24px">🤖</span>
+    <div style="flex:1"><b style="font-size:14px">Assistente de orçamento</b>
+      <div class="note">Sugere limites pelo seu histórico e avisa quem passou de 80%</div></div>
+    <span style="opacity:.6">›</span>
+  </div>`;
   const am=ymd(firstOfMonth(viewMonth)).slice(0,7);
   const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am && (srcOk(o.user_id)||orcEspelho(o)));
   const _orcTotal=orcs.find(o=>o.alvo==='total');

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.62"; /* z4 */
+const APP_VER = "9.63"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7349,6 +7349,23 @@ async function saveOrcamento(id){
   else{ r=await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:am,limite:lim,fixar_home:fixar,alvo:alvo}]); }
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   let nOk=0;
+  // meses à frente que JÁ tinham um limite diferente: pergunta antes de sobrescrever
+  if(nRep>0){
+    const conflitos=[];
+    for(let i=1;i<=nRep;i++){
+      const d=new Date(base.getFullYear(),base.getMonth()+i,1);
+      const ym=ymd(d).slice(0,7);
+      const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.ano_mes===ym && orcChave(o)===(alvo==='categoria'?('cat:'+catId):('alvo:'+alvo)));
+      const limI = escPct>0 ? escadaLimite(lim,escPct,escPiso,i) : lim;
+      if(ex && Math.abs(Number(ex.limite)-limI)>0.005) conflitos.push(`${mesNome(d)}: ${brl(Number(ex.limite))} → ${brl(limI)}`);
+    }
+    if(conflitos.length){
+      const amostra=conflitos.slice(0,6).join('\n');
+      if(!confirm(`${conflitos.length} mês(es) à frente já tinham outro limite e serão trocados:\n\n${amostra}${conflitos.length>6?`\n… e mais ${conflitos.length-6}`:''}\n\nSubstituir?`)){
+        closeSheet(); toast('Só o mês atual foi salvo'); render(); return;
+      }
+    }
+  }
   for(let i=1;i<=nRep;i++){
     const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     const ym=ymd(d).slice(0,7);

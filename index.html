@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.60"; /* z4 */
+const APP_VER = "9.61"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6357,7 +6357,7 @@ function assistSalvarCfg(c){ try{ localStorage.setItem('gf_assist_orc', JSON.str
 function assistToggle(chave){
   const c=assistCfg();
   if(c.manual[chave]!==undefined) delete c.manual[chave];
-  else c.manual[chave]=Math.round(assistLinhas().find(l=>l.chave===chave)?.sugerido||0);
+  else { const _l=assistLinhas().find(l=>l.chave===chave); c.manual[chave]=Math.round((_l&&_l.sugerido)||0); }
   assistSalvarCfg(c); renderOrcAuto();
 }
 function assistSetManual(chave,v){
@@ -6401,6 +6401,7 @@ function limiteAtual(chave){
   return o?Number(o.limite)||0:0;
 }
 function renderOrcAuto(){
+ try{
   const c=assistCfg();
   const linhas=assistLinhas();
   const rec=balancoMes(viewMonth).rec||0;
@@ -6485,6 +6486,12 @@ function renderOrcAuto(){
     <button class="btn ghost" style="margin-top:6px" onclick="aplicarOrcamentos(6)">Aplicar e repetir por 6 meses</button>
   </div>`;
   $('content').innerHTML=html;
+ }catch(err){
+  $('content').innerHTML=`<div class="subhead"><span onclick="go('planejamento')">‹ Planejar</span><b>Assistente</b><span></span></div>
+    <div class="card"><h3 style="margin:0 0 6px;font-size:15px">Não consegui montar o assistente</h3>
+    <div class="note" style="word-break:break-word">${esc(String(err&&err.message||err))}</div>
+    <button class="btn ghost" style="margin-top:12px" onclick="go('planejamento')">Voltar</button></div>`;
+ }
 }
 async function aplicarOrcamentos(repetir){
   const c=assistCfg(), linhas=assistLinhas();

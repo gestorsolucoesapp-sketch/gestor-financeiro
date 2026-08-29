@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.66"; /* z4 */
+const APP_VER = "9.67"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6281,12 +6281,9 @@ function abrirOrcamento(chave, ym){
       const meu = srcOk(l.user_id);
       const doParceiro = l.user_id!==USER.id && _parc.includes(l.user_id);
       if(alvo==='conjuge' || orcEspelho(o)){
-        if(orcEspelho(o)){                                   // espelho = meus gastos no cartão
-          if(!(meu && l.cartao_id)) return;
-          if(l.tipo!=='despesa' && l.tipo!=='receita') return;
-          if(!_faturaOk(l)) return;
-        }else{
-          if(!doParceiro) return;
+        const alvoUid = orcEspelho(o) ? (l.user_id===USER.id) : doParceiro;
+        {
+          if(!alvoUid) return;
           if(l.cartao_id){                                   // cartão do parceiro: entra pelo mês da fatura
             if(l.tipo!=='despesa' && l.tipo!=='receita') return;
             if(!_faturaOk(l)) return;
@@ -7529,6 +7526,27 @@ function orcAlvoInfo(k){ return orcAlvos().find(a=>a.k===k)||null; }
 function orcEspelho(o){
   return (o.alvo==='conjuge') && o.user_id!==USER.id && MYSHARES.some(s=>s.viewer_id===o.user_id && s.status==='ativo');
 }
+// gasto total de alguém no mês, na MESMA regra do card "Despesas de <parceiro>":
+// cartão pelo mês da fatura + gastos em conta pelo dia + aportes; quitação não conta
+function gastoConjugeDe(uid,d){
+  const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
+  const ym=ymd(ini).slice(0,7);
+  let s=0;
+  for(const l of DATA.lancamentos){
+    if(l.user_id!==uid) continue;
+    if(l.cartao_id){
+      if(!l.competencia || faturaYm(l.competencia, cartaoById(l.cartao_id))!==ym) continue;
+      s += (l.tipo==='receita'?-1:1)*(Number(l.valor)||0);
+      continue;
+    }
+    const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
+    const _d=(l.descricao||'').toLowerCase();
+    if(_d.startsWith('pagamento fatura') || _d.startsWith('pagamento a ')) continue;
+    if(l.tipo==='despesa') s += Number(l.valor)||0;
+    else if(l.tipo==='transferencia'){ const dst=contaById(l.conta_destino_id); if(!dst||dst.eh_investimento) s += Number(l.valor)||0; }
+  }
+  return s;
+}
 // meus gastos de cartão no mês (é o que o parceiro enxerga como "Despesas de <eu>")
 function gastoCartaoDe(uid,d){
   const ym=ymd(firstOfMonth(d)).slice(0,7);
@@ -7543,7 +7561,7 @@ function gastoCartaoDe(uid,d){
 // gasto do mês conforme o alvo do orçamento
 function gastoOrc(o,d){
   const alvo=o.alvo||'categoria';
-  if(orcEspelho(o)) return gastoCartaoDe(USER.id,d);
+  if(orcEspelho(o)) return gastoConjugeDe(USER.id,d);
   if(alvo==='categoria') return gastoCategoriaMes(o.categoria_id,d);
   const s=saidasMes(d);
   const contas=(s.pagas||0)+(s.aPagar||0);
@@ -7555,7 +7573,7 @@ function gastoOrc(o,d){
 }
 function orcRotulo(o){
   const alvo=o.alvo||'categoria';
-  if(orcEspelho(o)) return {ico:'💜', nome:'Limite combinado — seus gastos no cartão'};
+  if(orcEspelho(o)) return {ico:'💜', nome:'Limite combinado — seus gastos do mês'};
   if(alvo!=='categoria'){ const a=orcAlvoInfo(alvo); return a?{ico:a.ico,nome:a.nome}:{ico:'🎯',nome:'Orçamento'}; }
   const c=catById(o.categoria_id);
   return c?{ico:c.icone||'🏷️',nome:c.nome}:null;

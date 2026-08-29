@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.65"; /* z4 */
+const APP_VER = "9.66"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6312,6 +6312,16 @@ function abrirOrcamento(chave, ym){
     const total=lista.reduce((a,l)=>a+((l.tipo==='receita'?-1:1)*(Number(l.valor)||0)),0);
     const lim=Number(o.limite)||0, pct=lim>0?total/lim*100:0;
     const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+    // evolução de 6 meses do mesmo alvo (igual à tela de categoria)
+    const vals=[], labs=[];
+    for(let i=5;i>=0;i--){
+      const m=new Date(d.getFullYear(), d.getMonth()-i, 1);
+      let v=0; try{ v=(i===0)?total:(Number(gastoOrc(o,m))||0); }catch(e){ v=0; }
+      vals.push(v);
+      labs.push(m.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
+    }
+    const media=vals.reduce((a,v)=>a+v,0)/6;
+    const varia = vals[4]>0 ? ((vals[5]-vals[4])/vals[4]*100) : null;
     openSheet(`
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <div class="dot" style="flex:0 0 auto">${r.ico||'🎯'}</div>
@@ -6325,8 +6335,12 @@ function abrirOrcamento(chave, ym){
         </div>
       </div>
       ${barraOrc(total,lim,false,9)}
-      <div class="note" style="text-align:center;margin:4px 0 12px"><b style="color:${cor}">${orcFaltaTxt(total,lim)}</b></div>
-      <div style="max-height:52vh;overflow:auto">
+      <div class="note" style="text-align:center;margin:4px 0 2px"><b style="color:${cor}">${orcFaltaTxt(total,lim)}</b></div>
+      <div style="margin:10px 0 4px">${areaChartSVG([{vals, cor, nome:esc(r.nome)}], labs, {h:130})}</div>
+      <div class="note" style="text-align:center;margin-bottom:10px">
+        média 6 meses ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
+      </div>
+      <div style="max-height:44vh;overflow:auto">
         ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">
           <div class="mid"><div class="t">${esc(l.descricao||'—')}</div>
             <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}${l.cartao_id?' · '+esc((cartaoById(l.cartao_id)||{}).nome||'cartão'):''}${l.status==='pendente'?' · <span style="color:#e0a020">pendente</span>':''}</div></div>

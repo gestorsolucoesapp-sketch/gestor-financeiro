@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.64"; /* z4 */
+const APP_VER = "9.65"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6271,17 +6271,35 @@ function abrirOrcamento(chave, ym){
     const r=orcRotulo(o)||{ico:'🎯',nome:'Orçamento'};
     const ini=ymd(firstOfMonth(d)), fim=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
     let lista=[];
-    const _parc = MYPARTNERS.length?MYPARTNERS.map(p=>p.user_id):[];
+    // parceiros são identificados por owner_id (o dono dos lançamentos), igual saidasMes()
+    const _parc = MYPARTNERS.map(p=>p.owner_id);
+    const _faturaOk = (l)=> l.competencia && faturaYm(l.competencia, cartaoById(l.cartao_id))===am;
     DATA.lancamentos.forEach(l=>{
-      if(l.tipo!=='despesa') return;
-      if(typeof ehLancQuitacao==='function' && ehLancQuitacao(l)) return;
+      const _desc=(l.descricao||'').toLowerCase();
+      const ehQuit = _desc.startsWith('pagamento fatura') || _desc.startsWith('pagamento a ')
+                   || (typeof ehLancQuitacao==='function' && ehLancQuitacao(l));
       const meu = srcOk(l.user_id);
-      const doParceiro = _parc.includes(l.user_id);
+      const doParceiro = l.user_id!==USER.id && _parc.includes(l.user_id);
       if(alvo==='conjuge' || orcEspelho(o)){
-        if(orcEspelho(o)){ if(!(meu && l.cartao_id)) return; }        // espelho = meus gastos no cartão
-        else { if(!doParceiro || !l.cartao_id) return; }              // gastos do parceiro no cartão
-        if(!inMonthRep(l,d)) return;
+        if(orcEspelho(o)){                                   // espelho = meus gastos no cartão
+          if(!(meu && l.cartao_id)) return;
+          if(l.tipo!=='despesa' && l.tipo!=='receita') return;
+          if(!_faturaOk(l)) return;
+        }else{
+          if(!doParceiro) return;
+          if(l.cartao_id){                                   // cartão do parceiro: entra pelo mês da fatura
+            if(l.tipo!=='despesa' && l.tipo!=='receita') return;
+            if(!_faturaOk(l)) return;
+          }else{                                             // gastos em conta do parceiro: pelo dia
+            if(!(l.data>=ini && l.data<=fim)) return;
+            if(l.tipo==='despesa'){ if(ehQuit) return; }
+            else if(l.tipo==='transferencia'){ const dst=contaById(l.conta_destino_id); if(dst && !dst.eh_investimento) return; }
+            else return;
+          }
+        }
       }else{
+        if(l.tipo!=='despesa') return;
+        if(ehQuit) return;
         if(!meu) return;
         if(alvo==='contas'){ if(l.cartao_id) return; if(!(l.data>=ini && l.data<=fim)) return; }
         else if(alvo==='cartao'){ if(!l.cartao_id) return; if(!inMonthRep(l,d)) return; }
@@ -6291,7 +6309,7 @@ function abrirOrcamento(chave, ym){
       lista.push(l);
     });
     lista.sort((a,b)=>String(b.data).localeCompare(String(a.data)));
-    const total=lista.reduce((a,l)=>a+(Number(l.valor)||0),0);
+    const total=lista.reduce((a,l)=>a+((l.tipo==='receita'?-1:1)*(Number(l.valor)||0)),0);
     const lim=Number(o.limite)||0, pct=lim>0?total/lim*100:0;
     const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
     openSheet(`
@@ -6312,7 +6330,7 @@ function abrirOrcamento(chave, ym){
         ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">
           <div class="mid"><div class="t">${esc(l.descricao||'—')}</div>
             <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}${l.cartao_id?' · '+esc((cartaoById(l.cartao_id)||{}).nome||'cartão'):''}${l.status==='pendente'?' · <span style="color:#e0a020">pendente</span>':''}</div></div>
-          <div class="amt r">${brl(l.valor)}</div></div>`).join('')
+          <div class="amt ${l.tipo==='receita'?'g':'r'}">${l.tipo==='receita'?'− ':''}${brl(l.valor)}</div></div>`).join('')
         :'<div class="note" style="text-align:center;padding:18px">Nenhum lançamento neste mês.</div>'}
       </div>`);
   }catch(e){ toast('Não consegui abrir o orçamento'); }

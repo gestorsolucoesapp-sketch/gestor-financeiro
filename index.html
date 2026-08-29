@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.63"; /* z4 */
+const APP_VER = "9.64"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6258,6 +6258,65 @@ function saldoLargada(d){
 }
 // meses seguintes que já têm gasto lançado no mesmo orçamento (o mês visto NÃO entra)
 // quais orçamentos você quer ver no Painel
+// mostra os lançamentos que formam o gasto de um orçamento
+function abrirOrcamento(chave, ym){
+  try{
+    const d = ym ? new Date(ym+'-01T00:00:00') : viewMonth;
+    const am = ymd(firstOfMonth(d)).slice(0,7);
+    const o = DATA.orcamentos.find(x=>String(x.ano_mes||'').slice(0,7)===am && orcChave(x)===chave && (srcOk(x.user_id)||orcEspelho(x)));
+    if(!o){ toast('Orçamento não encontrado neste mês'); return; }
+    const alvo=o.alvo||'categoria';
+    // categoria: reaproveita a tela que já mostra evolução + lançamentos
+    if(alvo==='categoria' && !orcEspelho(o)){ abrirCategoria(o.categoria_id, am); return; }
+    const r=orcRotulo(o)||{ico:'🎯',nome:'Orçamento'};
+    const ini=ymd(firstOfMonth(d)), fim=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+    let lista=[];
+    const _parc = MYPARTNERS.length?MYPARTNERS.map(p=>p.user_id):[];
+    DATA.lancamentos.forEach(l=>{
+      if(l.tipo!=='despesa') return;
+      if(typeof ehLancQuitacao==='function' && ehLancQuitacao(l)) return;
+      const meu = srcOk(l.user_id);
+      const doParceiro = _parc.includes(l.user_id);
+      if(alvo==='conjuge' || orcEspelho(o)){
+        if(orcEspelho(o)){ if(!(meu && l.cartao_id)) return; }        // espelho = meus gastos no cartão
+        else { if(!doParceiro || !l.cartao_id) return; }              // gastos do parceiro no cartão
+        if(!inMonthRep(l,d)) return;
+      }else{
+        if(!meu) return;
+        if(alvo==='contas'){ if(l.cartao_id) return; if(!(l.data>=ini && l.data<=fim)) return; }
+        else if(alvo==='cartao'){ if(!l.cartao_id) return; if(!inMonthRep(l,d)) return; }
+        else if(alvo==='total'){ if(l.cartao_id ? !inMonthRep(l,d) : !(l.data>=ini && l.data<=fim)) return; }
+        else return;
+      }
+      lista.push(l);
+    });
+    lista.sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+    const total=lista.reduce((a,l)=>a+(Number(l.valor)||0),0);
+    const lim=Number(o.limite)||0, pct=lim>0?total/lim*100:0;
+    const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+    openSheet(`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div class="dot" style="flex:0 0 auto">${r.ico||'🎯'}</div>
+        <div style="flex:1;min-width:0">
+          <h2 style="margin:0;font-size:18px">${esc(r.nome)}</h2>
+          <div class="note">${mesNome(d)} · ${lista.length} lançamento(s)</div>
+        </div>
+        <div style="text-align:right">
+          <b style="font-size:19px;font-variant-numeric:tabular-nums;color:${cor}">${brl(total)}</b>
+          <div class="note" style="font-size:11px">de ${brl(lim)}</div>
+        </div>
+      </div>
+      ${barraOrc(total,lim,false,9)}
+      <div class="note" style="text-align:center;margin:4px 0 12px"><b style="color:${cor}">${orcFaltaTxt(total,lim)}</b></div>
+      <div style="max-height:52vh;overflow:auto">
+        ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">
+          <div class="mid"><div class="t">${esc(l.descricao||'—')}</div>
+            <div class="s">${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}${l.cartao_id?' · '+esc((cartaoById(l.cartao_id)||{}).nome||'cartão'):''}${l.status==='pendente'?' · <span style="color:#e0a020">pendente</span>':''}</div></div>
+          <div class="amt r">${brl(l.valor)}</div></div>`).join('')
+        :'<div class="note" style="text-align:center;padding:18px">Nenhum lançamento neste mês.</div>'}
+      </div>`);
+  }catch(e){ toast('Não consegui abrir o orçamento'); }
+}
 function orcOcultos(){ try{ return JSON.parse(localStorage.getItem('gf_orc_ocultos')||'[]')||[]; }catch(e){ return []; } }
 function orcVisivel(o){ return !orcOcultos().includes(orcChave(o)); }
 function orcToggleVisivel(chave){
@@ -6678,7 +6737,7 @@ function renderDash(){
         const pct=lim>0?g/lim*100:0;
         const r=orcRotulo(o);
         const _f=lim-g, _c=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
-        return `<div style="flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;text-align:left">
+        return `<div class="tap" onclick="abrirOrcamento('${orcChave(o)}')" style="flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;text-align:left;cursor:pointer">
           <div style="flex:0 0 104px">${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:16px;font-weight:800;color:${_c};font-variant-numeric:tabular-nums">${_f>=0?'falta '+brl(_f):'passou '+brl(-_f)}</div>

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.67"; /* z4 */
+const APP_VER = "9.68"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6377,12 +6377,13 @@ function abrirEscolhaOrcs(){
 function orcProximosHTML(d, meses){
   try{
     meses = meses || 6;
-    const linhas=[];
+    const linhas=[]; let escondidos=0;
     for(let k=1;k<=meses;k++){
       const m=new Date(d.getFullYear(), d.getMonth()+k, 1);
       orcsDoMes(m).forEach(o=>{
         const g=gastoOrc(o,m), lim=Number(o.limite)||0;
         if(!(lim>0) || !(g>0)) return;                   // só aparece quando o mês já começou a gastar
+        if(!orcVisivel(o)){ escondidos++; return; }      // respeita a mesma escolha do card do mês
         const r=orcRotulo(o);
         const pct=g/lim*100;
         const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
@@ -6391,7 +6392,7 @@ function orcProximosHTML(d, meses){
         linhas.push(`<div style="margin-top:11px">
           <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
             <span>${r.ico||''}</span>
-            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize">${esc(nomeM)}${orcsDoMes(m).length>1?' · '+esc((r.nome||'').replace('Despesas de ','')):''}</span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize">${esc(nomeM)}${orcsDoMes(m).filter(orcVisivel).length>1?' · '+esc((r.nome||'').replace('Despesas de ','')):''}</span>
             <b style="color:${cor};font-variant-numeric:tabular-nums">${Math.round(pct)}%</b>
           </div>
           ${barraOrc(g,lim,false,7)}
@@ -6402,10 +6403,11 @@ function orcProximosHTML(d, meses){
         </div>`);
       });
     }
-    if(!linhas.length) return '';
+    if(!linhas.length && !escondidos) return '';
     return `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
       <div class="note" style="font-size:10px;letter-spacing:.7px;text-transform:uppercase;margin-bottom:2px">Meses que já começaram</div>
       ${linhas.join('')}
+      ${escondidos?`<div class="note tap" onclick="go('planejamento')" style="font-size:11px;margin-top:10px;text-align:center">+${escondidos} em outros orçamentos · ver em Planejar ›</div>`:''}
     </div>`;
   }catch(e){ return ''; }
 }

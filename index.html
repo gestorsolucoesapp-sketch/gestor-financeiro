@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.71"; /* z4 */
+const APP_VER = "9.72"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9404,6 +9404,7 @@ function openLanc(id, preset){
       <div class="seg2"><button id="stPago" class="${e.status==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
       <button id="stPend" class="${e.status==='pendente'?'on':''}" onclick="setStatus('pendente')">Pendente</button></div>
     </div>
+    ${editing?prolongarBlocoHTML(e):''}
     <button class="btn" onclick="saveLanc(${editing?`'${id}'`:'null'})">${editing?'Salvar alterações':'Adicionar'}</button>
     ${editing?`<button class="btn ghost" onclick="delLanc('${id}')"><span class="danger">Excluir transação</span></button>`:''}
   `);
@@ -10104,6 +10105,67 @@ async function saveLanc(id){
   }
   await upsertLanc(id,row);
   window._escopoEdicao=null;
+}
+// ===== PROLONGAR RECORRÊNCIA a partir da ÚLTIMA data já lançada =====
+// despesas que por natureza não acabam (escola, aluguel, plano...) ganham um empurrãozinho
+const REC_CONTINUAS = ['escola','colegio','colégio','mensalidade','faculdade','curso','creche',
+  'aluguel','condominio','condomínio','internet','plano','academia','seguro','financiamento',
+  'energia','luz','agua','água','telefone','celular','streaming','assinatura','pensao','pensão'];
+function ehRecContinua(desc){
+  const d=(desc||'').toLowerCase();
+  return REC_CONTINUAS.some(k=>d.includes(k));
+}
+// último lançamento do grupo (a data em que a recorrência termina hoje)
+function recUltima(grupoId){
+  if(!grupoId) return null;
+  const ls=DATA.lancamentos.filter(l=>l.grupo_id===grupoId && !l.cartao_id);
+  if(!ls.length) return null;
+  return ls.reduce((a,l)=> (String(l.data)>String(a.data)?l:a), ls[0]);
+}
+function prolongarBlocoHTML(e){
+  try{
+    if(!e || !e.grupo_id || e.cartao_id) return '';
+    if(Number(e.parcelas)>1) return '';                 // parcelamento tem fim definido: não se prolonga
+    const ult=recUltima(e.grupo_id); if(!ult) return '';
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const dUlt=new Date(ult.data+'T00:00:00');
+    const mesesRestam=Math.round((dUlt-hoje)/86400000/30.4);
+    const acabando = mesesRestam<=3;
+    const continua = ehRecContinua(e.descricao);
+    const alerta = acabando && continua;
+    return `<div class="card" style="margin:14px 0 4px;padding:12px;${alerta?'border:1px solid var(--mint)':''}">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">🔁 Repetição</div>
+      <div class="note" style="font-size:11.5px">Hoje vai até <b>${fmtBrData(ult.data)}</b>${mesesRestam>0?` · ${mesesRestam} ${mesesRestam===1?'mês':'meses'} pela frente`:' · já terminou'}.</div>
+      ${alerta?`<div class="note" style="font-size:11.5px;margin-top:6px;color:var(--mint)"><b>Essa despesa não costuma cessar</b> — vale prolongar antes de acabar.</div>`:''}
+      <div style="display:flex;gap:7px;margin-top:10px">
+        <button class="btn ghost" style="flex:1;padding:9px;font-size:12.5px" onclick="prolongarRec('${e.grupo_id}',6)">+6 meses</button>
+        <button class="btn ghost" style="flex:1;padding:9px;font-size:12.5px" onclick="prolongarRec('${e.grupo_id}',12)">+12</button>
+        <button class="btn ghost" style="flex:1;padding:9px;font-size:12.5px" onclick="prolongarRec('${e.grupo_id}',24)">+24</button>
+      </div>
+      <div class="note" style="font-size:10.5px;margin-top:6px;text-align:center">Continua a partir da última data, com o mesmo valor.</div>
+    </div>`;
+  }catch(err){ return ''; }
+}
+async function prolongarRec(grupoId, n){
+  const ult=recUltima(grupoId);
+  if(!ult){ toast('Não achei a repetição'); return; }
+  if(!confirm(`Continuar "${ult.descricao||'esta despesa'}" por mais ${n} meses a partir de ${fmtBrData(ult.data)}?`)) return;
+  const novos=[];
+  for(let i=1;i<=n;i++){
+    const dataFutura=addMonths(ult.data,i);
+    const ym=(dataFutura||'').slice(0,7);
+    const jaExiste=DATA.lancamentos.some(l=> l.grupo_id===grupoId && (l.data||'').slice(0,7)===ym);
+    if(jaExiste) continue;
+    novos.push({user_id:USER.id, tipo:ult.tipo, descricao:ult.descricao, valor:ult.valor,
+      data:dataFutura, status:'pendente', conta_id:ult.conta_id,
+      categoria_id:ult.categoria_id, grupo_id:grupoId});
+  }
+  if(!novos.length){ toast('Já estava lançado até lá'); return; }
+  const r=await insertRows(novos);
+  if(r && r.error){ toast('Erro: '+r.error.message); return; }
+  try{ await loadAll(); }catch(e){}
+  closeSheet(); render(); vibra();
+  toast(`Repetição estendida · +${novos.length} ${novos.length===1?'mês':'meses'} ✅`);
 }
 function precisaPerguntarEscopo(row, orig){
   const eq=(a,b)=> String(a==null?'':a).trim()===String(b==null?'':b).trim();

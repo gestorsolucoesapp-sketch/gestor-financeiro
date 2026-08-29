@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.70"; /* z4 */
+const APP_VER = "9.71"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7485,19 +7485,37 @@ async function saveOrcamento(id){
       }
     }
   }
+  let nFalha=0;
   for(let i=1;i<=nRep;i++){
     const d=new Date(base.getFullYear(),base.getMonth()+i,1);
     const ym=ymd(d).slice(0,7);
-    const ex=DATA.orcamentos.find(o=>o.user_id===USER.id && o.ano_mes===ym && orcChave(o)===(alvo==='categoria'?('cat:'+catId):('alvo:'+alvo)));
     const limI = escPct>0 ? escadaLimite(lim,escPct,escPiso,i) : lim;
-    const rr = ex ? await dbUpdate('orcamentos',{limite:limI,fixar_home:fixar,alvo:alvo,categoria_id:catId},'id',ex.id)
-                  : await dbInsert('orcamentos',[{user_id:USER.id,categoria_id:catId,ano_mes:ym,limite:limI,fixar_home:fixar,alvo:alvo}]);
-    if(!(rr&&rr.error)) nOk++;
+    const rr = await upsertOrcamentoMes(ym, limI, fixar, alvo, catId);
+    if(rr && rr.ok) nOk++; else nFalha++;
   }
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-  toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':(nOk?`Orçamento salvo · ${nOk} ${nOk===1?'mês':'meses'} à frente${escPct>0?` com −${escPct}% ao mês`:''}`:'Orçamento salvo'));
+  if(nFalha) toast(`⚠️ ${nFalha} mês(es) não foram gravados — tente de novo`);
+  else toast(r&&r.queued?'Orçamento salvo (offline) — sincroniza depois':(nOk?`Orçamento salvo · ${nOk} ${nOk===1?'mês':'meses'} à frente${escPct>0?` com −${escPct}% ao mês`:''}`:'Orçamento salvo'));
   render();
+}
+// grava o limite de um mês pela CHAVE (mês + alvo/categoria) e confirma no retorno.
+// update por id do cache falhava calado quando a linha havia sido recriada (id velho = 0 linhas, sem erro).
+async function upsertOrcamentoMes(ym, lim, fixar, alvo, catId){
+  try{
+    let q = sb.from('orcamentos')
+      .update({limite:lim, fixar_home:fixar, alvo:alvo, categoria_id:catId})
+      .eq('user_id',USER.id).eq('ano_mes',ym);
+    q = (alvo==='categoria') ? q.eq('categoria_id',catId) : q.eq('alvo',alvo).is('categoria_id',null);
+    const {data,error} = await q.select('id');
+    if(error) return {ok:false,error};
+    if(data && data.length) return {ok:true};
+    const ins = await sb.from('orcamentos')
+      .insert([{user_id:USER.id, categoria_id:catId, ano_mes:ym, limite:lim, fixar_home:fixar, alvo:alvo}])
+      .select('id');
+    if(ins.error) return {ok:false,error:ins.error};
+    return {ok:true};
+  }catch(e){ return {ok:false,error:e}; }
 }
 async function delOrcamento(id){
   if(!confirm('Remover este orçamento?'))return;

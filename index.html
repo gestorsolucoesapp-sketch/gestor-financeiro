@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.69"; /* z4 */
+const APP_VER = "9.70"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6317,7 +6317,8 @@ function abrirOrcamento(chave, ym){
       vals.push(v);
       labs.push(m.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''));
     }
-    const media=vals.reduce((a,v)=>a+v,0)/6;
+    const media=mediaDesdeInicio(vals);
+    const _nMed=(()=>{ const i=vals.findIndex(v=>v>0); return i<0?0:vals.length-i; })();
     const varia = vals[4]>0 ? ((vals[5]-vals[4])/vals[4]*100) : null;
     openSheet(`
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
@@ -6335,7 +6336,7 @@ function abrirOrcamento(chave, ym){
       <div class="note" style="text-align:center;margin:4px 0 2px"><b style="color:${cor}">${orcFaltaTxt(total,lim)}</b></div>
       <div style="margin:10px 0 4px">${areaChartSVG([{vals, cor, nome:esc(r.nome)}], labs, {h:130})}</div>
       <div class="note" style="text-align:center;margin-bottom:10px">
-        média 6 meses ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
+        média ${_nMed||6} ${(_nMed||6)===1?'mês':'meses'} ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
       </div>
       <div style="max-height:44vh;overflow:auto">
         ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">
@@ -6431,19 +6432,28 @@ function orcProximosHTML(d, meses){
 }
 // ================= ASSISTENTE DE ORÇAMENTO =================
 // média do que você gastou por categoria nos últimos N meses fechados
+// média a partir do PRIMEIRO mês com movimento: mês vazio depois que existe conta;
+// mês vazio antes de existir é só ausência de cadastro e não dilui o número.
+// vals vem do mais antigo para o mais recente.
+function mediaDesdeInicio(vals){
+  const i=vals.findIndex(v=>v>0);
+  if(i<0) return 0;
+  const usados=vals.slice(i);
+  return usados.reduce((a,v)=>a+v,0)/usados.length;
+}
 function mediaGastoCategoria(catId, n){
-  n=n||3; let soma=0, meses=0;
-  for(let k=1;k<=n;k++){
+  n=n||3; const vals=[];
+  for(let k=n;k>=1;k--){
     const m=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-k, 1);
     const gs=gastosPorCategoria(m);
     const achou=gs.find(g=>String(g.id)===String(catId));
-    soma+=achou?achou.valor:0; meses++;
+    vals.push(achou?achou.valor:0);
   }
-  return meses?soma/meses:0;
+  return mediaDesdeInicio(vals);
 }
 function mediaAlvo(k, n){
-  n=n||3; let soma=0, meses=0;
-  for(let i=1;i<=n;i++){
+  n=n||3; const vals=[];
+  for(let i=n;i>=1;i--){
     const m=new Date(viewMonth.getFullYear(), viewMonth.getMonth()-i, 1);
     const s=saidasMes(m);
     let v=0;
@@ -6451,9 +6461,9 @@ function mediaAlvo(k, n){
     else if(k==='contas') v=(s.pagas||0)+(s.aPagar||0);
     else if(k==='cartao') v=gastoCartaoMes(m);
     else if(k==='conjuge') v=(s.conjuge||0);
-    soma+=v; meses++;
+    vals.push(v);
   }
-  return meses?soma/meses:0;
+  return mediaDesdeInicio(vals);
 }
 function arred(v){ return v>=1000 ? Math.ceil(v/50)*50 : Math.ceil(v/10)*10; }
 function assistCfg(){
@@ -6661,7 +6671,8 @@ function abrirCategoria(catId, ym){
       && String(l.categoria_id||'_sem')===String(catId) && inMonthRep(l,d))
       .sort((a,b)=>String(b.data).localeCompare(String(a.data)));
     const total=lista.reduce((a,l)=>a+(Number(l.valor)||0),0);
-    const media=vals.reduce((a,v)=>a+v,0)/6;
+    const media=mediaDesdeInicio(vals);
+    const _nMed=(()=>{ const i=vals.findIndex(v=>v>0); return i<0?0:vals.length-i; })();
     const varia= vals[4]>0 ? ((vals[5]-vals[4])/vals[4]*100) : null;
     openSheet(`
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">
@@ -6674,7 +6685,7 @@ function abrirCategoria(catId, ym){
       </div>
       <div style="margin:12px 0 4px">${areaChartSVG([{vals, cor, nome:esc(cat.nome)}], labs, {h:130})}</div>
       <div class="note" style="text-align:center;margin-bottom:10px">
-        média 6 meses ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
+        média ${_nMed||6} ${(_nMed||6)===1?'mês':'meses'} ${brl(media)}${varia!=null?` · ${varia>=0?'▲':'▼'} ${Math.abs(varia).toFixed(0)}% vs mês anterior`:''}
       </div>
       <div style="max-height:44vh;overflow:auto">
         ${lista.length?lista.map(l=>`<div class="lrow" onclick="closeSheet();openLanc('${l.id}')">

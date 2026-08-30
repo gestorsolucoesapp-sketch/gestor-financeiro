@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.72"; /* z4 */
+const APP_VER = "9.73"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1073,7 +1073,34 @@ async function dbDelete(table,col,val){
   queueOp(table,'delete',{match:{col,val}}); return {ok:true,queued:true};
 }
 // compat: código antigo chama insertRows(rows) pra lançamentos
-async function insertRows(rows){ return dbInsert('lancamentos',rows); }
+// Guarda anti-duplicata: antes de gravar, procura um lançamento idêntico (mesma descrição,
+// valor, data, cartão/conta) criado nos últimos 10 minutos. Pergunta em vez de bloquear —
+// dois cafés de R$ 20 no mesmo dia são legítimos.
+function achaDuplicata(r){
+  try{
+    if(!r || !r.valor) return null;
+    const corte = Date.now() - 10*60*1000;
+    const d=(r.descricao||'').toLowerCase().trim();
+    return DATA.lancamentos.find(l=>
+      l.user_id===r.user_id &&
+      l.tipo===r.tipo &&
+      Number(l.valor)===Number(r.valor) &&
+      String(l.data)===String(r.data) &&
+      (l.descricao||'').toLowerCase().trim()===d &&
+      String(l.cartao_id||'')===String(r.cartao_id||'') &&
+      String(l.conta_id||'')===String(r.conta_id||'') &&
+      l.criado_em && new Date(l.criado_em).getTime() > corte
+    ) || null;
+  }catch(e){ return null; }
+}
+async function insertRows(rows){
+  const dup = (rows && rows.length===1) ? achaDuplicata(rows[0]) : null;
+  if(dup){
+    const q = `"${dup.descricao}" de ${brl(dup.valor)} já foi lançado há pouco.\n\nLançar de novo mesmo assim?`;
+    if(!confirm(q)) return {ok:false, duplicado:true};
+  }
+  return dbInsert('lancamentos',rows);
+}
 let _flushing=false;
 async function flushOutbox(){
   updateOfflinePill();
@@ -9072,7 +9099,10 @@ function vozSugCat(){
   if(top && sel.value!==top[0]){ sel.value=top[0]; if(note){ const c=catById(top[0]); note.style.display='block'; note.textContent='💡 categoria sugerida: '+(c?c.nome:''); } }
 }
 async function salvarVoz(){
-  const p=window._vozP; if(!p) return;
+  if(window._salvandoVoz) return;                 // trava anti toque-duplo (faltava aqui)
+  window._salvandoVoz=true;
+  setTimeout(()=>{ window._salvandoVoz=false; }, 2500);
+  const p=window._vozP; if(!p){ window._salvandoVoz=false; return; }
   const dsc=(($('vzDesc')&&$('vzDesc').value)||'').trim();
   if(!dsc){ toast('Escreva o que foi essa despesa 🙂'); const el=$('vzDesc'); if(el){ el.style.borderColor='var(--red)'; el.focus(); } return; }
   p.desc=dsc;
@@ -9098,7 +9128,7 @@ async function salvarVoz(){
     rows.push({user_id:USER.id,tipo:'despesa',descricao:p.desc,valor:p.valor,data:hoje,status:'pago',conta_id:onde,categoria_id:p.categoria_id});
   }
   const r=await insertRows(rows);
-  if(!r.ok) return;
+  if(!r.ok){ window._salvandoVoz=false; return; }
   window._vozP=null;
   closeSheet(); vibra();
   // otimista: já mostra na tela e sincroniza em segundo plano (não trava)

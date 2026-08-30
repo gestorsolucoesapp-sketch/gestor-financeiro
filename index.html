@@ -1089,7 +1089,8 @@ function achaDuplicata(r){
       (l.descricao||'').toLowerCase().trim()===d &&
       String(l.cartao_id||'')===String(r.cartao_id||'') &&
       String(l.conta_id||'')===String(r.conta_id||'') &&
-      l.criado_em && new Date(l.criado_em).getTime() > corte
+      // sem criado_em = linha inserida agora nesta sessão (otimista): é justamente a mais suspeita
+      (!l.criado_em || new Date(l.criado_em).getTime() > corte)
     ) || null;
   }catch(e){ return null; }
 }

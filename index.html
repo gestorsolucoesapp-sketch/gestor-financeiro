@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.78"; /* z4 */
+const APP_VER = "9.79"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1095,6 +1095,7 @@ function achaDuplicata(r){
   }catch(e){ return null; }
 }
 async function insertRows(rows){
+  try{ recInvalidar(); }catch(e){}
   const dup = (rows && rows.length===1) ? achaDuplicata(rows[0]) : null;
   if(dup){
     const q = `"${dup.descricao}" de ${brl(dup.valor)} já foi lançado há pouco.\n\nLançar de novo mesmo assim?`;
@@ -5961,6 +5962,8 @@ async function renderRecebimentos(){
     <div class="note" style="margin:0 0 2px">Recebido desde ${anos[0]||'—'}</div>
     <div style="font-weight:800;font-size:26px">${brl(total)}</div>
     <div class="note" style="font-size:11.5px;margin-top:2px">${rows.length} lançamentos · média de ${brl(mediaAnos)} por ano${semAno>0?` · ${brl(semAno)} sem ano definido`:''}</div>
+    ${(()=>{const doApp=rows.filter(r=>r.lancamento_id); if(!doApp.length) return '';
+      return `<div class="note" style="font-size:11px;margin-top:6px;color:var(--mint)">🔄 ${doApp.length} ${doApp.length===1?'veio':'vieram'} do app automaticamente (${brl(doApp.reduce((a,r)=>a+Number(r.valor||0),0))})</div>`;})()}
   </div>`;
   // grafico por ANO
   if(anos.length){
@@ -5989,7 +5992,7 @@ async function renderRecebimentos(){
       h+=`<div style="margin-bottom:9px">
         <div style="display:flex;gap:6px;font-size:12.5px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nome)}</span><b style="font-variant-numeric:tabular-nums">${brl(v)}</b></div>
         <div style="height:8px;background:var(--line);border-radius:99px;margin-top:3px;overflow:hidden"><div style="height:100%;width:${Math.max(2,v/mx*100).toFixed(1)}%;background:var(--mint);border-radius:99px"></div></div>
-        <div class="note" style="font-size:10.5px;margin-top:2px">${(v/totalAno*100).toFixed(1)}% do ano</div>
+        <div class="note" style="font-size:10.5px;margin-top:2px">${(v/totalAno*100).toFixed(1)}% do ano${doAno.some(r=>r.fornecedor===nome&&r.lancamento_id)?' · 🔄 com entradas do app':''}</div>
       </div>`;
     });
     h+=`</div>`;
@@ -6011,6 +6014,8 @@ async function renderRecebimentos(){
   $('content').innerHTML=h;
 }
 function recSelAno(a){ window._recAno=Number(a); render(); }
+// força releitura na próxima abertura da aba (chamado depois de salvar/excluir lançamento)
+function recInvalidar(){ window._recRows=null; }
 // barras simples com rótulo embaixo; idxSel destaca uma barra e onTap recebe o rótulo
 function recBarrasSVG(labels, vals, idxSel, onTap){
   const W=380,H=170,padL=6,padR=6,padT=10,padB=24;

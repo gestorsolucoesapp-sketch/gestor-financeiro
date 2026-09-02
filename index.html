@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.74"; /* z4 */
+const APP_VER = "9.75"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1434,10 +1434,12 @@ async function checarAcessosEstranhos(){
     const meu=deviceId();
     const {data,error}=await sb.from('acessos').select('*')
       .eq('visto',false).neq('device_id',meu)
-      .order('criado_em',{ascending:false}).limit(10);
+      .order('criado_em',{ascending:false}).limit(30);
     if(error||!data||!data.length) return;
-    const novos=data.filter(a=>a.evento==='aparelho_novo');
-    const alvo=novos.length?novos:data;
+    // só alarma o que merece: aparelho novo ou tentativa bloqueada.
+    // acesso rotineiro de aparelho já aprovado é normal — marca como visto e não incomoda.
+    const alvo=data.filter(a=> a.evento==='aparelho_novo' || a.aprovado===false);
+    if(!alvo.length){ marcarAcessosVistos(); return; }
     const a=alvo[0];
     const dt=new Date(a.criado_em);
     const quando=dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});

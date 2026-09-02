@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.75"; /* z4 */
+const APP_VER = "9.76"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3247,6 +3247,73 @@ function gastosPorCategoria(d,allSources){
     map[key].valor+=Number(l.valor)||0;
   }
   return Object.entries(map).map(([id,v])=>({id,...v})).sort((a,b)=>b.valor-a.valor);
+}
+// despesas por categoria de UM usuário no mês (cartão pelo mês da fatura)
+function gastosCatDeUsuario(d, uid){
+  const map={};
+  for(const l of DATA.lancamentos){
+    if(l.tipo!=='despesa') continue;
+    if(l.user_id!==uid) continue;
+    if(ehLancQuitacao(l)) continue;
+    if(!inMonthRep(l,d)) continue;
+    const cat=catById(l.categoria_id);
+    const key=cat?cat.id:'_sem';
+    if(!map[key]) map[key]={nome:cat?cat.nome:'Sem categoria',icone:cat?cat.icone:'❓',valor:0};
+    map[key].valor+=Number(l.valor)||0;
+  }
+  return Object.entries(map).map(([id,v])=>({id,...v})).sort((a,b)=>b.valor-a.valor);
+}
+// PARETO 80/20: ranking das categorias + acumulado. Mostra quais poucas concentram a maior parte.
+function paretoHTML(itens, titulo, sub, uid){
+  const total=itens.reduce((a,g)=>a+g.valor,0);
+  let h=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 2px;font-size:15px">${titulo}</h3>`;
+  if(!total){
+    h+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div></div>`;
+    return h;
+  }
+  let acum=0, corte=-1;
+  const linhas=itens.map((g,i)=>{
+    const antes=acum; acum+=g.valor;
+    const pctAc=acum/total*100;
+    if(corte<0 && pctAc>=80) corte=i;
+    return {...g, pct:g.valor/total*100, pctAc, dentro: antes/total*100 < 80};
+  });
+  const nVitais=(corte<0?linhas.length:corte+1);
+  const somaVitais=linhas.slice(0,nVitais).reduce((a,g)=>a+g.valor,0);
+  h+=`<div class="note" style="font-size:11.5px;margin-bottom:9px">${sub}</div>`;
+  h+=`<div style="background:var(--line);border-radius:11px;padding:9px 11px;margin-bottom:10px">
+    <b style="font-size:13px">${nVitais} de ${linhas.length} ${linhas.length===1?'categoria':'categorias'}</b>
+    <span style="font-size:12.5px;color:var(--muted)"> concentram ${brl(somaVitais)} — ${(somaVitais/total*100).toFixed(0)}% do total</span>
+  </div>`;
+  const max=linhas[0].valor;
+  linhas.forEach((g,i)=>{
+    const cor=g.dentro?corCategoria(g.id):'var(--muted)';
+    const larg=Math.max(2,g.valor/max*100);
+    h+=`<div class="tap" onclick="abrirCatDetalhe('${g.id}')" style="margin-bottom:9px;${g.dentro?'':'opacity:.5'}">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12.5px">
+        <span>${g.icone||'•'}</span>
+        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.nome)}</span>
+        <b style="font-variant-numeric:tabular-nums">${brl(g.valor)}</b>
+      </div>
+      <div style="height:8px;background:var(--line);border-radius:99px;margin-top:3px;overflow:hidden">
+        <div style="height:100%;width:${larg}%;background:${cor};border-radius:99px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:2px" class="note">
+        <span>${g.pct.toFixed(1)}% do mês</span>
+        <span style="font-variant-numeric:tabular-nums">acumulado ${g.pctAc.toFixed(0)}%</span>
+      </div>
+    </div>`;
+    if(i===nVitais-1 && i<linhas.length-1){
+      h+=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 11px">
+        <div style="flex:1;height:1px;background:var(--red);opacity:.5"></div>
+        <span style="font-size:10.5px;font-weight:800;color:var(--red)">linha dos 80%</span>
+        <div style="flex:1;height:1px;background:var(--red);opacity:.5"></div>
+      </div>`;
+    }
+  });
+  h+=`<div class="note" style="font-size:10.5px;margin-top:2px">Acima da linha está o que move o gasto — é onde mexer dá resultado. Toque numa categoria pra ver os lançamentos.</div>`;
+  h+=`</div>`;
+  return h;
 }
 // detalhe do que compõe uma categoria no mês (usa o MESMO filtro do donut pra bater certinho)
 function abrirCatDetalhe(catId){
@@ -6993,6 +7060,18 @@ function renderRelatorios(){
     const keyC='comprasdia_'+p.owner_id;
     blocos[keyC]=daybarChartHTML(comprasP, `Compras por dia — ${esc(p.apelido)}`, `Pelo dia real da compra (parcela no dia que comprou). Toque — mostra se foi parcelado.`, p.owner_id, 'abrirDiaCompraDetalhe');
     defaultOrder.push(keyC);
+  });
+  // PARETO 80/20 — meu e de cada parceiro
+  blocos.pareto=paretoHTML(gastosCatDeUsuario(viewMonth,USER.id),
+    `Pareto — Meus · ${mesNome(viewMonth)}`,
+    'Categorias da maior pra menor, com o quanto vão somando.', USER.id);
+  defaultOrder.push('pareto');
+  MYPARTNERS.forEach(p=>{
+    const k='pareto_'+p.owner_id;
+    blocos[k]=paretoHTML(gastosCatDeUsuario(viewMonth,p.owner_id),
+      `Pareto — ${esc(p.apelido)} · ${mesNome(viewMonth)}`,
+      `Só os gastos de ${esc(p.apelido)}, da maior categoria pra menor.`, p.owner_id);
+    defaultOrder.push(k);
   });
   defaultOrder.push('painel','tendencia','categoria','evolucao');
   // gastos anuais + variação % — MEUS (mesmos gráficos que os parceiros têm)

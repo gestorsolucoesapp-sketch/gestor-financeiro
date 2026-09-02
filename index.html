@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.76"; /* z4 */
+const APP_VER = "9.77"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -3263,7 +3263,7 @@ function gastosCatDeUsuario(d, uid){
   }
   return Object.entries(map).map(([id,v])=>({id,...v})).sort((a,b)=>b.valor-a.valor);
 }
-// PARETO 80/20: ranking das categorias + acumulado. Mostra quais poucas concentram a maior parte.
+// PARETO 80/20 clássico: barras decrescentes + curva do acumulado cruzando a linha dos 80%
 function paretoHTML(itens, titulo, sub, uid){
   const total=itens.reduce((a,g)=>a+g.valor,0);
   let h=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 2px;font-size:15px">${titulo}</h3>`;
@@ -3271,47 +3271,72 @@ function paretoHTML(itens, titulo, sub, uid){
     h+=`<div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Sem despesas em ${mesNome(viewMonth)}.</p></div></div>`;
     return h;
   }
-  let acum=0, corte=-1;
-  const linhas=itens.map((g,i)=>{
-    const antes=acum; acum+=g.valor;
-    const pctAc=acum/total*100;
-    if(corte<0 && pctAc>=80) corte=i;
-    return {...g, pct:g.valor/total*100, pctAc, dentro: antes/total*100 < 80};
+  // acumulado sobre a lista inteira (antes de agrupar a cauda)
+  let ac=0, nVitais=0;
+  const full=itens.map(g=>{ const antes=ac; ac+=g.valor;
+    const dentro=antes/total*100 < 80; if(dentro) nVitais++;
+    return {...g, pctAc:ac/total*100, dentro}; });
+  const somaVitais=full.slice(0,nVitais).reduce((a,g)=>a+g.valor,0);
+  // no gráfico cabem no máximo 12 barras: o resto vira "Outras"
+  const LIM=12;
+  let barras=full;
+  if(full.length>LIM){
+    const cauda=full.slice(LIM-1);
+    barras=full.slice(0,LIM-1).concat([{id:null,nome:'Outras ('+cauda.length+')',icone:'•',
+      valor:cauda.reduce((a,g)=>a+g.valor,0), pctAc:100, dentro:false}]);
+  }
+  const n=barras.length, max=barras[0].valor;
+  const W=380,H=232,padL=8,padR=30,padT=14,padB=30;
+  const plotW=W-padL-padR, plotH=H-padT-padB, base=padT+plotH;
+  const passo=plotW/n, gap=Math.min(6,passo*0.28), bw=passo-gap;
+  const y80=base-0.8*plotH;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  // guias horizontais
+  [0.25,0.5,0.75,1].forEach(f=>{ const y=base-f*plotH;
+    svg+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${padL+plotW}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`; });
+  // barras
+  barras.forEach((g,i)=>{
+    const bh=Math.max(1.5,g.valor/max*plotH);
+    const x=padL+i*passo+gap/2, y=base-bh;
+    const cor=g.id?corCategoria(g.id):'var(--muted)';
+    svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3"
+      fill="${cor}" opacity="${g.dentro?1:.35}"${g.id?` style="cursor:pointer" onclick="abrirCatDetalhe('${g.id}')"`:''}><title>${esc(g.nome)} · ${brl(g.valor)}</title></rect>`;
+    svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${base+13}" text-anchor="middle" font-size="9" fill="var(--muted)">${i+1}</text>`;
   });
-  const nVitais=(corte<0?linhas.length:corte+1);
-  const somaVitais=linhas.slice(0,nVitais).reduce((a,g)=>a+g.valor,0);
-  h+=`<div class="note" style="font-size:11.5px;margin-bottom:9px">${sub}</div>`;
-  h+=`<div style="background:var(--line);border-radius:11px;padding:9px 11px;margin-bottom:10px">
-    <b style="font-size:13px">${nVitais} de ${linhas.length} ${linhas.length===1?'categoria':'categorias'}</b>
-    <span style="font-size:12.5px;color:var(--muted)"> concentram ${brl(somaVitais)} — ${(somaVitais/total*100).toFixed(0)}% do total</span>
+  // linha dos 80%
+  svg+=`<line x1="${padL}" y1="${y80.toFixed(1)}" x2="${padL+plotW}" y2="${y80.toFixed(1)}" stroke="var(--red)" stroke-width="1.2" stroke-dasharray="5 4" opacity=".8"/>`;
+  svg+=`<text x="${padL+plotW+3}" y="${(y80+3).toFixed(1)}" font-size="9" font-weight="700" fill="var(--red)">80%</text>`;
+  // curva do acumulado
+  const pts=barras.map((g,i)=>[padL+i*passo+passo/2, base-(g.pctAc/100)*plotH]);
+  svg+=`<polyline points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--mint)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  pts.forEach((p,i)=>{ svg+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.8" fill="var(--mint)"/>`; });
+  // marca onde a curva cruza os 80%
+  if(nVitais<=barras.length){
+    const xc=padL+(nVitais-1)*passo+passo/2+passo/2;
+    svg+=`<line x1="${xc.toFixed(1)}" y1="${padT}" x2="${xc.toFixed(1)}" y2="${base}" stroke="var(--red)" stroke-width="1" stroke-dasharray="3 4" opacity=".55"/>`;
+  }
+  // escala da direita
+  ['100','50','0'].forEach((t,i)=>{ const y=padT+i*(plotH/2);
+    svg+=`<text x="${padL+plotW+3}" y="${(y+3).toFixed(1)}" font-size="8.5" fill="var(--muted)">${t}%</text>`; });
+  svg+=`</svg>`;
+  h+=`<div class="note" style="font-size:11.5px;margin-bottom:6px">${sub}</div>`;
+  h+=`<div style="background:var(--line);border-radius:11px;padding:9px 11px;margin-bottom:8px">
+    <b style="font-size:13px">${nVitais} de ${full.length} ${full.length===1?'categoria':'categorias'}</b>
+    <span style="font-size:12.5px;color:var(--muted)"> = ${brl(somaVitais)}, ${(somaVitais/total*100).toFixed(0)}% do total</span>
   </div>`;
-  const max=linhas[0].valor;
-  linhas.forEach((g,i)=>{
-    const cor=g.dentro?corCategoria(g.id):'var(--muted)';
-    const larg=Math.max(2,g.valor/max*100);
-    h+=`<div class="tap" onclick="abrirCatDetalhe('${g.id}')" style="margin-bottom:9px;${g.dentro?'':'opacity:.5'}">
-      <div style="display:flex;align-items:center;gap:6px;font-size:12.5px">
-        <span>${g.icone||'•'}</span>
-        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.nome)}</span>
-        <b style="font-variant-numeric:tabular-nums">${brl(g.valor)}</b>
-      </div>
-      <div style="height:8px;background:var(--line);border-radius:99px;margin-top:3px;overflow:hidden">
-        <div style="height:100%;width:${larg}%;background:${cor};border-radius:99px"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:2px" class="note">
-        <span>${g.pct.toFixed(1)}% do mês</span>
-        <span style="font-variant-numeric:tabular-nums">acumulado ${g.pctAc.toFixed(0)}%</span>
-      </div>
+  h+=svg;
+  h+=`<div class="legend" style="margin-top:2px"><span><i style="background:var(--mint)"></i>acumulado</span><span><i style="background:var(--red)"></i>corte dos 80%</span></div>`;
+  // legenda numerada, em duas colunas
+  h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:9px">`;
+  barras.forEach((g,i)=>{
+    h+=`<div ${g.id?`class="tap" onclick="abrirCatDetalhe('${g.id}')"`:''} style="display:flex;gap:5px;align-items:center;font-size:11px;${g.dentro?'':'opacity:.5'}">
+      <b style="width:13px;text-align:right;color:var(--muted)">${i+1}</b>
+      <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.nome)}</span>
+      <span style="font-variant-numeric:tabular-nums;color:var(--muted)">${(g.valor/total*100).toFixed(0)}%</span>
     </div>`;
-    if(i===nVitais-1 && i<linhas.length-1){
-      h+=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 11px">
-        <div style="flex:1;height:1px;background:var(--red);opacity:.5"></div>
-        <span style="font-size:10.5px;font-weight:800;color:var(--red)">linha dos 80%</span>
-        <div style="flex:1;height:1px;background:var(--red);opacity:.5"></div>
-      </div>`;
-    }
   });
-  h+=`<div class="note" style="font-size:10.5px;margin-top:2px">Acima da linha está o que move o gasto — é onde mexer dá resultado. Toque numa categoria pra ver os lançamentos.</div>`;
+  h+=`</div>`;
+  h+=`<div class="note" style="font-size:10.5px;margin-top:8px">A curva mostra o quanto vai somando. Onde ela cruza a tracejada estão as poucas categorias que fazem a maior parte do gasto — é ali que mexer dá resultado.</div>`;
   h+=`</div>`;
   return h;
 }

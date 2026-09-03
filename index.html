@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.84"; /* z4 */
+const APP_VER = "9.85"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1878,6 +1878,94 @@ async function doLogin(){
   else { try{localStorage.removeItem('savedPass:'+email);}catch(e){} }
   await afterLogin();
 }
+// ===================== VERIFICAÇÃO EM DUAS ETAPAS (TOTP) =====================
+async function fatores2FA(){
+  try{ const {data,error}=await sb.auth.mfa.listFactors(); if(error) return []; 
+    return (data && data.totp) ? data.totp : []; }catch(e){ return []; }
+}
+async function abrir2FA(){
+  openSheet(`<h2>🔐 Verificação em duas etapas</h2><div class="loading"><div class="spin"></div></div>`);
+  const fs=await fatores2FA();
+  const ativo=fs.find(f=>f.status==='verified');
+  if(ativo){
+    openSheet(`<h2>🔐 Verificação em duas etapas</h2>
+      <div class="card" style="margin:0 0 12px;border:1px solid var(--green)">
+        <div style="font-size:14px;font-weight:700;color:var(--green)">✅ Está ativa</div>
+        <div class="note" style="font-size:12px;margin-top:3px">Ativada em ${new Date(ativo.created_at).toLocaleDateString('pt-BR')}. Ao entrar, além da senha o app pede o código de 6 dígitos do seu autenticador.</div>
+      </div>
+      <button class="btn ghost" onclick="desativar2FA('${ativo.id}')"><span class="danger">Desativar</span></button>`);
+    return;
+  }
+  // limpa tentativas anteriores que ficaram sem confirmar
+  for(const f of fs){ if(f.status!=='verified'){ try{ await sb.auth.mfa.unenroll({factorId:f.id}); }catch(e){} } }
+  const {data,error}=await sb.auth.mfa.enroll({factorType:'totp', friendlyName:'Gestor '+Date.now()});
+  if(error){ openSheet(`<h2>🔐 Verificação em duas etapas</h2><div class="card">Não deu pra iniciar: ${esc(error.message)}</div>`); return; }
+  window._mfaFactor=data.id;
+  openSheet(`<h2>🔐 Verificação em duas etapas</h2>
+    <div class="note" style="font-size:12.5px;margin:-6px 0 12px">1. Abra o Google Authenticator (ou similar) e escaneie o código. 2. Digite os 6 dígitos que aparecerem.</div>
+    <div style="background:#fff;border-radius:14px;padding:10px;display:flex;justify-content:center;margin-bottom:10px">${data.totp.qr_code}</div>
+    <div class="note" style="font-size:11px;text-align:center;margin-bottom:12px">Sem câmera? Digite esta chave no app:<br><b style="font-size:12.5px;letter-spacing:.5px;word-break:break-all">${esc(data.totp.secret)}</b></div>
+    <input id="mfaCode" inputmode="numeric" maxlength="6" placeholder="000000"
+      style="width:100%;padding:14px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);color:var(--txt);font-size:26px;text-align:center;letter-spacing:8px;font-weight:800">
+    <button class="btn" style="margin-top:12px" onclick="confirmar2FA()">Ativar</button>
+    <div class="note" style="font-size:10.5px;margin-top:8px;text-align:center">⚠️ Guarde a chave acima num lugar seguro. Sem ela e sem o autenticador, você não entra mais.</div>`);
+  setTimeout(()=>{ const i=$('mfaCode'); if(i) i.focus(); }, 200);
+}
+async function confirmar2FA(){
+  const code=($('mfaCode')&&$('mfaCode').value||'').replace(/\D/g,'');
+  if(code.length!==6){ toast('Digite os 6 dígitos'); return; }
+  const factorId=window._mfaFactor;
+  const ch=await sb.auth.mfa.challenge({factorId});
+  if(ch.error){ toast('Erro: '+ch.error.message); return; }
+  const vf=await sb.auth.mfa.verify({factorId, challengeId:ch.data.id, code});
+  if(vf.error){ toast(/invalid/i.test(vf.error.message)?'Código incorreto — tente o próximo':vf.error.message); return; }
+  closeSheet(); vibra(); toast('Verificação em duas etapas ativada ✅');
+}
+async function desativar2FA(factorId){
+  if(!confirm('Desativar a verificação em duas etapas? Sua conta volta a ser protegida só pela senha.')) return;
+  const {error}=await sb.auth.mfa.unenroll({factorId});
+  if(error){ toast('Erro: '+error.message); return; }
+  closeSheet(); toast('Verificação desativada');
+}
+// no login: se a conta tem 2FA, pede o código antes de abrir o app
+async function precisa2FA(){
+  try{
+    const {data,error}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(error||!data) return false;
+    return data.nextLevel==='aal2' && data.nextLevel!==data.currentLevel;
+  }catch(e){ return false; }
+}
+function pedirCodigo2FA(){
+  return new Promise(resolve=>{
+    const el=document.createElement('div');
+    el.id='mfaGate';
+    el.style.cssText='position:fixed;inset:0;z-index:9800;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;gap:12px';
+    el.innerHTML=`<div style="font-size:40px">🔐</div>
+      <h2 style="margin:0;font-size:19px;text-align:center">Código de verificação</h2>
+      <div class="note" style="font-size:12.5px;text-align:center;max-width:300px">Digite os 6 dígitos que aparecem no seu autenticador.</div>
+      <input id="mfaLogCode" inputmode="numeric" maxlength="6" placeholder="000000"
+        style="width:100%;max-width:280px;padding:14px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);color:var(--txt);font-size:28px;text-align:center;letter-spacing:8px;font-weight:800">
+      <div id="mfaLogErr" class="note" style="font-size:12px;color:var(--red);min-height:16px"></div>
+      <button class="btn" style="max-width:280px" id="mfaLogBt">Entrar</button>
+      <button class="btn ghost" style="max-width:280px" onclick="sb.auth.signOut().then(()=>location.reload())">Sair</button>`;
+    document.body.appendChild(el);
+    const input=el.querySelector('#mfaLogCode'); setTimeout(()=>input.focus(),200);
+    el.querySelector('#mfaLogBt').onclick=async()=>{
+      const code=(input.value||'').replace(/\D/g,'');
+      const err=el.querySelector('#mfaLogErr');
+      if(code.length!==6){ err.textContent='Digite os 6 dígitos'; return; }
+      err.textContent='Verificando…';
+      const fs=await fatores2FA();
+      const f=fs.find(x=>x.status==='verified');
+      if(!f){ el.remove(); resolve(true); return; }
+      const ch=await sb.auth.mfa.challenge({factorId:f.id});
+      if(ch.error){ err.textContent=ch.error.message; return; }
+      const vf=await sb.auth.mfa.verify({factorId:f.id, challengeId:ch.data.id, code});
+      if(vf.error){ err.textContent=/invalid/i.test(vf.error.message)?'Código incorreto — tente o próximo':vf.error.message; return; }
+      el.remove(); resolve(true);
+    };
+  });
+}
 async function doLogout(){ try{ await sb.auth.signOut(); }catch(e){} finally{ try{ Object.keys(localStorage).forEach(k=>{ if(k.startsWith('sb-')&&k.indexOf('auth')>=0) localStorage.removeItem(k); }); }catch(e){} location.reload(); } }
 function traduzErro(m){
   if(/Invalid login/i.test(m)) return 'E-mail ou senha incorretos.';
@@ -2303,6 +2391,7 @@ async function afterLogin(userArg){
   if(!user){ const ls=localSession(); user=ls&&ls.user; }
   if(!user){ authErr('Não deu pra entrar sem internet. Conecte uma vez para o app guardar seu acesso.'); return; }
   USER=user;
+  if(navigator.onLine && await precisa2FA()) await pedirCodigo2FA();
   if(faceIdOn()) mostrarLock();   // trava a tela até o Face ID liberar
   if(navigator.onLine){ checarDispositivo().then(ok=>{ if(!ok) mostrarDevGate(); else setTimeout(checarAcessosEstranhos, 1200); }); }
   $('auth').classList.add('hidden');
@@ -5954,6 +6043,7 @@ function renderConfig(){
     ${hubItem('receipt','Termos de Uso','Condições de uso do aplicativo',"window.open('termos.html','_blank')",'#3b6fd6')}
     ${hubItem('phone','📱 Aparelhos confiáveis','Aprove ou remova aparelhos com acesso à sua conta',"renderDispositivos()",'#3b6fd6')}
     ${hubItem('lock', faceIdOn()?'🔓 Desativar Face ID':'🔒 Bloquear com Face ID', faceIdOn()?'O app deixa de pedir biometria ao abrir':'Pede Face ID / digital toda vez que o app abre', faceIdOn()?"desativarFaceId()":"ativarFaceId()",'#7c5cff')}
+    ${hubItem('lock','🔐 Verificação em duas etapas','Código do autenticador além da senha',"abrir2FA()",'#1f9d6b')}
     ${hubItem('receipt','Política de Privacidade','Como tratamos seus dados (LGPD)',"window.open('privacidade.html','_blank')",'#2f8f66')}
   </div>`;
   html+=`<div style="margin-top:22px" class="note">Gestor Soluções · Financeiro · v${APP_VER}<br>Conta: ${esc(USER.email)}</div>`;

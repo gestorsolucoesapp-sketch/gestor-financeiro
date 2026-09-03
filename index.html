@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.85"; /* z4 */
+const APP_VER = "9.86"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6112,7 +6112,8 @@ async function renderRecebimentos(){
     </div>
     ${varAno!=null?`<div class="note" style="font-size:11.5px;margin-top:2px">${varAno>=0?'▲':'▼'} ${Math.abs(varAno).toFixed(0)}% em relação a ${anoAnt} (${brl(porAno[anoAnt])})</div>`:''}
     ${semMesAno>0?`<div class="note" style="font-size:11.5px;margin-top:4px">⚠️ ${brl(semMesAno)} sem mês — entra no total do ano, mas não aparece no gráfico mensal.</div>`:''}
-    ${porMes.some(v=>v>0)?`<div style="margin-top:8px">${recBarrasSVG(REC_MESES, porMes, -1)}</div>`:'<div class="note" style="margin-top:8px">Esse ano não tem detalhamento por mês.</div>'}
+    ${porMes.some(v=>v>0)?`<div style="margin-top:8px">${recBarrasSVG(REC_MESES, porMes, -1, 'recAbrirMes')}</div>
+      <div class="note" style="font-size:10.5px;margin-top:2px;text-align:center">Toque num mês pra ver os lançamentos.</div>`:'<div class="note" style="margin-top:8px">Esse ano não tem detalhamento por mês.</div>'}
   </div>`;
   // por fornecedor no ano
   if(fornOrd.length){
@@ -6144,6 +6145,34 @@ async function renderRecebimentos(){
   $('content').innerHTML=h;
 }
 function recSelAno(a){ window._recAno=Number(a); render(); }
+// lista os recebimentos de um mês do ano selecionado
+function recAbrirMes(mes){
+  const ano=window._recAno;
+  const rows=(window._recRows||[]).filter(r=>r.ano===ano && r.mes===mes)
+    .sort((a,b)=>Number(b.valor)-Number(a.valor));
+  const total=rows.reduce((a,r)=>a+Number(r.valor||0),0);
+  const nomeMes={JAN:'Janeiro',FEV:'Fevereiro',MAR:'Março',ABR:'Abril',MAI:'Maio',JUN:'Junho',
+    JUL:'Julho',AGO:'Agosto',SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'}[mes]||mes;
+  if(!rows.length){ toast('Sem lançamentos em '+nomeMes); return; }
+  let h=`<h2 style="margin:0 0 2px">${nomeMes} de ${ano}</h2>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+      <b style="font-size:24px;color:var(--green)">${brl(total)}</b>
+      <span class="note" style="font-size:12px">${rows.length} ${rows.length===1?'lançamento':'lançamentos'}</span>
+    </div>
+    <div style="max-height:56vh;overflow:auto">`;
+  rows.forEach(r=>{
+    const doApp=!!r.lancamento_id;
+    h+=`<div style="display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.fornecedor)}</div>
+        <div class="note" style="font-size:11px">${doApp?'🔄 veio do app':(r.obs?esc(r.obs):'da planilha')}</div>
+      </div>
+      <b style="font-variant-numeric:tabular-nums;font-size:14px">${brl(r.valor)}</b>
+    </div>`;
+  });
+  h+=`</div>`;
+  openSheet(h);
+}
 // ritmo = média dos últimos 3 anos JÁ ENCERRADOS (o ano corrente ainda está pela metade)
 function recRitmo3(porAno, anos){
   const anoAtual=new Date().getFullYear();

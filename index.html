@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.87"; /* z4 */
+const APP_VER = "9.88"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6085,14 +6085,15 @@ async function renderRecebimentos(){
   const varAno = anoAnt!=null && porAno[anoAnt]>0 ? (totalAno-porAno[anoAnt])/porAno[anoAnt]*100 : null;
   const anoAtual = new Date().getFullYear();
   const anosFech = anos.filter(a=>a<anoAtual);
-  const mediaAnos = anosFech.length? anosFech.reduce((a,x)=>a+porAno[x],0)/anosFech.length : (anos.length? anos.reduce((a,x)=>a+porAno[x],0)/anos.length : 0);
+  const anosMedia = anosFech.slice(-5);
+  const mediaAnos = anosMedia.length? anosMedia.reduce((a,x)=>a+porAno[x],0)/anosMedia.length : (anos.length? anos.reduce((a,x)=>a+porAno[x],0)/anos.length : 0);
 
   let h=volta;
   // resumo geral
   h+=`<div class="card" style="margin-bottom:12px">
     <div class="note" style="margin:0 0 2px">Recebido desde ${anos[0]||'—'}</div>
     <div style="font-weight:800;font-size:26px">${brl(total)}</div>
-    <div class="note" style="font-size:11.5px;margin-top:2px">${rows.length} lançamentos · média de ${brl(mediaAnos)} por ano fechado${semAno>0?` · ${brl(semAno)} sem ano definido`:''}</div>
+    <div class="note" style="font-size:11.5px;margin-top:2px">${rows.length} lançamentos · média de ${brl(mediaAnos)} nos últimos ${anosMedia.length} anos fechados${semAno>0?` · ${brl(semAno)} sem ano definido`:''}</div>
     ${(()=>{const doApp=rows.filter(r=>r.lancamento_id); if(!doApp.length) return '';
       return `<div class="note" style="font-size:11px;margin-top:6px;color:var(--mint)">🔄 ${doApp.length} ${doApp.length===1?'veio':'vieram'} do app automaticamente (${brl(doApp.reduce((a,r)=>a+Number(r.valor||0),0))})</div>`;})()}
   </div>`;
@@ -6103,7 +6104,16 @@ async function renderRecebimentos(){
     h+=`<div class="card" style="margin-bottom:12px">
       <h3 style="margin:0 0 6px;font-size:15px">Por ano</h3>
       ${recBarrasSVG(anos.map(String), vals, ano!=null?anos.indexOf(ano):-1, 'recSelAno', mediaAnos)}
-      <div class="note" style="font-size:10.5px;margin-top:4px">Toque numa barra pra ver o ano. A linha tracejada é a média dos anos fechados${anosFech.length?` (${anosFech.length} anos)`:''}.</div>
+      <div class="note" style="font-size:10.5px;margin-top:4px">Toque numa barra pra ver o ano. A linha tracejada é a média dos últimos ${anosMedia.length} anos fechados${anosMedia.length?` (${anosMedia[0]}–${anosMedia[anosMedia.length-1]})`:''}.</div>
+    </div>`;
+    const pr=anos[0], ul=anos[anos.length-1];
+    const cresc = porAno[pr]>0 ? (porAno[ul]-porAno[pr])/porAno[pr]*100 : null;
+    const iPico = anos.reduce((m,a)=>porAno[a]>porAno[m]?a:m, anos[0]);
+    h+=`<div class="card" style="margin-bottom:12px">
+      <h3 style="margin:0 0 2px;font-size:15px">Evolução desde ${pr}</h3>
+      <div class="note" style="font-size:11.5px;margin:0 0 6px">${cresc!=null?`${cresc>=0?'▲':'▼'} ${Math.abs(cresc).toFixed(0)}% de ${pr} para ${ul}`:''} · pico em ${iPico} (${brl(porAno[iPico])})</div>
+      ${recLinhaSVG(anos.map(String), vals, mediaAnos)}
+      <div class="note" style="font-size:10.5px;margin-top:4px">Cada ponto é um ano. A linha tracejada é a média dos últimos ${anosMedia.length} anos fechados.</div>
     </div>`;
   }
   // ano selecionado
@@ -6258,6 +6268,32 @@ function recCurto(v){
   if(!v) return '';
   if(v>=1000){ const k=v/1000; return (k>=100?Math.round(k):k.toFixed(1).replace('.',',')) + 'k'; }
   return Math.round(v);
+}
+function recLinhaSVG(labels, vals, media){
+  const W=380,H=190,padL=10,padR=10,padT=26,padB=26;
+  const plotW=W-padL-padR, plotH=H-padT-padB, base=padT+plotH;
+  const n=vals.length, max=Math.max(...vals,1);
+  const gx=i=> n<2? padL+plotW/2 : padL+i*(plotW/(n-1));
+  const gy=v=> base - v/max*plotH;
+  const pts=vals.map((v,i)=>`${gx(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  s+=`<polygon points="${gx(0).toFixed(1)},${base} ${pts} ${gx(n-1).toFixed(1)},${base}" fill="var(--green)" opacity=".14"/>`;
+  if(media>0){
+    const ym=base-Math.min(media,max)/max*plotH;
+    s+=`<line x1="${padL}" y1="${ym.toFixed(1)}" x2="${W-padR}" y2="${ym.toFixed(1)}" stroke="#e0a83d" stroke-width="1.2" stroke-dasharray="5 4"/>`;
+  }
+  s+=`<polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const iMax=vals.indexOf(max);
+  vals.forEach((v,i)=>{
+    const ult=i===n-1;
+    s+=`<circle cx="${gx(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="${(ult||i===iMax)?3.4:2.2}" fill="${ult?'var(--mint)':'var(--green)'}"><title>${labels[i]} · ${brl(v)}</title></circle>`;
+    if(i%2===0||ult) s+=`<text x="${gx(i).toFixed(1)}" y="${base+13}" text-anchor="middle" font-size="8" fill="var(--muted)">${labels[i].slice(-2)}</text>`;
+  });
+  [0,iMax,n-1].filter((v,i,a)=>a.indexOf(v)===i).forEach(i=>{
+    const anc = i===0?'start' : (i===n-1?'end':'middle');
+    s+=`<text x="${gx(i).toFixed(1)}" y="${(gy(vals[i])-8).toFixed(1)}" text-anchor="${anc}" font-size="8.5" font-weight="700" fill="${i===n-1?'var(--mint)':'var(--muted)'}">${recCurto(vals[i])}</text>`;
+  });
+  return s+`</svg>`;
 }
 function recBarrasSVG(labels, vals, idxSel, onTap, media){
   const W=380,H=178,padL=6,padR=6,padT=20,padB=24;

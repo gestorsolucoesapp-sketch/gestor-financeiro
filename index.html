@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.82"; /* z4 */
+const APP_VER = "9.83"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2591,6 +2591,7 @@ async function _tentarDeNovo(){
 async function loadAll(){
   if(_demoNovo) return; // no modo cliente novo, não recarrega dados reais
   try{ carregarSelic(); }catch(e){}
+  setTimeout(()=>{ try{ carregarCotacoesCripto(); }catch(e){} }, 400);
   setTimeout(()=>{ try{ reconciliarAcertos(); }catch(e){} }, 800);
   let c1,c2,c3,c4;
   try{
@@ -3144,6 +3145,10 @@ function taxaInvestMes(inv){
   return t;                                                        // t = % ao mês
 }
 function taxaInvestLabel(inv){
+  if(inv && inv.cripto){
+    const n=Object.keys(inv.cripto).length;
+    return window._cotaCripto ? `cotação de mercado · ${n} ${n===1?'moeda':'moedas'}` : 'cotação de mercado';
+  }
   const t=Number(inv.taxa_mensal)||0;
   const idx=inv.indexador||'mensal';
   if(idx==='cdi')   return t+'% do CDI';
@@ -3155,7 +3160,40 @@ function diasCorridosInvest(inv){
   const a=new Date(inv.data_aplicacao+'T00:00:00'), b=new Date();
   return Math.max(0,(b-a)/86400000);
 }
+// carteira de cripto: o valor vem da cotação de mercado, não de taxa fixa
+function valorCripto(inv){
+  const q=inv && inv.cripto; if(!q) return null;
+  const cot=window._cotaCripto; if(!cot) return null;
+  let s=0, achou=false;
+  for(const moeda in q){
+    const preco=cot[moeda]; if(preco==null) continue;
+    s += (Number(q[moeda])||0)*preco; achou=true;
+  }
+  return achou ? s : null;
+}
+async function carregarCotacoesCripto(){
+  try{
+    const ids=new Set();
+    (DATA.investimentos||[]).forEach(i=>{ if(i.cripto) Object.keys(i.cripto).forEach(m=>ids.add(m)); });
+    if(!ids.size) return;
+    const url='https://api.coingecko.com/api/v3/simple/price?ids='+[...ids].join(',')+'&vs_currencies=brl';
+    const r=await fetch(url);
+    if(!r.ok) return;
+    const j=await r.json();
+    const cot={};
+    for(const m in j){ if(j[m] && j[m].brl!=null) cot[m]=Number(j[m].brl); }
+    if(Object.keys(cot).length){
+      window._cotaCripto=cot;
+      window._cotaCriptoEm=new Date().toISOString();
+      try{ localStorage.setItem('gf_cota_cripto', JSON.stringify({cot, em:window._cotaCriptoEm})); }catch(e){}
+      if(tab==='investimentos') render();
+    }
+  }catch(e){ /* sem internet: usa a última cotação guardada */ }
+}
+(function(){ try{ const c=JSON.parse(localStorage.getItem('gf_cota_cripto')||'null');
+  if(c&&c.cot){ window._cotaCripto=c.cot; window._cotaCriptoEm=c.em; } }catch(e){} })();
 function valorAtualInvest(inv){
+  const vc=valorCripto(inv); if(vc!=null) return vc;
   const taxa=taxaInvestMes(inv);
   const aplic=Number(inv.valor_aplicado||0);
   if(!inv.data_aplicacao) return aplic;

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.81"; /* z4 */
+const APP_VER = "9.82"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5935,6 +5935,7 @@ async function renderRecebimentos(){
     const {data,error}=await sb.from('recebimentos').select('*');
     if(error){ $('content').innerHTML=volta+`<div class="card">Erro ao carregar: ${esc(error.message)}</div>`; return; }
     window._recRows=data||[];
+    try{ const m=await sb.from('rec_metas').select('*').order('valor'); window._recMetas=m.data||[]; }catch(e){ window._recMetas=[]; }
   }
   const rows=window._recRows;
   const anos=[...new Set(rows.map(r=>r.ano).filter(a=>a!=null))].sort((a,b)=>a-b);
@@ -5965,6 +5966,7 @@ async function renderRecebimentos(){
     ${(()=>{const doApp=rows.filter(r=>r.lancamento_id); if(!doApp.length) return '';
       return `<div class="note" style="font-size:11px;margin-top:6px;color:var(--mint)">🔄 ${doApp.length} ${doApp.length===1?'veio':'vieram'} do app automaticamente (${brl(doApp.reduce((a,r)=>a+Number(r.valor||0),0))})</div>`;})()}
   </div>`;
+  h+=recMetasHTML(total, porAno, anos);
   // grafico por ANO
   if(anos.length){
     const vals=anos.map(a=>porAno[a]);
@@ -6014,6 +6016,81 @@ async function renderRecebimentos(){
   $('content').innerHTML=h;
 }
 function recSelAno(a){ window._recAno=Number(a); render(); }
+// ritmo = média dos últimos 3 anos JÁ ENCERRADOS (o ano corrente ainda está pela metade)
+function recRitmo3(porAno, anos){
+  const anoAtual=new Date().getFullYear();
+  const fechados=anos.filter(a=>a<anoAtual).slice(-3);
+  if(!fechados.length) return {media:0, anos:[]};
+  return {media: fechados.reduce((s,a)=>s+porAno[a],0)/fechados.length, anos:fechados};
+}
+function recMetasHTML(total, porAno, anos){
+  const metas=(window._recMetas||[]).slice().sort((a,b)=>Number(a.valor)-Number(b.valor));
+  const r=recRitmo3(porAno,anos);
+  let h=`<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <h3 style="margin:0;font-size:15px">🎯 Metas</h3>
+      <button onclick="recNovaMeta()" style="background:var(--mint);color:#04231a;border:none;border-radius:9px;padding:6px 12px;font-weight:700;font-size:12.5px">+ Meta</button>
+    </div>`;
+  if(!metas.length){
+    h+=`<div class="note" style="font-size:12px;margin-top:8px">Nenhuma meta ainda. Defina um valor e eu calculo em quanto tempo você chega no ritmo atual.</div></div>`;
+    return h;
+  }
+  if(r.media>0) h+=`<div class="note" style="font-size:11px;margin-top:3px">Ritmo de ${brl(r.media)}/ano — média de ${r.anos.join(', ')}</div>`;
+  else h+=`<div class="note" style="font-size:11px;margin-top:3px">Sem ano encerrado suficiente pra calcular o ritmo.</div>`;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  metas.forEach(m=>{
+    const alvo=Number(m.valor)||0, pct=alvo>0?Math.min(100,total/alvo*100):0;
+    const falta=alvo-total;
+    const cor = falta<=0 ? '#1f9d6b' : (pct>=70?'#e0a020':'#3b6fd6');
+    h+=`<div style="margin-top:13px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:7px">
+        <b style="flex:1;font-size:13.5px">${esc(m.nome||('Meta '+brl(alvo)))}</b>
+        <b style="color:${cor};font-size:13.5px">${pct.toFixed(0)}%</b>
+        <span class="tap" onclick="recDelMeta('${m.id}')" style="color:var(--muted);font-size:16px;padding:0 2px">×</span>
+      </div>
+      <div style="height:10px;background:var(--line);border-radius:99px;margin-top:5px;overflow:hidden">
+        <div style="height:100%;width:${pct.toFixed(1)}%;background:${cor};border-radius:99px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px" class="note">
+        <span>${brl(total)}</span><span>${brl(alvo)}</span>
+      </div>`;
+    if(falta<=0){
+      h+=`<div style="margin-top:7px;font-size:12.5px;color:#1f9d6b;font-weight:700">✅ Meta batida — passou ${brl(-falta)}</div>`;
+    }else if(r.media>0){
+      const anosFalta=falta/r.media;
+      const dias=Math.ceil(anosFalta*365.25);
+      const alvoData=new Date(hoje.getTime()+dias*86400000);
+      const meses=Math.round(anosFalta*12);
+      h+=`<div style="background:var(--line);border-radius:11px;padding:10px 12px;margin-top:9px">
+        <div style="font-size:12.5px">Faltam <b>${brl(falta)}</b></div>
+        <div style="font-size:20px;font-weight:800;margin-top:3px">${dias.toLocaleString('pt-BR')} <span style="font-size:12.5px;font-weight:600;color:var(--muted)">dias</span></div>
+        <div class="note" style="font-size:11.5px;margin-top:2px">
+          ${anosFalta.toFixed(1).replace('.',',')} ${anosFalta<2?'ano':'anos'} · ${meses} ${meses===1?'mês':'meses'} · chega em <b>${alvoData.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</b>
+        </div>
+        <div class="note" style="font-size:10.5px;margin-top:5px">Projeção no ritmo de ${brl(r.media)} por ano. Se o ritmo mudar, a data muda junto.</div>
+      </div>`;
+    }
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+async function recNovaMeta(){
+  const s=prompt('Valor da meta (só números). Ex: 2000000');
+  if(s===null) return;
+  const v=Number(String(s).replace(/[^0-9,.-]/g,'').replace(/\./g,'').replace(',','.'));
+  if(!(v>0)){ toast('Valor inválido'); return; }
+  const nome=prompt('Nome da meta (opcional). Ex: Meta 2 milhões','')||null;
+  const {error}=await sb.from('rec_metas').insert({user_id:USER.id, nome:nome||null, valor:v});
+  if(error){ toast('Erro: '+error.message); return; }
+  window._recRows=null; vibra(); render(); toast('Meta criada ✅');
+}
+async function recDelMeta(id){
+  if(!confirm('Apagar essa meta?')) return;
+  const {error}=await sb.from('rec_metas').delete().eq('id',id);
+  if(error){ toast('Erro: '+error.message); return; }
+  window._recRows=null; render(); toast('Meta apagada');
+}
 // força releitura na próxima abertura da aba (chamado depois de salvar/excluir lançamento)
 function recInvalidar(){ window._recRows=null; }
 // barras simples com rótulo embaixo; idxSel destaca uma barra e onTap recebe o rótulo

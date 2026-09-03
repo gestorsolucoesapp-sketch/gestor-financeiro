@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.80"; /* z4 */
+const APP_VER = "9.81"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6017,8 +6017,14 @@ function recSelAno(a){ window._recAno=Number(a); render(); }
 // força releitura na próxima abertura da aba (chamado depois de salvar/excluir lançamento)
 function recInvalidar(){ window._recRows=null; }
 // barras simples com rótulo embaixo; idxSel destaca uma barra e onTap recebe o rótulo
+// rótulo curto pra caber em cima da barra: 96k, 144k, 8,4k
+function recCurto(v){
+  if(!v) return '';
+  if(v>=1000){ const k=v/1000; return (k>=100?Math.round(k):k.toFixed(1).replace('.',',')) + 'k'; }
+  return Math.round(v);
+}
 function recBarrasSVG(labels, vals, idxSel, onTap){
-  const W=380,H=170,padL=6,padR=6,padT=10,padB=24;
+  const W=380,H=178,padL=6,padR=6,padT=20,padB=24;
   const plotW=W-padL-padR, plotH=H-padT-padB, base=padT+plotH;
   const n=labels.length, passo=plotW/n, gap=Math.min(6,passo*0.3), bw=passo-gap;
   const max=Math.max(...vals,1);
@@ -6030,6 +6036,7 @@ function recBarrasSVG(labels, vals, idxSel, onTap){
     s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3"
       fill="${sel?'var(--mint)':'var(--green)'}" opacity="${sel?1:.55}"${onTap?` style="cursor:pointer" onclick="${onTap}('${labels[i]}')"`:''}><title>${labels[i]} · ${brl(v)}</title></rect>`;
     s+=`<text x="${(x+bw/2).toFixed(1)}" y="${base+13}" text-anchor="middle" font-size="8.5" fill="var(--muted)" ${sel?'font-weight="700"':''}>${labels[i].length>4?labels[i].slice(-2):labels[i]}</text>`;
+    if(v>0) s+=`<text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="${sel?'var(--mint)':'var(--muted)'}">${recCurto(v)}</text>`;
   });
   s+=`</svg>`;
   return s;

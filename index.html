@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.83"; /* z4 */
+const APP_VER = "9.84"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -8380,7 +8380,7 @@ function renderInvestimentos(){
     <div class="big">${brl(totalAtual)}</div>
     <div class="balrow">
       <div class="b"><div class="l">Aplicado</div><div class="v">${brl(totalAplic)}</div></div>
-      <div class="b"><div class="l">Rendimento</div><div class="v ${rend<0?'r':'g'}">${rend>=0?'+':''}${brl(rend)}</div></div>
+      <div class="b"><div class="l">Rendimento</div><div class="v ${rend<0?'r':'g'}">${rend>=0?'+':'−'}${brl(Math.abs(rend))}</div></div>
     </div>
     <div class="balrow"><div class="b" style="flex:1"><div class="l">Patrimônio (contas + investimentos)</div><div class="v">${brl(patr)}</div></div></div>
   </div>`;
@@ -8430,8 +8430,8 @@ function renderInvestimentos(){
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">
         <div class="dot" style="background:#e9f3f1">${ic}</div>
         <div class="mid"><div class="t">${esc(i.nome)} ${i.incluir_patrimonio===false?'<span class="pill neg">fora do patrimônio</span>':''}</div>
-          <div class="s">${tx>0?taxaInvestLabel(i)+' · ':''}${carenciaLabel(i)?`<span style="color:#e0a020">⏳ ${carenciaLabel(i)}</span>`:`rend ${r>=0?'+':''}${brl(r)}`}</div></div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">${spark}<div class="amt g">${brl(atual)}</div></div></div>`;
+          <div class="s">${(tx>0||i.cripto)?taxaInvestLabel(i)+' · ':''}${carenciaLabel(i)?`<span style="color:#e0a020">⏳ ${carenciaLabel(i)}</span>`:`<span style="color:${r<0?'var(--red)':'inherit'}">${r<0?'▼':'rend +'}${r<0?' ':''}${brl(Math.abs(r))}</span>`}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">${spark}<div class="amt ${r<0?'r':'g'}">${brl(atual)}</div></div></div>`;
     });
   }
   html+=`</div><button class="btn outline" onclick="openInvest()">+ Adicionar investimento</button>`;

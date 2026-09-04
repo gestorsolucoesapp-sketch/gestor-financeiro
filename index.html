@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.88"; /* z4 */
+const APP_VER = "9.89"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -2898,6 +2898,7 @@ function _doRender(){
   else if(tab==='config')renderConfig();
   else if(tab==='dash')renderDash();
   else if(tab==='recebimentos')renderRecebimentos();
+  else if(tab==='dividas')renderDividas();
   else if(tab==='relatorios')renderRelatorios();
   else if(tab==='diagnostico')renderDiagnostico();
   else if(tab==='planejamento')renderPlanejamento();
@@ -6001,6 +6002,7 @@ function renderConfig(){
     html+=`<div class="page-title" style="margin-top:20px">Administração</div><div class="card">
       ${hubItem('users','👑 Clientes do Gestor','Assinaturas, teste grátis e uso',"go('clientes')",'#e0a020')}
       ${hubItem('chart','💼 Controle de Recebimento','Comissões das representadas por ano e mês',"go('recebimentos')",'#1f9d6b')}
+      ${hubItem('alert','⚠️ Dívidas (Serasa)','Negativações, valores e quando cada uma caduca',"go('dividas')",'#d6473a')}
       ${hubItem('eye', _demoNovo?'👁️ Sair do modo cliente novo':'👁️ Ver como cliente novo', _demoNovo?'Voltar a ver seus dados reais':'Veja o app zerado, como um novo usuário enxerga',"toggleDemoNovo()",'#3b82f6')}
     </div>`;
   }
@@ -6053,6 +6055,101 @@ function renderConfig(){
 // ============ ADMIN: CLIENTES ============
 function fmtBrData(d){ if(!d) return '—'; try{ const dt=new Date((String(d).length<=10)?(d+'T00:00:00'):d); return dt.toLocaleDateString('pt-BR'); }catch(e){ return String(d); } }
 function fmtBrDataHora(d){ if(!d) return '—'; try{ const dt=new Date(d); const dia=dt.toLocaleDateString('pt-BR'); const hora=dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); return dia+' às '+hora; }catch(e){ return String(d); } }
+// ===================== DÍVIDAS / NEGATIVAÇÕES (só o admin) =====================
+// Regra: CDC art. 43 §1º + STJ (REsp 1.316.117/SC) — o registro negativo cai 5 anos
+// depois do DIA SEGUINTE ao vencimento da dívida, não da data em que foi inscrita.
+// Vale igual para Serasa, SPC e SCPC: a data que conta é a mesma, a do vencimento.
+function divSaida(venc){
+  const d=new Date(venc+'T12:00:00');
+  return new Date(d.getFullYear()+5, d.getMonth(), d.getDate()+1);
+}
+function divDias(dt){ return Math.ceil((dt - new Date())/86400000); }
+function divPrazoTxt(dias){
+  if(dias<=0) return 'já passou dos 5 anos';
+  if(dias<31) return `faltam ${dias} dia${dias>1?'s':''}`;
+  const m=Math.round(dias/30.4);
+  if(m<24) return `faltam ${m} mes${m>1?'es':''}`;
+  return `faltam ${(dias/365).toFixed(1).replace('.',',')} anos`;
+}
+function divFmt(dt){ return dt.toLocaleDateString('pt-BR'); }
+async function renderDividas(){
+  if(USER.id!==ADMIN_ID){ go('home'); return; }
+  const volta=`<div class="page-title" style="display:flex;align-items:center;gap:8px"><button class="backbt" onclick="go('config')">‹</button> ⚠️ Dívidas (Serasa)</div>`;
+  if(!window._divRows){
+    $('content').innerHTML=volta+`<div class="loading"><div class="spin"></div></div>`;
+    const {data,error}=await sb.from('dividas').select('*').order('vencimento');
+    if(error){ $('content').innerHTML=volta+`<div class="card">Erro ao carregar: ${esc(error.message)}</div>`; return; }
+    window._divRows=data||[];
+  }
+  const rows=(window._divRows||[]).map(r=>{
+    const saida=divSaida(r.vencimento), dias=divDias(saida);
+    return {...r, saida, dias, valor:Number(r.valor||0)};
+  }).sort((a,b)=>a.saida-b.saida);
+  const total=rows.reduce((a,r)=>a+r.valor,0);
+  const jaSaiu=rows.filter(r=>r.dias<=0);
+  const em12=rows.filter(r=>r.dias>0 && r.dias<=365);
+  const depois=rows.filter(r=>r.dias>365);
+  let h=volta;
+  h+=`<div class="card hero">
+    <div class="lab">Total negativado</div>
+    <div class="big">${brl(total)}</div>
+    <div class="balrow">
+      <div class="b"><div class="l">Registros</div><div class="v">${rows.length}</div></div>
+      <div class="b"><div class="l">Credores</div><div class="v">${new Set(rows.map(r=>r.empresa)).size}</div></div>
+    </div>
+    <div class="balrow">
+      <div class="b"><div class="l">Já passou dos 5 anos</div><div class="v g">${jaSaiu.length}</div></div>
+      <div class="b"><div class="l">Cai em até 12 meses</div><div class="v">${em12.length}</div></div>
+    </div>
+  </div>`;
+  // por ano de saída
+  const porAnoSaida={};
+  rows.forEach(r=>{ const a=r.saida.getFullYear(); if(!porAnoSaida[a]) porAnoSaida[a]={n:0,v:0}; porAnoSaida[a].n++; porAnoSaida[a].v+=r.valor; });
+  h+=`<div class="card"><h3 style="margin:0 0 8px;font-size:15px">Quando sai do cadastro</h3>`;
+  Object.keys(porAnoSaida).sort().forEach(a=>{
+    const o=porAnoSaida[a];
+    h+=`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line-2)">
+      <b style="font-size:14px">${a}</b>
+      <span class="note" style="font-size:11.5px">${o.n} registro${o.n>1?'s':''}</span>
+      <b style="font-size:14px">${brl(o.v)}</b>
+    </div>`;
+  });
+  h+=`<div class="note" style="font-size:11px;margin-top:8px">Conta 5 anos a partir do dia seguinte ao vencimento (CDC art. 43 §1º e STJ, REsp 1.316.117). Não é a data em que o banco te negativou.</div></div>`;
+  const linha=r=>{
+    const cor = r.dias<=0 ? '#2f8f66' : (r.dias<=365 ? '#e0a020' : 'var(--muted)');
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+        <b style="font-size:13.5px;line-height:1.25">${esc(r.empresa)}</b>
+        <b style="font-size:14px;white-space:nowrap">${brl(r.valor)}</b>
+      </div>
+      <div class="note" style="font-size:11.5px;margin-top:3px">
+        Venceu em ${divFmt(new Date(r.vencimento+'T12:00:00'))} · sai em <b style="color:${cor}">${divFmt(r.saida)}</b> (${divPrazoTxt(r.dias)})
+        ${r.contrato?`<br>Contrato ${esc(r.contrato)}`:''}
+      </div>
+    </div>`;
+  };
+  if(jaSaiu.length){
+    h+=`<div class="card"><h3 style="margin:0 0 4px;font-size:15px;color:#2f8f66">Já passou dos 5 anos (${jaSaiu.length})</h3>
+      <div class="note" style="font-size:11.5px;margin-bottom:4px">Se ainda aparecer no Serasa ou no SPC, dá pra pedir a baixa — a exclusão independe de pagamento.</div>
+      ${jaSaiu.map(linha).join('')}</div>`;
+  }
+  if(em12.length){
+    h+=`<div class="card"><h3 style="margin:0 0 6px;font-size:15px;color:#e0a020">Cai em até 12 meses (${em12.length})</h3>${em12.map(linha).join('')}</div>`;
+  }
+  if(depois.length){
+    h+=`<div class="card"><h3 style="margin:0 0 6px;font-size:15px">Mais longe (${depois.length})</h3>${depois.map(linha).join('')}</div>`;
+  }
+  h+=`<div class="card"><div class="note" style="font-size:11.5px;line-height:1.5">
+    <b>Como funciona a contagem</b><br>
+    · O prazo é de 5 anos contados do dia seguinte ao vencimento da dívida — não da data em que o nome foi inscrito.<br>
+    · Serasa, SPC e SCPC seguem a mesma data. Uma dívida registrada nos dois cai nos dois no mesmo prazo.<br>
+    · Se a dívida for vendida ou cedida a outra empresa, o prazo não reinicia: continua valendo o vencimento original.<br>
+    · Passados os 5 anos o cadastro deve ser retirado, tenha sido paga ou não (Súmula 323 do STJ).<br>
+    · Sair do cadastro não quer dizer que a dívida sumiu — ela ainda pode ser cobrada fora dos órgãos até prescrever.<br>
+    Isso é resumo da regra geral, não é orientação jurídica; num caso concreto vale falar com um advogado.
+  </div></div>`;
+  $('content').innerHTML=h;
+}
 // ===================== CONTROLE DE RECEBIMENTO (só o admin) =====================
 const REC_MESES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 async function renderRecebimentos(){

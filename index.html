@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.94"; /* z4 */
+const APP_VER = "9.95"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4156,7 +4156,7 @@ function renderHome(){
         fatU=` · <span style="color:#7c5cff;font-weight:600">fatura ${_d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}${_mesmo?'':'/'+String(_d.getFullYear()).slice(2)}</span>`;
       }catch(e){}
     }
-    const debU=(u.tipo==='despesa'&&!u.cartao_id&&u.conta_id)?` · <span style="color:#1f9d8a;font-weight:600">débito</span>`:'';
+    const debU=(u.tipo==='despesa'&&!u.cartao_id&&u.conta_id)?` · <span style="color:var(--red);font-weight:600">débito</span>`:'';
     html+=`<div class="card" style="margin-bottom:12px;padding:12px 14px;cursor:pointer" onclick="openLanc('${u.id}')">
       <div style="font-size:10px;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px">ÚLTIMA TRANSAÇÃO</div>
       <div class="lrow" style="padding:0;border:0">
@@ -5287,7 +5287,7 @@ function rowLanc(l){
     }
     // gasto que saiu da conta (não é cartão de crédito): deixa claro que foi no débito
     if(l.tipo==='despesa' && !l.cartao_id && l.conta_id){
-      sub+=` · <span style="color:#1f9d8a;font-weight:600">débito</span>`;
+      sub+=` · <span style="color:var(--red);font-weight:600">débito</span>`;
     }
   }
   const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});

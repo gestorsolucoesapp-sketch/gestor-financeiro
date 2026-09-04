@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.90"; /* z4 */
+const APP_VER = "9.91"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9043,6 +9043,24 @@ function _optsContas(sel){
   const cs=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada&&!c.eh_investimento);
   return `<option value="">— escolher conta —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>🏦 ${c.nome}</option>`).join('');
 }
+// destino do lançamento na prévia: cartão OU conta (débito) na mesma lista,
+// pra dar pra trocar de crédito para débito sem sair da tela
+function _optsDestino(x){
+  const cts=DATA.cartoes.filter(c=>c.user_id===USER.id&&!c.arquivado);
+  const cos=DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivada&&!c.eh_investimento);
+  const selC = x.viaCartao?x.cartao_id:null, selA = x.viaCartao?null:x.conta_id;
+  let h=`<option value="">— escolher cartão ou conta —</option>`;
+  if(cts.length) h+=`<optgroup label="Cartão de crédito">`+cts.map(c=>`<option value="c:${c.id}" ${selC===c.id?'selected':''}>💳 ${c.nome}</option>`).join('')+`</optgroup>`;
+  if(cos.length) h+=`<optgroup label="Débito / conta">`+cos.map(c=>`<option value="a:${c.id}" ${selA===c.id?'selected':''}>🏦 ${c.nome}</option>`).join('')+`</optgroup>`;
+  return h;
+}
+function impSetDestino(i,v){
+  const x=(window._impItens||[])[i]; if(!x) return;
+  if(!v){ x.cartao_id=null; x.conta_id=null; }
+  else if(v.slice(0,2)==='c:'){ x.viaCartao=true;  x.cartao_id=v.slice(2); x.conta_id=null; }
+  else                        { x.viaCartao=false; x.conta_id=v.slice(2);  x.cartao_id=null; }
+  renderPreviaImport();
+}
 function _optsCats(tipo,sel){
   const cs=DATA.categorias.filter(c=>c.user_id===USER.id&&(c.tipo===tipo||!c.tipo));
   return `<option value="">— sem categoria —</option>`+cs.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${(c.icone||'')} ${c.nome}</option>`).join('');
@@ -9073,15 +9091,12 @@ function renderPreviaImport(){
       ${x.naoCompra?`<div class="impWarn">🚫 Parece pagamento de fatura / estorno — não é compra</div>`:''}
       ${(x.viaCartao&&!x.cartao_id)?`<div class="impWarn">💳 Escolha o cartão abaixo (o banco veio sem os 4 dígitos)</div>`:''}
       ${(!x.viaCartao&&!x.conta_id)?`<div class="impWarn">🏦 Saiu da conta (não é cartão) — escolha a conta abaixo</div>`:''}
+      ${(x.viaCartao&&x.cartao_id)?`<div class="note" style="font-size:10.5px;margin:2px 0 0 30px">Foi como crédito. Se na verdade foi no débito, é só escolher a conta na lista abaixo.</div>`:''}
       <div class="impGrid">
         <div class="full"><input value="${String(x.desc).replace(/"/g,'&quot;')}" onchange="impSet(${i},'desc',this.value)" placeholder="Descrição"></div>
         <div><input type="date" value="${x.data}" onchange="impSet(${i},'data',this.value)"></div>
         <div><select onchange="impSet(${i},'categoria_id',this.value)">${_optsCats(x.tipo,x.categoria_id)}</select></div>
-        <div class="full">${
-          x.viaCartao
-          ? `<select ${x.cartao_id?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetCartao(${i},this.value,this)">${_optsCartoes(x.cartao_id)}</select>`
-          : `<select ${x.conta_id?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetConta(${i},this.value,this)">${_optsContas(x.conta_id)}</select>`
-        }</div>
+        <div class="full"><select ${(x.viaCartao?x.cartao_id:x.conta_id)?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetDestino(${i},this.value)">${_optsDestino(x)}</select></div>
       </div>
     </div>`;
   });

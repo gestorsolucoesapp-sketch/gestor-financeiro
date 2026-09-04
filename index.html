@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.97"; /* z4 */
+const APP_VER = "9.98"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7552,6 +7552,85 @@ function renderDash(){
   makeSortable('dashSortable','gf_order_dash');
   requestAnimationFrame(ativarRevelacao);
 }
+// ===== BALANÇO DIA A DIA (mês aberto + o próximo) =====
+// Mesma régua do balanço do mês: receitas − despesas, sem compra no cartão
+// (ela entra pela fatura) e sem quitação (pagamento de fatura / pagamento ao cônjuge).
+function balancoDiarioSerie(d){
+  const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
+  const nd=fim.getDate();
+  const dia=new Array(nd).fill(0);
+  for(const l of DATA.lancamentos){
+    if(l.tipo==='transferencia') continue;
+    if(l.cartao_id) continue;
+    if(!srcOk(l.user_id)) continue;
+    const ld=new Date((l.data||'')+'T00:00:00');
+    if(isNaN(ld)||ld<ini||ld>fim) continue;
+    const conta=contaById(l.conta_id);
+    if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+    else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
+    const v=Number(l.valor)||0, i=ld.getDate()-1;
+    if(l.tipo==='receita') dia[i]+=v;
+    else if(!ehLancQuitacao(l)) dia[i]-=v;
+  }
+  let acc=0;
+  return dia.map(v=>{ acc+=v; return acc; });
+}
+function balancoDiaChartHTML(){
+  const m1=firstOfMonth(viewMonth);
+  const m2=new Date(m1.getFullYear(), m1.getMonth()+1, 1);
+  const s1=balancoDiarioSerie(m1), s2=balancoDiarioSerie(m2);
+  const n1=s1.length, n2=s2.length, n=n1+n2;
+  const todos=s1.concat(s2);
+  if(!n || !todos.some(v=>v!==0)){
+    return `<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">Balanço dia a dia</h3>
+      <div class="empty"><div class="ico">${ICON('chart',30)}</div><p>Ainda não tem lançamento em ${mesNome(m1)} nem em ${mesNome(m2)}.</p></div></div>`;
+  }
+  const _kk=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
+  const W=340,H=190,padL=8,padR=8,padT=22,padB=30;
+  const plotW=W-padL-padR, plotH=H-padT-padB, base=padT+plotH;
+  let mx=Math.max(0,...todos), mn=Math.min(0,...todos);
+  if(mx===mn){ mx=mx+1; mn=mn-1; }
+  const gx=i=> padL + (n>1? i*(plotW/(n-1)) : plotW/2);
+  const gy=v=> base - (v-mn)/(mx-mn)*plotH;
+  const linha=(arr,off)=>arr.map((v,i)=>`${gx(i+off).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+  const COR1='#1f9d6b', COR2='#7c5cff';
+  let sv=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  // linha do zero
+  sv+=`<line x1="${padL}" y1="${gy(0).toFixed(1)}" x2="${W-padR}" y2="${gy(0).toFixed(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>`;
+  // divisória entre os dois meses
+  const xDiv=gx(n1-0.5);
+  sv+=`<line x1="${xDiv.toFixed(1)}" y1="${padT-4}" x2="${xDiv.toFixed(1)}" y2="${base+4}" stroke="var(--line-2)" stroke-width="1"/>`;
+  // hoje (só se o mês aberto é o de hoje)
+  const hj=new Date();
+  if(hj.getFullYear()===m1.getFullYear() && hj.getMonth()===m1.getMonth()){
+    const xh=gx(hj.getDate()-1);
+    sv+=`<line x1="${xh.toFixed(1)}" y1="${padT-4}" x2="${xh.toFixed(1)}" y2="${base}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3" opacity=".8"/>`;
+    sv+=`<text x="${Math.min(W-padR,xh+3).toFixed(1)}" y="${padT-8}" font-size="8" fill="var(--muted)" text-anchor="${xh>W*0.8?'end':'start'}">hoje</text>`;
+  }
+  sv+=`<polyline points="${linha(s1,0)}" fill="none" stroke="${COR1}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  sv+=`<polyline points="${linha(s2,n1)}" fill="none" stroke="${COR2}" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // pontos e rótulos de fechamento de cada mês
+  const f1=s1[n1-1], f2=s2[n2-1];
+  sv+=`<circle cx="${gx(n1-1).toFixed(1)}" cy="${gy(f1).toFixed(1)}" r="3" fill="${COR1}"/>`;
+  sv+=`<circle cx="${gx(n-1).toFixed(1)}" cy="${gy(f2).toFixed(1)}" r="3" fill="${COR2}"/>`;
+  sv+=`<text x="${gx(n1-1).toFixed(1)}" y="${(gy(f1)-7).toFixed(1)}" font-size="8.5" font-weight="700" fill="${COR1}" text-anchor="middle">${_kk(f1)}</text>`;
+  sv+=`<text x="${(W-padR)}" y="${(gy(f2)-7).toFixed(1)}" font-size="8.5" font-weight="700" fill="${COR2}" text-anchor="end">${_kk(f2)}</text>`;
+  // eixo x: dia 1, 10 e 20 de cada mês
+  [[0,'1'],[9,'10'],[19,'20']].forEach(([i,lab])=>{
+    if(i<n1) sv+=`<text x="${gx(i).toFixed(1)}" y="${base+12}" font-size="8" fill="var(--muted)" text-anchor="middle">${lab}</text>`;
+    if(i<n2) sv+=`<text x="${gx(n1+i).toFixed(1)}" y="${base+12}" font-size="8" fill="var(--muted)" text-anchor="middle">${lab}</text>`;
+  });
+  const mnome=d=>d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+  sv+=`<text x="${gx((n1-1)/2).toFixed(1)}" y="${base+24}" font-size="9" font-weight="700" fill="${COR1}" text-anchor="middle">${mnome(m1)}</text>`;
+  sv+=`<text x="${gx(n1+(n2-1)/2).toFixed(1)}" y="${base+24}" font-size="9" font-weight="700" fill="${COR2}" text-anchor="middle">${mnome(m2)}</text>`;
+  sv+=`</svg>`;
+  return `<div class="card" style="margin-bottom:0">
+    <h3 style="margin:0 0 2px;font-size:15px">Balanço dia a dia</h3>
+    <div class="note" style="font-size:11.5px;margin-bottom:6px">Fecha ${mesNome(m1)} em <b style="color:${f1<0?'var(--red)':'var(--green)'}">${brl(f1)}</b> e ${mesNome(m2)} em <b style="color:${f2<0?'var(--red)':'var(--green)'}">${brl(f2)}</b>.</div>
+    ${sv}
+    <div class="note" style="font-size:10.5px;margin-top:4px;line-height:1.45">Receitas menos despesas somadas dia a dia, começando do zero em cada mês. Compra no cartão não entra aqui (ela conta quando a fatura é paga), e pagamento de fatura também não, pra não contar duas vezes. De hoje pra frente é o que está lançado como previsto.</div>
+  </div>`;
+}
 function renderRelatorios(){
   let html=`<div class="subhead"><span onclick="go('home')">‹ Início</span><b>Relatórios</b><span></span></div>`;
   html+=monthNav('trans');
@@ -7618,7 +7697,8 @@ function renderRelatorios(){
   const comprasMe=comprasPorDiaCompra(viewMonth,USER.id);
   blocos.comprasdia=daybarChartHTML(comprasMe, `Compras por dia — Meus · ${mesNome(viewMonth)}`, 'Pelo dia REAL da compra (parcela entra no dia que comprou). Toque — mostra se foi parcelado.', USER.id, 'abrirDiaCompraDetalhe');
   // BARRAS gastos diários por parceiro (ex: só da Carol)
-  const defaultOrder=['diario','comprasdia'];
+  const defaultOrder=['balancodia','diario','comprasdia'];
+  blocos.balancodia=balancoDiaChartHTML();
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
     const key='diario_'+p.owner_id;
@@ -7672,7 +7752,7 @@ function renderRelatorios(){
     defaultOrder.push('anual_'+p.owner_id,'anualpct_'+p.owner_id);
   });
 
-  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos),{painel:'^',tendencia:'painel'});
+  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos),{painel:'^',tendencia:'painel',balancodia:'^'});
   html+=`<div id="relSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

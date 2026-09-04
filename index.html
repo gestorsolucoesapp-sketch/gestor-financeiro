@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.91"; /* z4 */
+const APP_VER = "9.92"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5537,7 +5537,8 @@ function renderFatura(){
     <div class="big" style="font-size:30px;font-weight:800;margin:6px 0;color:${_fpaga?'#fff':'#ff7a6b'}">${brl(tot)}</div>
     <div class="note" style="color:rgba(255,255,255,.7)">Vence dia ${c.dia_vencimento}</div></div>`;
   if(tot>0 && souDono(c.user_id)){
-    if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div></div>`;
+    if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div>
+      <button class="btn outline" style="margin-top:10px" onclick="desfazerPagFatura('${c.id}')">↩️ Desfazer pagamento</button></div>`;
     else html+=`<button class="btn" onclick="pagarFatura('${c.id}')" style="margin-bottom:12px">💳 Registrar pagamento da fatura</button>`;
   }
   if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="adiantarPagamento('${c.id}')" style="margin-bottom:12px">💰 Adiantar pagamento / liberar limite</button>`;
@@ -5600,6 +5601,34 @@ async function saveAjusteFatura(cartaoId){
   closeSheet();
   if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
   toast(r&&r.queued?'Fatura ajustada (offline) — sincroniza depois':'Fatura ajustada ✅'); renderFatura();
+}
+// tira a marca de PAGA apagando o lançamento de pagamento daquele mês.
+// Vale para qualquer usuário do app, na mesma regra de quem pode registrar o pagamento (o dono do cartão).
+async function desfazerPagFatura(cartaoId){
+  const c=cartaoById(cartaoId); if(!c) return;
+  if(!souDono(c.user_id)){ toast('Só o dono do cartão pode desfazer'); return; }
+  const m=firstOfMonth(faturaMonth).getMonth(), y=firstOfMonth(faturaMonth).getFullYear();
+  const alvo=(l)=>{
+    if(l.tipo!=='despesa'||l.cartao_id) return false;
+    const d=(l.descricao||'').toLowerCase();
+    if(!d.startsWith('pagamento fatura '+c.nome.toLowerCase())) return false;
+    const dt=new Date((l.data||'')+'T00:00:00');
+    return dt.getMonth()===m && dt.getFullYear()===y;
+  };
+  const todos=DATA.lancamentos.filter(alvo);
+  const normais=todos.filter(l=>(l.descricao||'').toLowerCase().indexOf('(adiantamento)')<0);
+  const lista = normais.length?normais:todos;
+  if(!lista.length){ toast('Não achei o lançamento do pagamento deste mês'); return; }
+  const soma=lista.reduce((a,l)=>a+(Number(l.valor)||0),0);
+  if(!confirm(`Desfazer o pagamento da fatura de ${mesNome(faturaMonth)}?\n\nIsso apaga ${lista.length} lançamento(s) de ${brl(soma)} da conta. O valor volta pro saldo e a fatura deixa de ficar como paga.`)) return;
+  const ids=lista.map(l=>l.id).filter(Boolean);
+  if(ids.length){
+    const {error}=await sb.from('lancamentos').delete().in('id',ids);
+    if(error){ toast('Erro: '+error.message); return; }
+  }
+  DATA.lancamentos=DATA.lancamentos.filter(l=>ids.indexOf(l.id)<0);
+  vibra(); toast('Pagamento desfeito ↩️');
+  render();
 }
 async function pagarFatura(cartaoId){
   const cs=DATA.contas.filter(c=>!c.arquivada && c.user_id===USER.id);

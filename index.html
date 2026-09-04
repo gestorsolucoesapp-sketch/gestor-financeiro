@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.89"; /* z4 */
+const APP_VER = "9.90"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -6821,7 +6821,7 @@ function orcBarrasSVG(itens){
   itens.forEach((it,i)=>{
     const y=padT+i*alturaLinha;
     const pct=it.limite>0?it.gasto/it.limite*100:0;
-    const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+    const cor=orcCor(pct);
     const wBar=Math.max(3, larg*(it.gasto/maxRef)*0.98);
     const xm=xMeta(it.limite);
     const falta=it.limite-it.gasto;
@@ -6928,7 +6928,7 @@ function abrirOrcamento(chave, ym){
     lista.sort((a,b)=>String(b.data).localeCompare(String(a.data)));
     const total=lista.reduce((a,l)=>a+((l.tipo==='receita'?-1:1)*(Number(l.valor)||0)),0);
     const lim=Number(o.limite)||0, pct=lim>0?total/lim*100:0;
-    const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+    const cor=orcCor(pct);
     // evolução de 6 meses do mesmo alvo (igual à tela de categoria)
     const vals=[], labs=[];
     for(let i=5;i>=0;i--){
@@ -7021,7 +7021,7 @@ function orcProximosHTML(d, meses){
       const gr=grupos.get(ch);
       const linhas=gr.meses.map(x=>{
         const pct=x.g/x.lim*100;
-        const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+        const cor=orcCor(pct);
         const falta=x.lim-x.g;
         const nomeM=x.m.toLocaleDateString('pt-BR',{month:'long'});
         return `<div class="tap" onclick="abrirOrcamento('${x.chave}','${x.ym}')" style="margin-top:9px">
@@ -7168,7 +7168,7 @@ function renderOrcAuto(){
       <div class="note" style="margin-bottom:8px">Passou de 80% do que você definiu para ${mesNome(viewMonth)}.</div>
       ${risco.map(l=>{
         const pct=l.gastoAtual/l.atual*100;
-        const cor=pct>=100?'#d6473a':(pct>=90?'#e8654e':'#e0a020');
+        const cor=orcCor(pct);
         return `<div style="margin-top:9px">
           <div style="display:flex;gap:7px;font-size:13px;align-items:center">
             <span>${l.ico}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.nome)}</span>
@@ -7416,7 +7416,7 @@ function renderDash(){
         const g=gastoOrc(o,viewMonth), lim=Number(o.limite)||0;
         const pct=lim>0?g/lim*100:0;
         const r=orcRotulo(o);
-        const _f=lim-g, _c=pct>=100?'#d6473a':(pct>=90?'#e8654e':(pct>=70?'#e0a020':'#1f9d6b'));
+        const _f=lim-g, _c=orcCor(pct);
         return `<div class="tap" onclick="abrirOrcamento('${orcChave(o)}')" style="flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;text-align:left;cursor:pointer">
           <div style="flex:0 0 104px">${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}</div>
           <div style="flex:1;min-width:0">
@@ -8173,9 +8173,9 @@ function barProg(g,lim,bg){
 const ORC_LARANJA=70, ORC_VERMELHO=90;
 function orcPct(g,lim){ return lim>0?(g/lim*100):0; }
 function orcCor(pct,hero){
-  if(pct>=ORC_VERMELHO) return hero?'#ff9b8a':'var(--red)';
-  if(pct>=ORC_LARANJA)  return hero?'#ffcf7a':'#e0a020';
-  return hero?'#a8f0c8':'var(--green)';
+  // regra do João: enquanto não bate a meta fica laranja; passou da meta, vermelho
+  if(pct>=100) return hero?'#ff9b8a':'var(--red)';
+  return hero?'#ffcf7a':'#e0a020';
 }
 // mensagem "quanto falta para o limite"
 function orcFaltaTxt(g,lim){

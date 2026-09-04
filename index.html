@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.96"; /* z4 */
+const APP_VER = "9.97"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4131,15 +4131,18 @@ function renderHome(){
   const _baseFP=_bP.rec-(_sdP.aPagar+_gcRestP+(_sdP.conjuge||0));
   const _balProx=_baseFP-descontarInvest(_sdP.invest,_baseFP);
   const _saldoProx=saldoProjetado(_prox);
-  // explica de onde sai o saldo previsto: fechamento do mês aberto + balanço do mês seguinte
+  // esquerda = o que sobra do mês aberto; direita = saldo previsto do mês seguinte.
+  // os dois somados com o balanço do próximo mês é de onde sai o previsto.
   const _hojeYM=(new Date()).getFullYear()*12+(new Date()).getMonth();
   const _viewYM=viewMonth.getFullYear()*12+viewMonth.getMonth();
-  const _fechAtual=balancoFechamento(viewMonth);
-  const _pmNota = _viewYM===_hojeYM
-    ? `Saldo previsto = o que deve sobrar no fim de ${mesNome(viewMonth)} (<b>${brl(_fechAtual)}</b>) mais o balanço de ${mesNome(_prox)} (<b>${brl(_balProx)}</b>).`
-    : `Saldo previsto = o que deve sobrar hoje, somando mês a mês até ${mesNome(_prox)}.`;
-  html+=`<div class="proxmes"><div class="pm-lbl">🔮 Próximo mês · ${mesNome(_prox)}</div><div class="pm-vals"><div class="pm-item"><span>Balanço</span><b style="color:${_balProx>=0?'var(--green)':'var(--red)'}">${brl(_balProx)}</b></div><div class="pm-item"><span>Saldo previsto</span><b style="color:${_saldoProx>=0?'var(--green)':'var(--red)'}">${brl(_saldoProx)}</b></div></div>
-    <div class="note" style="font-size:10.5px;line-height:1.45;margin-top:7px">${_pmNota}</div></div>`;
+  const _ehAtual=_viewYM===_hojeYM;
+  const _mn=(d)=>d.toLocaleDateString('pt-BR',{month:'long'});
+  const _esq=_ehAtual?balancoFechamento(viewMonth):saldoProjetado(viewMonth);
+  const _esqLab=_ehAtual?`Balanço de ${_mn(viewMonth)}`:`Sobra até ${_mn(viewMonth)}`;
+  html+=`<div class="proxmes"><div class="pm-lbl">🔮 Próximo mês · ${mesNome(_prox)}</div><div class="pm-vals">
+    <div class="pm-item"><span>${_esqLab}</span><b style="color:${_esq>=0?'var(--green)':'var(--red)'}">${brl(_esq)}</b></div>
+    <div class="pm-item"><span>Saldo previsto · ${_mn(_prox)}</span><b style="color:${_saldoProx>=0?'var(--green)':'var(--red)'}">${brl(_saldoProx)}</b></div></div>
+    <div class="note" style="font-size:10.5px;line-height:1.45;margin-top:7px">Saldo previsto = ${_esqLab.toLowerCase()} (<b>${brl(_esq)}</b>) mais o balanço de ${_mn(_prox)} (<b>${brl(_balProx)}</b>).</div></div>`;
   // última transação lançada (logo abaixo do mês)
   if(recents.length){
     const u=recents[0];

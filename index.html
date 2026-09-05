@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.00"; /* z4 */
+const APP_VER = "10.01"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4509,7 +4509,7 @@ function renderHome(){
             <div style="font-size:12.5px;font-weight:800;color:${_cor};font-variant-numeric:tabular-nums;white-space:nowrap;margin-bottom:1px">
               ${_emoji} ${orcFaltaTxt(_gas,_lim).replace(/ para o limite/,'').replace(/^./,m=>m.toUpperCase())}
             </div>
-            ${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%'})}
+            ${gaugeSVG(Math.min(100,_pct),{min:'0',max:(()=>{const a=Math.abs(_lim);return a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a);})(),valor:Math.round(_pct)+'%',orc:_pct})}
           </div>
         </div>
         ${(()=>{
@@ -7489,7 +7489,7 @@ function renderDash(){
         const r=orcRotulo(o);
         const _f=lim-g, _c=orcCor(pct);
         return `<div class="tap" onclick="abrirOrcamento('${orcChave(o)}')" style="flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;text-align:left;cursor:pointer">
-          <div style="flex:0 0 104px">${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%'})}</div>
+          <div style="flex:0 0 104px">${gaugeSVG(Math.min(100,pct),{min:'0',max:_kk(lim),valor:Math.round(pct)+'%',orc:pct})}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:16px;font-weight:800;color:${_c};font-variant-numeric:tabular-nums">${_f>=0?'falta '+brl(_f):'passou '+brl(-_f)}</div>
             <div class="note" style="font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ico} ${esc(r.nome.replace('Total de gastos do mês','Total').replace('Gastos no cartão','Cartão').replace('Contas do mês','Contas').replace('Despesas de ',''))}</div>
@@ -7883,8 +7883,12 @@ function gaugeSVG(pct, opts){
   // padrão (gastos): verde à esquerda → vermelho à direita
   // inverte:true (saldo, fluxo — quanto mais, melhor): vermelho à esquerda → verde à direita
   // mesmos limiares que o app usa nos alertas: até 70% tranquilo, 70–90 atenção, 90+ perigo
-  const Z = opts.inverte ? [[0,30,'#e05545'],[30,50,'#f0a532'],[50,100,'#38b06f']]
-                         : [[0,70,'#38b06f'],[70,90,'#f0a532'],[90,100,'#e05545']];
+  // opts.orc = % real do orçamento: aí o arco inteiro segue a regra do João
+  // (laranja enquanto não bate a meta, vermelho quando passa), pra agulha não
+  // cair num trecho vermelho enquanto o resto do card está laranja.
+  const Z = (opts.orc!=null) ? [[0,100,orcCor(opts.orc)]]
+          : (opts.inverte ? [[0,30,'#e05545'],[30,50,'#f0a532'],[50,100,'#38b06f']]
+                          : [[0,70,'#38b06f'],[70,90,'#f0a532'],[90,100,'#e05545']]);
   const ang=-90+180*p/100;
   const H2=H+(opts.min!=null||opts.max!=null?11:0);
   const lim = (opts.min!=null||opts.max!=null)

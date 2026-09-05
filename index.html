@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.02"; /* z4 */
+const APP_VER = "10.03"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7873,7 +7873,11 @@ function sparkSVG(vals, cor, w, hh){
 function gaugeSVG(pct, opts){
   opts=opts||{};
   const W=118, H=74, cx=W/2, cy=64, r=44;
-  const p=(opts.orc!=null) ? Math.max(0,Math.min(100,opts.orc/1.25)) : Math.max(0,Math.min(100,pct));
+  // orçamento: quem não passou da meta fica SEMPRE dentro do laranja (para em 78,
+  // antes do vermelho que começa em 80); quem passou entra no vermelho a partir de 82.
+  const p=(opts.orc!=null)
+    ? (opts.orc<100 ? Math.max(0,opts.orc/100*78) : Math.min(100, 82+(opts.orc-100)/25*18))
+    : Math.max(0,Math.min(100,pct));
   const arco=(a0,a1,cor)=>{
     const A0=Math.PI*(1-a0/100), A1=Math.PI*(1-a1/100);
     const x0=cx+r*Math.cos(A0), y0=cy-r*Math.sin(A0);
@@ -7903,14 +7907,14 @@ function gaugeSVG(pct, opts){
     ${Z.map(z=>arco(z[0],z[1],z[2])).join('')}
     ${lim}
     <g transform="rotate(${ang.toFixed(1)} ${cx} ${cy})">
-      <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round">
+      <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r+13}" stroke="${opts.orc!=null?orcCor(opts.orc):'var(--ink)'}" stroke-width="3.4" stroke-linecap="round">
         <animateTransform attributeName="transform" type="rotate"
           values="${(-90-ang).toFixed(1)} ${cx} ${cy}; ${(Math.min(6,Math.abs(ang+90)*0.06)).toFixed(1)} ${cx} ${cy}; 0 ${cx} ${cy}"
           keyTimes="0;0.78;1" dur="3.1s" begin="0.5s" fill="freeze"
           calcMode="spline" keySplines="0.16 0.7 0.2 1; 0.4 0 0.3 1"/>
       </line>
     </g>
-    <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
+    <circle cx="${cx}" cy="${cy}" r="5" fill="${opts.orc!=null?orcCor(opts.orc):'var(--ink)'}"></circle>
     ${noPonteiro}
   </svg>`;
 }

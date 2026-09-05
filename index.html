@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "9.99"; /* z4 */
+const APP_VER = "10.00"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5384,19 +5384,31 @@ function faturaPagaInfo(cartaoId, mes){
   return {paga, dataPg};
 }
 function faturaPaga(cartaoId, mes){ return faturaPagaInfo(cartaoId,mes).paga; }
-// final do cartão: vem do mapa que o importador já usa (final -> id do cartão)
-function finalDoCartao(cid){
-  if(!cid) return '';
-  try{ const m=mapFinal(); for(const k in m){ if(m[k]===cid) return k; } }catch(e){}
-  return '';
+// finais do cartão: vêm do mapa que o importador já usa (final -> id do cartão).
+// Um cartão pode ter vários finais (adicional, virtual, cartão trocado).
+function finaisDoCartao(cid){
+  if(!cid) return [];
+  const out=[];
+  try{ const m=mapFinal(); for(const k in m){ if(m[k]===cid) out.push(k); } }catch(e){}
+  return out.sort();
 }
-function setFinalCartao(cid,f){
+function setFinaisCartao(cid,arr){
   try{
     const m=mapFinal();
-    for(const k in m){ if(m[k]===cid) delete m[k]; }   // tira o antigo
-    if(f) m[f]=cid;
+    for(const k in m){ if(m[k]===cid) delete m[k]; }   // limpa os antigos desse cartão
+    (arr||[]).forEach(f=>{ if(f) m[f]=cid; });
     localStorage.setItem(MAPFINAL_KEY,JSON.stringify(m));
   }catch(e){}
+}
+function _finalRowHTML(v){
+  return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <input class="kFin" inputmode="numeric" maxlength="4" value="${esc(v||'')}" placeholder="4 últimos números" style="flex:1">
+    <button class="btn ghost" style="width:auto;padding:8px 12px;margin:0" onclick="this.parentNode.remove()">✕</button></div>`;
+}
+function addFinalRow(){
+  const c=$('kFinais'); if(!c) return;
+  c.insertAdjacentHTML('beforeend', _finalRowHTML(''));
+  const ins=c.querySelectorAll('.kFin'); const last=ins[ins.length-1]; if(last) last.focus();
 }
 function cardCartaoHTML(c){
   const fat=faturaTotal(c.id,faturaMonth);
@@ -5404,7 +5416,7 @@ function cardCartaoHTML(c){
   const paga=pi.paga;
   return `<div class="card" onclick="abrirFatura('${c.id}')" style="cursor:pointer;${paga?'border:1px solid #2fbf83':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)}${(()=>{const f=finalDoCartao(c.id);return f?` <span class="pill" style="background:${tintBg('#7c5cff')};color:#7c5cff;letter-spacing:.4px">•• ${esc(f)}</span>`:'';})()} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${paga?` <span class="pill" style="background:rgba(47,191,131,.2);color:#2fbf83">✓ PAGA</span>`:''}${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
+        <div><div style="font-weight:700;font-size:16px">${esc(c.nome)}${finaisDoCartao(c.id).map(f=>` <span class="pill" style="background:${tintBg('#7c5cff')};color:#7c5cff;letter-spacing:.4px">•• ${esc(f)}</span>`).join('')} <span class="pill ${c.tipo==='negocio'?'peso':'neg'}">${c.tipo}</span>${paga?` <span class="pill" style="background:rgba(47,191,131,.2);color:#2fbf83">✓ PAGA</span>`:''}${c.incluir_principal===false&&c.titular?` <span class="pill neg">${esc(c.titular)}</span>`:''}</div>
         <div class="note" style="margin-top:2px">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}${paga?'':` · <b style="color:${diasParaVencCartao(c)<=3?'var(--coral)':'var(--mint)'}">${(()=>{const d=diasParaVencCartao(c);return d===0?'vence hoje':d===1?'vence amanhã':'vence em '+d+'d';})()}</b>`}</div></div>
         <div class="dot" style="${c.logo_url?`background:#fff;background-image:url(&quot;${c.logo_url}&quot;);background-size:cover;background-position:center;border:1px solid rgba(128,128,128,.35)`:`background:${tintBg('#7c5cff')};color:#7c5cff`}">${c.logo_url?'':ICON('card',20)}</div>
       </div>
@@ -11419,8 +11431,10 @@ function openCartao(id){
       <button id="kTipoN" class="${tipo==='negocio'?'on':''}" onclick="window._cartaoTipo='negocio';$('kTipoN').classList.add('on');$('kTipoP').classList.remove('on')">Negócio</button>
     </div></div>
     <div class="field"><label>Limite (R$)</label><input id="kLimite" type="number" inputmode="decimal" step="0.01" value="${e.limite||''}" placeholder="0,00"></div>
-    <div class="field"><label>Final do cartão</label><input id="kFinal" inputmode="numeric" maxlength="4" value="${esc(id?finalDoCartao(id):'')}" placeholder="4 últimos números">
-      <div class="note" style="font-size:10.5px;margin-top:3px">Aparece na lista de cartões e ajuda o importador a reconhecer a compra sozinho.</div></div>
+    <div class="field"><label>Final do cartão</label>
+      <div id="kFinais">${(()=>{const fs=id?finaisDoCartao(id):[]; return (fs.length?fs:['']).map(f=>_finalRowHTML(f)).join('');})()}</div>
+      <button class="btn outline" style="margin:2px 0 0" onclick="addFinalRow()">+ Adicionar outro final</button>
+      <div class="note" style="font-size:10.5px;margin-top:5px">Aparece na lista de cartões e ajuda o importador a reconhecer a compra sozinho. Se o cartão tem adicional ou virtual, põe um final em cada linha.</div></div>
     <div class="row2">
       <div class="field"><label>Dia de fechamento</label><input id="kFecha" type="number" min="1" max="31" value="${e.dia_fechamento||''}" placeholder=""></div>
       <div class="field"><label>Dia de vencimento</label><input id="kVence" type="number" min="1" max="31" value="${e.dia_vencimento||''}" placeholder=""></div>
@@ -11448,9 +11462,10 @@ async function saveCartao(id){
   const r = id ? await dbUpdate('cartoes',row,'id',id) : await dbInsert('cartoes',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   try{
-    const _fin=(($('kFinal')&&$('kFinal').value)||'').replace(/\D/g,'').slice(-4);
+    const _fins=Array.prototype.slice.call(document.querySelectorAll('#kFinais .kFin'))
+      .map(i=>(i.value||'').replace(/\D/g,'').slice(-4)).filter(v=>v.length===4);
     const _cid = id || ((r.rows&&r.rows[0])?r.rows[0].id:null);
-    if(_cid) setFinalCartao(_cid,_fin);
+    if(_cid) setFinaisCartao(_cid, Array.from(new Set(_fins)));
   }catch(e){}
   try{
     if(id){ const i=DATA.cartoes.findIndex(c=>c.id===id); if(i>-1) DATA.cartoes[i]=Object.assign({},DATA.cartoes[i],row); }

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.11"; /* z4 */
+const APP_VER = "10.12"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4067,7 +4067,12 @@ function saidasMes(d){
     for(const l of DATA.lancamentos){
       if(l.user_id!==USER.id) continue;
       if(l.tipo!=='transferencia') continue;
-      const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
+      // se o pagamento foi marcado como "referente a" um mês, ele abate NAQUELE mês
+      if(l.competencia){
+        if(ymd(firstOfMonth(new Date(l.competencia+'T00:00:00'))).slice(0,7)!==ymd(ini).slice(0,7)) continue;
+      }else{
+        const ld=new Date(l.data+'T00:00:00'); if(ld<ini||ld>fim) continue;
+      }
       const dest=contaById(l.conta_destino_id);
       if(dest && partnerIds.includes(dest.user_id)) pagoConj += Number(l.valor)||0;
     }
@@ -5335,6 +5340,9 @@ function rowLanc(l){
     // gasto que saiu da conta (não é cartão de crédito): deixa claro que foi no débito
     if(l.tipo==='despesa' && !l.cartao_id && l.conta_id){
       sub+=` · <span style="color:var(--red);font-weight:600">débito</span>`;
+    }
+    if(l.tipo==='transferencia' && l.competencia){
+      try{ sub+=` · <span style="color:var(--mint);font-weight:600">ref. ${new Date(l.competencia+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</span>`; }catch(e){}
     }
   }
   const dt=new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
@@ -10514,7 +10522,19 @@ function renderLancDynamic(e){
         </select></div>` : '';
     h+=`<div class="field"><label>De (origem)</label><select id="lContaOrig">${e.conta_id?'':'<option value="">Selecione a conta…</option>'}${contas.map(c=>`<option value="${c.id}" ${e.conta_id===c.id?'selected':''}>🏦 ${esc(c.nome)}</option>`).join('')}</select></div>
       ${ownerSel}
-      <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>`;
+      <div class="field"><label>Para (destino)</label><select id="lContaDest"></select></div>
+      <div class="field hidden" id="lRefWrap"><label>Referente a</label>
+        <select id="lRefMes">${(()=>{
+          const hj=firstOfMonth(new Date());
+          const atual=e.competencia?ymd(firstOfMonth(new Date(e.competencia+'T00:00:00'))):'';
+          let o=`<option value="">Mês da transferência (padrão)</option>`;
+          for(let i=1;i<=6;i++){
+            const m=new Date(hj.getFullYear(), hj.getMonth()-i, 1), v=ymd(m);
+            o+=`<option value="${v}" ${atual===v?'selected':''}>${mesNome(m)}</option>`;
+          }
+          return o;
+        })()}</select>
+        <div class="note" style="font-size:10.5px;margin-top:3px">Pagando algo que ficou de um mês passado? Marca o mês aqui: abate lá e não maquia o mês atual.</div></div>`;
     $('lancStatusWrap')&&$('lancStatusWrap').classList.remove('hidden');
   } else {
     // define o meio ANTES de montar (sem sugestão)
@@ -10556,6 +10576,7 @@ function updateDestContas(e){
   const list=DATA.contas.filter(c=>!c.arquivada && c.user_id===ownerId);
   const ph = (e&&e.conta_destino_id) ? '' : `<option value="">Selecione a conta…</option>`;
   sel.innerHTML = list.length ? (ph+list.map(c=>`<option value="${c.id}" ${e&&e.conta_destino_id===c.id?'selected':''}>🏦 ${esc(c.nome)}</option>`).join('')) : `<option value="">(sem contas)</option>`;
+  const w=$('lRefWrap'); if(w) w.classList.toggle('hidden', ownerId===USER.id);
 }
 function setMeio(m){window._meio=m;['Debito','Conta','Cartao','Recebido','Areceber'].forEach(x=>{const b=document.getElementById('meio'+x); if(b) b.classList.toggle('on', m===x.toLowerCase());});renderMeio(window._lancEdit||{});}
 function renderMeio(e){
@@ -10937,7 +10958,17 @@ async function saveLanc(id){
       if(!navigator.onLine){ toast('Transferência para parceiro precisa de internet.'); return; }
       const {error}=await sb.rpc('transferir_parceiro',{p_conta_origem:o,p_owner_destino:destOwner,p_conta_destino:d,p_valor:valor,p_descricao:desc,p_data:data});
       if(error){toast('Erro: '+error.message);return;}
-      closeSheet(); await loadAll(); toast('Transferência enviada ✅'); render(); return;
+      closeSheet(); await loadAll();
+      // "referente a": marca o mês que este pagamento quita, pra abater lá e não no mês atual
+      const _ref=($('lRefMes')&&$('lRefMes').value)||'';
+      if(_ref){
+        const alvo=DATA.lancamentos
+          .filter(l=>l.user_id===USER.id && l.tipo==='transferencia' && l.conta_destino_id===d
+                     && String(l.data)===String(data) && Math.abs(Number(l.valor)-valor)<0.005)
+          .sort((a,b)=>String(b.criado_em||'').localeCompare(String(a.criado_em||'')))[0];
+        if(alvo){ const r2=await dbUpdate('lancamentos',{competencia:_ref},'id',alvo.id); if(!(r2&&r2.error)) alvo.competencia=_ref; }
+      }
+      toast('Transferência enviada ✅'); render(); return;
     }
     if(o===d){toast('Origem e destino devem ser diferentes');return;}
     const row={user_id:USER.id,tipo:'transferencia',descricao:desc,valor,data,status:window._lancStatus||'pago',conta_id:o,conta_destino_id:d};

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.07"; /* z4 */
+const APP_VER = "10.08"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4040,6 +4040,9 @@ function renderHome(){
   // Balanço [def. João]: recursos (saldo + a receber) − o que ainda vai sair (a pagar + cartão restante + aporte de investimento AINDA VIRTUAL + falta do cônjuge).
   // Aporte já efetivado não desconta de novo (o saldo já caiu). Mês futuro = resultado do mês.
   let balCard, _invNota='';
+  // balPatr = base do card Patrimônio. Em mês fechado ele NÃO é o resultado do mês:
+  // patrimônio é foto do momento (o que existe hoje), não o que sobrou naquele mês.
+  let balPatr;
   const _apProj=aporteProjetadoMes(viewMonth);
   // se a projeção de aportes está configurada, é ela que manda no aporte do mês
   const _invMes = _apProj>0 ? _apProj : (_futuro?sd.invest:sd.invPend);
@@ -4048,17 +4051,21 @@ function renderHome(){
     const invC=descontarInvest(_invMes,baseF);
     balCard=baseF-invC;
     if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`Na previsão entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+    balPatr=balCard;
   }else if(_passado){
     // Mês JÁ FECHADO: o balanço é o resultado do próprio mês (receitas − gastos do mês).
     // Não usa o saldo em contas de hoje, que é de outro momento e não tem nada a ver
     // com o que sobrou naquele mês.
     balCard=b.rec-totalGastos;
     _invNota=`Mês fechado: receitas de ${mesNome(viewMonth)} menos os gastos do próprio mês.`;
+    const _baseP=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+    balPatr=_baseP-descontarInvest(_invMes,_baseP);
   }else{
     const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
     const invC=descontarInvest(_invMes,base);
     balCard=base-invC;
     if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`No balanço entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+    balPatr=balCard;
   }
   if(_apProj>0 && !_invNota){
     const _vm=firstOfMonth(viewMonth);
@@ -4552,7 +4559,8 @@ function renderHome(){
     ${(()=>{
       const _inv=totalInvestidoContas()+investimentosScope().reduce((a,i)=>a+valorAtualInvest(i),0);
       if(!(_inv>0)) return '';
-      const _livre = balCard>0 ? (balCard+_inv) : balCard;   // sem sobra no mês, o investido não conta como livre
+      const _bp = (typeof balPatr==='number') ? balPatr : balCard;
+      const _livre = _bp>0 ? (_bp+_inv) : _bp;   // sem sobra no mês, o investido não conta como livre
       // projeção de 6 anos partindo do que já está investido, seguindo a escada de aportes
       let _proj6='';
       try{

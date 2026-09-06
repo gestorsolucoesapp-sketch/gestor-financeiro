@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.10"; /* z4 */
+const APP_VER = "10.11"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1270,6 +1270,20 @@ function verAtrasados(){
       ${at.rec?`<div class="srow tot"><span>Falta receber</span><b style="color:var(--green)">${brl(at.rec)}</b></div>`:''}`;
   }
   openSheet(h);
+}
+// O que ficou faltando pagar ao cônjuge nos meses ANTERIORES a d (olha 12 meses pra trás).
+// Não muda o resultado daqueles meses — serve pra não esquecer o que ainda deve.
+function faltaConjugeAnterior(d){
+  if(!MYPARTNERS.length) return {total:0, meses:[]};
+  const base=firstOfMonth(d);
+  let total=0; const meses=[];
+  for(let i=12;i>=1;i--){
+    const m=new Date(base.getFullYear(), base.getMonth()-i, 1);
+    const sd=saidasMes(m);
+    const f=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
+    if(f>0.005){ total+=f; meses.push({m, f}); }
+  }
+  return {total, meses};
 }
 function balancoFechamento(d){
   const tot=saldoTotal();
@@ -4600,13 +4614,19 @@ function renderHome(){
         const nome=MYPARTNERS.length===1?esc(MYPARTNERS[0].apelido):'cônjuge';
         const pago=sd.pagoConjuge||0;
         const falta=Math.max(0,(sd.conjuge||0)-pago);
+        const _ant=faltaConjugeAnterior(viewMonth);
+        const _antTxt=_ant.total>0.005
+          ? `<div class="note" style="font-size:11px;margin-top:3px;color:var(--red)">⚠️ ficou ${brl(_ant.total)} de ${_ant.meses.map(x=>x.m.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')).join(' + ')} sem pagar</div>`
+          : '';
         if(pago>0){
           return `<div class="srow tap" onclick="verParceiroLancs()" style="align-items:flex-start">
-            <div style="display:flex;flex-direction:column;gap:2px"><span>Despesas de ${nome}</span><span class="note">pago ${brl(pago)} de ${brl(sd.conjuge)}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span>Despesas de ${nome}</span><span class="note">pago ${brl(pago)} de ${brl(sd.conjuge)}</span>${_antTxt}</div>
             <div style="text-align:right"><b>${brl(sd.conjuge)}</b><div class="note">falta <b style="color:var(--coral)">${brl(falta)}</b></div></div>
           </div>`;
         }
-        return `<div class="srow tap" onclick="verParceiroLancs()"><span>Despesas de ${nome}</span><b>${brl(sd.conjuge)}</b></div>`;
+        return `<div class="srow tap" onclick="verParceiroLancs()" style="align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:2px"><span>Despesas de ${nome}</span>${_antTxt}</div>
+          <b>${brl(sd.conjuge)}</b></div>`;
       })():''}
       ${(_atras.nD||_atras.nR)?`<div class="srow tap" onclick="verAtrasados()" style="align-items:flex-start">
         <div style="display:flex;flex-direction:column;gap:2px"><span>⚠️ Vindos de meses anteriores</span>

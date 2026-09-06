@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.03"; /* z4 */
+const APP_VER = "10.04"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9136,6 +9136,38 @@ function parseNotifBanco(txt){
       cartao_id: cartaoSug,
       conta_id: (DATA.contas.filter(c=>c.user_id===USER.id&&!c.arquivado)[0]||{}).id||'',
       categoria_id: ''
+    });
+  });
+  // 2a passada: notificacao curta, sem verbo nenhum, com o valor numa linha so
+  // (ex.: Sicoob -> "Vap Gas Auto Posto" -> "R$ 200,00"). Pega o nome da loja logo acima.
+  const RE_SOVALOR=/^\s*R\$\s*[\d.]{1,15},\d{2}\s*$/i;
+  const RE_NAOCOMPRA=/saldo|limite|dispon[íi]vel|rendiment|rendeu|extrato|d[íi]vida|pontos|cashback|fatura|juros/i;
+  brutos.forEach((seg,i)=>{
+    if(!RE_SOVALOR.test(seg)) return;
+    const mv=seg.match(RE_VAL); if(!mv) return;
+    const valor=_num(mv[1]); if(!(valor>0)) return;
+    let desc='';
+    for(let k=i-1;k>=Math.max(0,i-2);k--){
+      const c=(brutos[k]||'').trim();
+      if(!c || RE_VAL.test(c)) continue;
+      if(!/[A-Za-zÀ-ú]{3}/.test(c)) continue;
+      if(c.length>60) continue;
+      if(RE_PROMO.test(c)||RE_NAOCOMPRA.test(c)) continue;
+      if(/^(agora|h[áa]\s|ontem|hoje|\d{1,2}:\d{2})/i.test(c)) continue;
+      desc=c; break;
+    }
+    if(!desc) return;
+    const data=ymd(new Date());
+    const d2=_limparNomeLoja(_capWords(desc));
+    if(itens.some(x=>Math.abs(x.valor-valor)<0.005 && x.data===data)) return;
+    const chave=`d|${valor.toFixed(2)}|${data}|${d2}`;
+    if(vistos.has(chave)) return; vistos.add(chave);
+    const dup=DATA.lancamentos.some(l=>
+      l.tipo==='despesa' && Math.abs(Number(l.valor)-valor)<0.005 && String(l.data)===data);
+    itens.push({
+      tipo:'despesa', viaCartao:false, finalCart:null,
+      desc:d2, valor, data, dup, incluir:!dup,
+      cartao_id:'', conta_id:'', categoria_id:''
     });
   });
   return itens;

@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.08"; /* z4 */
+const APP_VER = "10.09"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1221,6 +1221,56 @@ function saldoConta(contaId){
 }
 function saldoTotal(){return contasPrincipais().reduce((a,c)=>a+saldoConta(c.id),0);}
 // Balanço de fechamento de um mês: saldo + receitas a receber - (contas a pagar + cartão restante + cônjuge a pagar)
+// Pendências que ficaram de meses ANTERIORES ao mês d.
+// Regra: elas não mudam o resultado do mês em que nasceram (competência),
+// mas o dinheiro ainda vai entrar/sair, então contam no CAIXA daqui pra frente.
+function atrasadosAntes(d){
+  const ini=firstOfMonth(d);
+  let desp=0, rec=0, nD=0, nR=0;
+  for(const l of DATA.lancamentos){
+    if(l.cartao_id || l.tipo==='transferencia') continue;   // cartão entra pela fatura
+    if(l.status==='pago') continue;
+    if(!srcOk(l.user_id)) continue;
+    const ld=new Date((l.data||'')+'T00:00:00');
+    if(isNaN(ld) || !(ld<ini)) continue;
+    const _d=(l.descricao||'').toLowerCase();
+    if(_d.startsWith('pagamento fatura') || _d.startsWith('pagamento a ')) continue;
+    const conta=contaById(l.conta_id);
+    if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+    else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
+    const v=Number(l.valor)||0;
+    if(l.tipo==='despesa'){ desp+=v; nD++; }
+    else if(l.tipo==='receita'){ rec+=v; nR++; }
+  }
+  return {desp, rec, nD, nR, liq: rec-desp};
+}
+// lista os lançamentos que ficaram de meses anteriores
+function verAtrasados(){
+  const ini=firstOfMonth(viewMonth);
+  const itens=DATA.lancamentos.filter(l=>{
+    if(l.cartao_id || l.tipo==='transferencia') return false;
+    if(l.status==='pago') return false;
+    if(!srcOk(l.user_id)) return false;
+    const ld=new Date((l.data||'')+'T00:00:00');
+    if(isNaN(ld) || !(ld<ini)) return false;
+    const _d=(l.descricao||'').toLowerCase();
+    if(_d.startsWith('pagamento fatura') || _d.startsWith('pagamento a ')) return false;
+    const conta=contaById(l.conta_id);
+    if(scope==='familia'){ if(!lancFamiliar(l)) return false; }
+    else { if(lancFamiliar(l)) return false; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) return false; }
+    return true;
+  }).sort((a,b)=> a.data<b.data?-1:1);
+  const at=atrasadosAntes(viewMonth);
+  let h=`<h2 style="margin:0 0 2px">⚠️ Vindos de meses anteriores</h2>
+    <div class="note" style="font-size:11.5px;margin-bottom:8px">Continuam contando no mês em que venceram — o resultado daquele mês não muda. Aparecem aqui porque o dinheiro ainda vai entrar ou sair, então pesam no saldo previsto de agora.</div>`;
+  if(!itens.length){ h+=`<div class="note">Nada em atraso 🎉</div>`; }
+  else{
+    h+=`<div class="card" style="margin:0">${itens.map(rowLanc).join('')}</div>
+      <div class="srow tot" style="margin-top:8px"><span>Falta pagar</span><b style="color:var(--red)">${brl(at.desp)}</b></div>
+      ${at.rec?`<div class="srow tot"><span>Falta receber</span><b style="color:var(--green)">${brl(at.rec)}</b></div>`:''}`;
+  }
+  openSheet(h);
+}
 function balancoFechamento(d){
   const tot=saldoTotal();
   const b=balancoMes(d);
@@ -1228,7 +1278,8 @@ function balancoFechamento(d){
   const sd=saidasMes(d);
   const gcRest=Math.max(0,gc-(sd.pagFatura||0));
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
-  const base = tot + b.recPend - (sd.aPagar + gcRest + faltaConj);
+  const at = atrasadosAntes(d);
+  const base = tot + b.recPend + at.rec - (sd.aPagar + gcRest + faltaConj + at.desp);
   return base - descontarInvest(sd.invPend, base);
 }
 // ===== SELIC (atualizada todo dia util pelo robo do GitHub) =====
@@ -4039,6 +4090,7 @@ function renderHome(){
   const faltaConj=Math.max(0,(sd.conjuge||0)-(sd.pagoConjuge||0));
   // Balanço [def. João]: recursos (saldo + a receber) − o que ainda vai sair (a pagar + cartão restante + aporte de investimento AINDA VIRTUAL + falta do cônjuge).
   // Aporte já efetivado não desconta de novo (o saldo já caiu). Mês futuro = resultado do mês.
+  const _atras=_futuro?{desp:0,rec:0,nD:0,nR:0,liq:0}:atrasadosAntes(viewMonth);
   let balCard, _invNota='';
   // balPatr = base do card Patrimônio. Em mês fechado ele NÃO é o resultado do mês:
   // patrimônio é foto do momento (o que existe hoje), não o que sobrou naquele mês.
@@ -4058,10 +4110,10 @@ function renderHome(){
     // com o que sobrou naquele mês.
     balCard=b.rec-totalGastos;
     _invNota=`Mês fechado: receitas de ${mesNome(viewMonth)} menos os gastos do próprio mês.`;
-    const _baseP=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+    const _baseP=tot+b.recPend+_atras.rec-(sd.aPagar+gcRest+faltaConj+_atras.desp);
     balPatr=_baseP-descontarInvest(_invMes,_baseP);
   }else{
-    const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
+    const base=tot+b.recPend+_atras.rec-(sd.aPagar+gcRest+faltaConj+_atras.desp);
     const invC=descontarInvest(_invMes,base);
     balCard=base-invC;
     if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`No balanço entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
@@ -4554,6 +4606,11 @@ function renderHome(){
         }
         return `<div class="srow tap" onclick="verParceiroLancs()"><span>Despesas de ${nome}</span><b>${brl(sd.conjuge)}</b></div>`;
       })():''}
+      ${(_atras.nD||_atras.nR)?`<div class="srow tap" onclick="verAtrasados()" style="align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:2px"><span>⚠️ Vindos de meses anteriores</span>
+          <span class="note">${_atras.nD?`${_atras.nD} conta${_atras.nD>1?'s':''} a pagar`:''}${(_atras.nD&&_atras.nR)?' · ':''}${_atras.nR?`${_atras.nR} a receber`:''} · não conta como gasto deste mês</span></div>
+        <div style="text-align:right">${_atras.desp?`<b style="color:var(--red)">-${brl(_atras.desp)}</b>`:''}${_atras.rec?`<div class="note">a receber <b style="color:var(--green)">${brl(_atras.rec)}</b></div>`:''}</div>
+      </div>`:''}
       <div class="srow tot"><span>Total de gastos</span><b>${brl(totalGastos)}</b></div>
     </div>
     ${(()=>{

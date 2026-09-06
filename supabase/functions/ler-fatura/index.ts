@@ -72,7 +72,9 @@ Devolva SÓ o nome do estabelecimento, sem a praça/cidade que o adquirente grud
 
 O QUE CONTA COMO COMPRA (inclua):
 1. Notificação com a palavra "compra": "Compra no crédito aprovada", "Sua compra no cartão final X", "Compra aprovada".
-2. Notificação da CARTEIRA / APPLE PAY / Wallet: bloco curto com o nome do banco ou cartão (ex.: "C6 Bank", "Nubank"), o nome do estabelecimento e um valor em R$, sem mais texto. Essas SÃO compras — inclua todas, usando o nome do banco no campo "banco".
+2. Notificação da CARTEIRA / APPLE PAY / Wallet: bloco curto com o nome do banco ou cartão (ex.: "C6 Bank", "Nubank", "Sicoob", "Mercado Pago", "Inter", "Itaú", "Bradesco", "Caixa", "PicPay", "Will Bank", "Neon"), o nome do estabelecimento e um valor em R$, sem mais texto. Essas SÃO compras — inclua todas, usando o nome do banco no campo "banco".
+   REGRA FIRME: três pedaços na mesma notificação — nome de banco/instituição financeira + nome de estabelecimento + valor em R$ — é SEMPRE compra, mesmo sem a palavra "compra", sem verbo nenhum, sem data, sem hora e sem o final do cartão. Não deixe de fora por falta de contexto; nesse caso o "na dúvida não inclua" NÃO se aplica.
+   Exemplo real que precisa entrar: "Sicoob / Vap Gas Auto Posto / R$ 200,00" -> { "desc": "Vap Gas Auto Posto", "valor": 200, "banco": "Sicoob" }.
 
 O QUE IGNORAR COMPLETAMENTE (nunca inclua):
 - PAGAMENTO DA PRÓPRIA FATURA e cobranças do emissor aparecendo como se fossem loja: "Nu Pagamentos", "Nubank Pagamentos", "Pagamento de fatura", "Pagamento efetuado", "Pagamento recebido", "PAG FATURA". Se o "estabelecimento" for o nome do próprio banco/emissor do cartão, NÃO é compra.

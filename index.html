@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.04"; /* z4 */
+const APP_VER = "10.05"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -7578,6 +7578,83 @@ function renderDash(){
   makeSortable('dashSortable','gf_order_dash');
   requestAnimationFrame(ativarRevelacao);
 }
+// ===== FUTURO FINANCEIRO (projeção de saldo até 12 meses) =====
+// Só usa o que JÁ ESTÁ lançado: recorrentes, parcelas, contas e faturas que
+// existem no banco. Não estima nada e não repete média de gasto variável.
+function _lancNoMes(d){
+  const ini=firstOfMonth(d), fim=new Date(d.getFullYear(),d.getMonth()+1,0);
+  let n=0;
+  for(const l of DATA.lancamentos){
+    if(l.tipo==='transferencia') continue;
+    if(!srcOk(l.user_id)) continue;
+    const ld=new Date((l.data||'')+'T00:00:00');
+    if(isNaN(ld)||ld<ini||ld>fim) continue;
+    const conta=contaById(l.conta_id);
+    if(scope==='familia'){ if(!lancFamiliar(l)) continue; }
+    else { if(lancFamiliar(l)) continue; if(scope!=='tudo' && (!conta || conta.tipo!==scope)) continue; }
+    n++;
+  }
+  return n;
+}
+function futuroSerie(){
+  const hoje=new Date(); const out=[];
+  for(let i=0;i<=12;i++){
+    const d=new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
+    out.push({ i, d, v: (i===0? balancoFechamento(hoje) : saldoProjetado(d)), n: _lancNoMes(d) });
+  }
+  return out;
+}
+function futuroHTML(){
+  const S=futuroSerie();
+  if(!S.length) return '';
+  const _kk=v=>{ const a=Math.abs(v); const t=a>=1000?(a/1000).toFixed(a>=10000?0:1).replace('.',',')+'k':Math.round(a); return (v<0?'-':'')+t; };
+  const mn=d=>d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+  const vals=S.map(x=>x.v);
+  let mx=Math.max(0,...vals), mnv=Math.min(0,...vals);
+  if(mx===mnv){ mx+=1; mnv-=1; }
+  const W=340,H=180,padL=8,padR=8,padT=24,padB=26;
+  const plotW=W-padL-padR, plotH=H-padT-padB, base=padT+plotH;
+  const gx=i=> padL+i*(plotW/(S.length-1));
+  const gy=v=> base-(v-mnv)/(mx-mnv)*plotH;
+  const pts=S.map((x,i)=>`${gx(i).toFixed(1)},${gy(x.v).toFixed(1)}`).join(' ');
+  const yz=gy(0);
+  let sv=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  sv+=`<polygon points="${gx(0).toFixed(1)},${yz.toFixed(1)} ${pts} ${gx(S.length-1).toFixed(1)},${yz.toFixed(1)}" fill="var(--green)" opacity=".13"/>`;
+  sv+=`<line x1="${padL}" y1="${yz.toFixed(1)}" x2="${W-padR}" y2="${yz.toFixed(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>`;
+  sv+=`<polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  S.forEach((x,i)=>{
+    const neg=x.v<0;
+    sv+=`<circle cx="${gx(i).toFixed(1)}" cy="${gy(x.v).toFixed(1)}" r="${(i===0||i===S.length-1)?3.4:2}" fill="${neg?'var(--red)':'var(--green)'}"><title>${mn(x.d)} · ${brl(x.v)}</title></circle>`;
+    if(i%2===0) sv+=`<text x="${gx(i).toFixed(1)}" y="${base+13}" font-size="8" fill="var(--muted)" text-anchor="middle">${mn(x.d)}</text>`;
+  });
+  sv+=`<text x="${gx(0).toFixed(1)}" y="${(gy(S[0].v)-8).toFixed(1)}" font-size="8.5" font-weight="700" fill="var(--muted)" text-anchor="start">${_kk(S[0].v)}</text>`;
+  sv+=`<text x="${(W-padR)}" y="${(gy(S[S.length-1].v)-8).toFixed(1)}" font-size="8.5" font-weight="700" fill="${S[S.length-1].v<0?'var(--red)':'var(--green)'}" text-anchor="end">${_kk(S[S.length-1].v)}</text>`;
+  sv+=`</svg>`;
+  const marco=(i,lab)=>{
+    const x=S[i]; if(!x) return '';
+    return `<div style="flex:1;min-width:0;background:rgba(128,128,128,.12);border-radius:10px;padding:8px 9px">
+      <div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">${lab}</div>
+      <div style="font-size:9.5px;color:var(--muted);margin-bottom:1px">${mn(x.d)}/${String(x.d.getFullYear()).slice(2)}</div>
+      <b style="font-size:14px;color:${x.v<0?'var(--red)':'var(--green)'}">${brl(x.v)}</b>
+    </div>`;
+  };
+  // até onde o dado ainda é firme: primeiro mês com menos da metade dos lançamentos do 1º mês futuro
+  let corte=null;
+  const ref=S[1]?S[1].n:0;
+  for(let i=2;i<S.length;i++){ if(ref>0 && S[i].n < ref*0.5){ corte=S[i]; break; } }
+  return `<div class="card" style="margin-bottom:0">
+    <h3 style="margin:0 0 2px;font-size:15px">🔮 Futuro financeiro</h3>
+    <div class="note" style="font-size:11.5px;margin-bottom:8px">Quanto deve sobrar somando mês a mês o que já está lançado.</div>
+    <div style="display:flex;gap:6px;margin-bottom:4px">${marco(1,'em 1 mês')}${marco(3,'em 3 meses')}</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">${marco(6,'em 6 meses')}${marco(12,'em 12 meses')}</div>
+    ${sv}
+    <div class="note" style="font-size:10.5px;margin-top:6px;line-height:1.45">
+      Parte do que sobra no fim de ${mn(S[0].d)} (${brl(S[0].v)}) e vai somando o balanço de cada mês: salário, recorrentes, parcelas, contas e faturas que já existem lançadas.
+      ${corte?`<br>⚠️ De ${mn(corte.d)}/${String(corte.d.getFullYear()).slice(2)} em diante tem bem menos coisa lançada (${corte.n} contra ${ref} no primeiro mês), então dali pra frente a projeção fica otimista.`:''}
+      <br>Não inventa gasto: o que você não lançou não aparece aqui.
+    </div>
+  </div>`;
+}
 // ===== BALANÇO DIA A DIA (mês aberto + o próximo) =====
 // Mesma régua do balanço do mês: receitas − despesas, sem compra no cartão
 // (ela entra pela fatura) e sem quitação (pagamento de fatura / pagamento ao cônjuge).
@@ -7723,7 +7800,8 @@ function renderRelatorios(){
   const comprasMe=comprasPorDiaCompra(viewMonth,USER.id);
   blocos.comprasdia=daybarChartHTML(comprasMe, `Compras por dia — Meus · ${mesNome(viewMonth)}`, 'Pelo dia REAL da compra (parcela entra no dia que comprou). Toque — mostra se foi parcelado.', USER.id, 'abrirDiaCompraDetalhe');
   // BARRAS gastos diários por parceiro (ex: só da Carol)
-  const defaultOrder=['balancodia','diario','comprasdia'];
+  const defaultOrder=['futuro','balancodia','diario','comprasdia'];
+  blocos.futuro=futuroHTML();
   blocos.balancodia=balancoDiaChartHTML();
   MYPARTNERS.forEach(p=>{
     const diasP=gastosDiariosPartner(viewMonth,p.owner_id);
@@ -7778,7 +7856,7 @@ function renderRelatorios(){
     defaultOrder.push('anual_'+p.owner_id,'anualpct_'+p.owner_id);
   });
 
-  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos),{painel:'^',tendencia:'painel',balancodia:'^'});
+  const ordem=ordemSalva('gf_order_relatorios',defaultOrder,Object.keys(blocos),{painel:'^',tendencia:'painel',balancodia:'^',futuro:'^'});
   html+=`<div id="relSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;

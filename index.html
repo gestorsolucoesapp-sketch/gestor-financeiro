@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.06"; /* z4 */
+const APP_VER = "10.07"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4029,6 +4029,7 @@ function gastoCartaoMes(d){
 function renderHome(){
   const _hoje=new Date();
   const _futuro = (viewMonth.getFullYear()*12+viewMonth.getMonth()) > (_hoje.getFullYear()*12+_hoje.getMonth());
+  const _passado = (viewMonth.getFullYear()*12+viewMonth.getMonth()) < (_hoje.getFullYear()*12+_hoje.getMonth());
   const tot=_futuro ? saldoProjetado(viewMonth) : saldoTotal();
   const b=balancoMes(viewMonth);
   const gc=gastoCartaoMes(viewMonth);
@@ -4047,6 +4048,12 @@ function renderHome(){
     const invC=descontarInvest(_invMes,baseF);
     balCard=baseF-invC;
     if(projInvest()&&investSobra()&&invC<(_invMes||0)) _invNota=`Na previsão entrou só ${brl(invC)} de investimento (o que sobra). O resto fica pra quando sobrar.`;
+  }else if(_passado){
+    // Mês JÁ FECHADO: o balanço é o resultado do próprio mês (receitas − gastos do mês).
+    // Não usa o saldo em contas de hoje, que é de outro momento e não tem nada a ver
+    // com o que sobrou naquele mês.
+    balCard=b.rec-totalGastos;
+    _invNota=`Mês fechado: receitas de ${mesNome(viewMonth)} menos os gastos do próprio mês.`;
   }else{
     const base=tot+b.recPend-(sd.aPagar+gcRest+faltaConj);
     const invC=descontarInvest(_invMes,base);

@@ -192,8 +192,8 @@ body.modal-open .fab{display:none !important}
 .amt.g{color:var(--green)}.amt.r{color:var(--red)}.amt.b{color:var(--blue)}
 .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle}
 .pill.pend{background:#fdf0d9;color:#a9701a}
-.pill.neg{background:#eef1ef;color:var(--muted)}
-.pill.peso{background:#e9f3f1;color:var(--emerald-2)}
+.pill.neg{background:color-mix(in srgb, var(--muted) 22%, transparent);color:var(--ink)}
+.pill.peso{background:color-mix(in srgb, var(--mint) 20%, transparent);color:var(--mint)}
 
 .empty{text-align:center;padding:34px 18px;color:var(--muted)}
 .empty .ico{font-size:34px;margin-bottom:8px}
@@ -271,7 +271,7 @@ body.scrolling .fab{opacity:.25}
 .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--emerald);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .monthnav{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:14px;padding:3px 6px;box-shadow:0 4px 18px rgba(0,0,0,.35);margin-bottom:10px;
-  position:sticky;top:-6px;z-index:25}
+  position:sticky;top:0;z-index:25}
 .monthnav button{width:30px;height:30px;border-radius:10px;font-size:17px;color:var(--mint)}
 .monthnav .m{font-weight:700;font-size:14px;color:var(--ink)}
 .proxmes{background:var(--card);border:1px solid var(--mint);border-radius:14px;padding:10px 14px;box-shadow:var(--shadow);margin-bottom:12px}
@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.13"; /* z4 */
+const APP_VER = "10.14"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -845,6 +845,10 @@ let HIDEVAL = localStorage.getItem('gf_hide_val')==='1';
 const brl=n=> HIDEVAL ? 'R$ ••••' : (n<0?'-':'')+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const mesNome=d=>{const s=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);};
 const ICON=(n,s=20)=>{const p={
+  calendar:'<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="16" y1="2.5" x2="16" y2="6.5"/>',
+  search:'<circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/>',
+  lock:'<rect x="4" y="10.5" width="16" height="10.5" rx="2.5"/><path d="M7.8 10.5V7.4a4.2 4.2 0 0 1 8.4 0v3.1"/>',
+  eye:'<path d="M1.8 12S5.6 5.5 12 5.5 22.2 12 22.2 12 18.4 18.5 12 18.5 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.2"/>',
   home:'<path d="M3.5 10.8L12 3.5l8.5 7.3"/><path d="M5.8 9.3V19a1.8 1.8 0 0 0 1.8 1.8h8.8A1.8 1.8 0 0 0 18.2 19V9.3"/><path d="M9.8 20.8v-5.6a1 1 0 0 1 1-1h2.4a1 1 0 0 1 1 1v5.6"/><path d="M16.2 6.6V4.4h1.9v3.8"/>',
   swap:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   card:'<rect x="1.5" y="4.5" width="21" height="15" rx="2.5"/><line x1="1.5" y1="10" x2="22.5" y2="10"/>',
@@ -3147,6 +3151,10 @@ function renderAssistente(){
 function _limparTextoIA(t){
   t=String(t||'').trim();
   t=t.replace(/<\/?parameter[^>]*>/g,'').replace(/<\/?invoke[^>]*>/g,'').replace(/<\/?function[^>]*>/g,'').trim();
+  // às vezes a IA devolve o JSON dentro de cerca de código (```json ... ```)
+  t=t.replace(/^```[a-z]*\s*/i,'').replace(/```\s*$/,'').trim();
+  // ou com texto solto antes do objeto
+  if(t[0]!=='{' && t.indexOf('{')>=0 && /"texto"\s*:/.test(t)) t=t.slice(t.indexOf('{')).trim();
   if(t[0]==='{'){
     try{
       const j=JSON.parse(t.slice(0, t.lastIndexOf('}')+1));

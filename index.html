@@ -271,7 +271,8 @@ body.scrolling .fab{opacity:.25}
 .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--emerald);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .monthnav{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:14px;padding:3px 6px;box-shadow:0 4px 18px rgba(0,0,0,.35);margin-bottom:10px;
-  position:sticky;top:0;z-index:25}
+  position:sticky;top:-16px;z-index:25}
+.monthnav::before{content:'';position:absolute;left:-24px;right:-24px;top:-18px;height:18px;background:var(--paper);pointer-events:none}
 .monthnav button{width:30px;height:30px;border-radius:10px;font-size:17px;color:var(--mint)}
 .monthnav .m{font-weight:700;font-size:14px;color:var(--ink)}
 .proxmes{background:var(--card);border:1px solid var(--mint);border-radius:14px;padding:10px 14px;box-shadow:var(--shadow);margin-bottom:12px}
@@ -716,7 +717,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.16"; /* z4 */
+const APP_VER = "10.17"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{

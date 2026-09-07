@@ -734,7 +734,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.23"; /* z4 */
+const APP_VER = "10.24"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4233,7 +4233,7 @@ function renderHome(){
   const _esqLab=_ehAtual?`Balanço de ${_mn(viewMonth)}`:`Sobra até ${_mn(viewMonth)}`;
   // mês já fechado não tem o que prever: o "próximo mês" dele já aconteceu.
   // Deixar o card ali fazia ele mostrar o saldo de hoje nas duas caixas e a conta não fechava.
-  if(!_passado) html+=`<div class="proxmes"><div class="pm-lbl">🔮 Próximo mês · ${mesNome(_prox)}</div><div class="pm-vals">
+  if(!_passado && !modoSimples()) html+=`<div class="proxmes"><div class="pm-lbl">🔮 Próximo mês · ${mesNome(_prox)}</div><div class="pm-vals">
     <div class="pm-item"><span>${_esqLab}</span><b style="color:${_esq>=0?'var(--green)':'var(--red)'}">${brl(_esq)}</b></div>
     <div class="pm-item"><span>Saldo previsto · ${_mn(_prox)}</span><b style="color:${_saldoProx>=0?'var(--green)':'var(--red)'}">${brl(_saldoProx)}</b></div></div>
     <div class="note" style="font-size:11px;line-height:1.45;margin-top:7px">Saldo previsto = ${_esqLab.toLowerCase()} (<b>${brl(_esq)}</b>) mais o balanço de ${_mn(_prox)} (<b>${brl(_balProx)}</b>).</div></div>`;
@@ -4263,7 +4263,7 @@ function renderHome(){
       }catch(e){}
     }
     const debU=(u.tipo==='despesa'&&!u.cartao_id&&u.conta_id)?` · <span style="color:var(--red);font-weight:600">débito</span>`:'';
-    html+=`<div class="card" style="margin-bottom:12px;padding:12px 14px;cursor:pointer" onclick="openLanc('${u.id}')">
+    if(!modoSimples()) html+=`<div class="card" style="margin-bottom:12px;padding:12px 14px;cursor:pointer" onclick="openLanc('${u.id}')">
       <div style="font-size:11px;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px">ÚLTIMA TRANSAÇÃO</div>
       <div class="lrow" style="padding:0;border:0">
         <div class="dot" style="background:${tintBg(vis.color)};color:${vis.color}">${ICON(vis.icon,18)}</div>
@@ -4803,8 +4803,7 @@ function renderHome(){
         ${_livre<0?'O que ainda vai sair passa do que voc\u00ea tem em conta. Vale rever o que d\u00e1 pra adiar.':'Isso \u00e9 o que sobra depois de pagar tudo que j\u00e1 est\u00e1 lan\u00e7ado para este m\u00eas.'}
       </div>
     </div>`;
-    const _ok=['alerta','lancrapido','saldo','pendalert','contas','recentes'];
-    ordem=ordem.filter(k=>_ok.indexOf(k)>=0);
+    ordem=['alerta','saldo','pendalert','lancrapido','contas','recentes'];
   }
   html+=`<div style="text-align:center;margin:2px 0 12px">
     <span onclick="setModoSimples(${modoSimples()?'false':'true'})" style="cursor:pointer;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:5px 13px;display:inline-block">
@@ -4813,11 +4812,11 @@ function renderHome(){
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
-    html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${DRAG_HANDLE}${blocos[k]}</div>`;
+    html+=`<div class="sortable-item" data-key="${k}" style="margin-bottom:14px">${modoSimples()?'':DRAG_HANDLE}${blocos[k]}</div>`;
   });
   html+=`</div>`;
   $('content').innerHTML=html;
-  makeSortable('homeSortable','gf_order_home');
+  if(!modoSimples()) makeSortable('homeSortable','gf_order_home');
   setTimeout(checarOrcamentos,400);
 }
 function perguntarModoSimples(){

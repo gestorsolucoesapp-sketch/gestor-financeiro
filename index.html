@@ -734,7 +734,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.25"; /* z4 */
+const APP_VER = "10.27"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1375,6 +1375,21 @@ function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
 // ===== MODO SIMPLES: menos tela, mesma conta =====
 function modoSimples(){ try{ return localStorage.getItem('gf_modo_simples')==='1'; }catch(e){ return false; } }
+// ===== MODO INDIVIDUAL: para quem cuida do dinheiro sozinho =====
+// Preferencia, mas a realidade manda: se ja existe conjuge conectado, o modo nao se aplica.
+function sozinho(){
+  try{
+    if(localStorage.getItem('gf_sozinho')!=='1') return false;
+    if(typeof MYPARTNERS!=='undefined' && MYPARTNERS && MYPARTNERS.length) return false;
+    if(typeof MYSHARES!=='undefined' && MYSHARES && MYSHARES.length) return false;
+    return true;
+  }catch(e){ return false; }
+}
+function setSozinho(v,quieto){
+  try{ localStorage.setItem('gf_sozinho', v?'1':'0'); localStorage.setItem('gf_sozinho_resp','1'); }catch(e){}
+  salvarPrefs(); render();
+  if(!quieto) toast(v?'Beleza \u2014 o app para de sugerir c\u00f4njuge':'Op\u00e7\u00f5es de casal de volta');
+}
 function aplicarTabsSimples(){
   try{
     const esconde=modoSimples();
@@ -1444,7 +1459,7 @@ function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').clas
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 // ===== SINCRONIZAÇÃO DE PREFERÊNCIAS (tema, cores, ordem) NO SERVIDOR =====
-const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest','gf_invest_sobra','gf_modo_simples'];
+const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest','gf_invest_sobra','gf_modo_simples','gf_sozinho'];
 function coletarPrefs(){ const o={}; PREF_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; }); return o; }
 function aplicarPrefs(o){ if(!o) return; PREF_KEYS.forEach(k=>{ if(o[k]!=null){ try{localStorage.setItem(k,o[k]);}catch(e){} } }); }
 let _prefSaveT=null;
@@ -2221,7 +2236,7 @@ function obChecks(){
     {k:'receita', n:3, essencial:false, titulo:'Registre seu sal\u00e1rio',     sub:'Pro app projetar seu m\u00eas inteiro', ok:rec>=1, acao:"openLanc(null,'receita')", btn:'Registrar receita', skip:true},
     {k:'cartao',  n:4, essencial:false, titulo:'Cadastre um cart\u00e3o',       sub:'Dia de fechamento e vencimento da fatura', ok:meusCartoes>=1, acao:'openCartao()', btn:'Adicionar cart\u00e3o', skip:true},
     {k:'casal',   n:5, essencial:false, titulo:'Conecte com seu c\u00f4njuge',  sub:'Cada um na sua conta, acompanhando tudo junto', ok:casal, acao:'abrirCompartilhar()', btn:'Compartilhar', skip:true},
-  ];
+  ].filter(s=>!(s.k==='casal' && sozinho()));
 }
 // ===== WALKTHROUGH GUIADO estilo Mobills =====
 let _wtSteps=[], _wtIdx=0, _wtWatch=null;
@@ -4845,6 +4860,32 @@ function perguntarModoSimples(){
 function escolherModo(simples){
   try{ localStorage.setItem('gf_modo_simples', simples?'1':'0'); localStorage.setItem('gf_modo_simples_resp','1'); }catch(e){}
   salvarPrefs(); aplicarTabsSimples(); closeSheet();
+  setTimeout(()=>perguntarSozinho(), 240);
+}
+function perguntarSozinho(){
+  let respondeu=false; try{ respondeu=localStorage.getItem('gf_sozinho_resp')==='1'; }catch(e){}
+  if(respondeu){ render(); abrirBemVindo(); return; }
+  openSheet(`
+    <div style="text-align:center;padding:4px 2px 2px">
+      <div style="font-size:38px;line-height:1">\ud83d\udc65</div>
+      <h3 style="margin:8px 0 4px;font-size:20px">Voc\u00ea cuida do dinheiro sozinho?</h3>
+      <p class="note" style="margin-bottom:16px">Isso s\u00f3 muda o que o app te oferece. D\u00e1 pra trocar depois.</p>
+    </div>
+    <div class="lrow tap" onclick="escolherSozinho(true)" style="align-items:flex-start;border:1px solid var(--line-2);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div class="dot" style="background:${tintBg('#3b6fd6')};color:#3b6fd6">\ud83d\udc64</div>
+      <div class="mid"><div class="t">Sozinho</div>
+        <div class="s">S\u00e3o as minhas contas e pronto. O app para de sugerir conectar um c\u00f4njuge.</div></div>
+    </div>
+    <div class="lrow tap" onclick="escolherSozinho(false)" style="align-items:flex-start;border:1.5px solid var(--mint);border-radius:14px;padding:14px">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">\ud83d\udc6b</div>
+      <div class="mid"><div class="t">Em dupla</div>
+        <div class="s">Quero somar com meu c\u00f4njuge: cada um lan\u00e7a do seu celular e os dois enxergam tudo junto.</div></div>
+    </div>
+  `);
+}
+function escolherSozinho(v){
+  try{ localStorage.setItem('gf_sozinho', v?'1':'0'); localStorage.setItem('gf_sozinho_resp','1'); }catch(e){}
+  salvarPrefs(); closeSheet();
   setTimeout(()=>{ render(); abrirBemVindo(); }, 220);
 }
 function explicarPatrimonio(){
@@ -6240,6 +6281,11 @@ function renderConfig(){
       <div class="mid"><div class="t">Modo simples</div><div class="s">Mostra s\u00f3 o essencial: quanto voc\u00ea tem, o que ainda vai sair e o que sobra. Esconde Painel, Investir, or\u00e7amentos e proje\u00e7\u00f5es \u2014 nada \u00e9 apagado, s\u00f3 sai da frente.</div></div>
       <button class="switch ${modoSimples()?'on':''}" onclick="setModoSimples(${modoSimples()?'false':'true'})"><span class="knob"></span></button>
     </div>
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2)">
+      <div class="dot" style="background:${tintBg('#3b6fd6')};color:#3b6fd6">\ud83d\udc64</div>
+      <div class="mid"><div class="t">Uso o app sozinho</div><div class="s">Tira as op\u00e7\u00f5es de c\u00f4njuge da frente: o passo do tutorial e os itens de compartilhar e conectar. Desligue aqui se um dia quiser dividir com algu\u00e9m.${(typeof MYPARTNERS!=='undefined'&&MYPARTNERS.length)?' <b>Voc\u00ea j\u00e1 tem algu\u00e9m conectado, ent\u00e3o isso est\u00e1 sem efeito.</b>':''}</div></div>
+      <button class="switch ${sozinho()?'on':''}" onclick="setSozinho(${sozinho()?'false':'true'})"><span class="knob"></span></button>
+    </div>
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('receipt','Primeiros passos','Rever o tutorial de configuração inicial',"go('tutorial')",'#3b82f6')}
     ${hubItem('tag','Categorias','Gerenciar categorias',"openCatList()",'#d6478c')}
@@ -6255,8 +6301,8 @@ function renderConfig(){
     ${hubItem('download','Exportar planilha (CSV)','Todos os lançamentos, pra Excel ou contador',"exportarCSV()",'#1f9d8a')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Casal</div><div class="card">
-    ${hubItem('users','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()",'#2f8f66')}
-    ${hubItem('link','Conectar a outra conta','Veja as finanças de quem te compartilhou',"abrirConectar()",'#3b6fd6')}
+    ${sozinho()?'':hubItem('users','Compartilhar minhas finanças','Gere um código para alguém ver suas contas',"abrirCompartilhar()",'#2f8f66')}
+    ${sozinho()?'':hubItem('link','Conectar a outra conta','Veja as finanças de quem te compartilhou',"abrirConectar()",'#3b6fd6')}
   </div>`;
   html+=`<div class="page-title" style="margin-top:20px">Zona de risco</div><div class="card">
     ${hubItem('trash','Limpar valores','Apaga transações e orçamentos · mantém contas, cartões e categorias',"wipeValores()",'#e8654e')}
@@ -9468,10 +9514,11 @@ function renderPreviaImport(){
   const it=window._impItens||[];
   const nSel=it.filter(x=>x.incluir).length;
   const nDup=it.filter(x=>x.dup).length;
+  const nRep=it.filter(x=>x.repetida).length;
   let h=`<h2 style="margin:0 0 4px">Confira antes de importar</h2>
-    <p style="color:var(--muted);font-size:13px;margin:0 0 4px">${it.length} encontrada(s)${nDup?` · <b style="color:#e0a020">${nDup} possível(is) duplicada(s)</b> — já vêm desmarcadas`:''}</p>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 4px">${it.length} encontrada(s)${nDup?` · <b style="color:#e0a020">${nDup} já existe(m) no app</b>`:''}${nRep?` · <b style="color:#e0a020">${nRep} repetida(s) na foto</b>`:''}${(nDup||nRep)?' — já vêm desmarcadas':''}</p>
     <div style="display:flex;gap:8px;margin:10px 0">
-      <button class="btn-sec" style="flex:1" onclick="impMarcarTodos(true)">Marcar todas</button>
+      <button class="btn-sec" style="flex:1" onclick="impMarcarTodos(true)">Marcar todas${(nDup||nRep)?'<br><span style="font-size:10.5px;opacity:.75">menos as repetidas</span>':''}</button>
       <button class="btn-sec" style="flex:1" onclick="impMarcarTodos(false)">Desmarcar</button>
     </div>`;
   it.forEach((x,i)=>{
@@ -9487,6 +9534,7 @@ function renderPreviaImport(){
       </div>
       ${x.hora?`<div style="color:var(--muted);font-size:11.5px;margin:2px 0 0 30px">🕒 ${esc(x.hora)}</div>`:''}
       ${x.dup?`<div class="impWarn">⚠️ Já existe um lançamento igual (mesmo valor e data)</div>`:''}
+      ${x.repetida?`<div class="impWarn">🔁 Essa compra apareceu 2× na foto — o banco costuma mostrar a mesma compra duas vezes (o aviso e o card da carteira). Deixei desmarcada.</div>`:''}
       ${x.naoCompra?`<div class="impWarn">🚫 Parece pagamento de fatura / estorno — não é compra</div>`:''}
       ${(x.viaCartao&&!x.cartao_id)?`<div class="impWarn">💳 Escolha o cartão abaixo (o banco veio sem os 4 dígitos)</div>`:''}
       ${(!x.viaCartao&&!x.conta_id)?`<div class="impWarn">🏦 Saiu da conta (não é cartão) — escolha a conta abaixo</div>`:''}
@@ -9504,7 +9552,12 @@ function renderPreviaImport(){
   openSheet(h);
 }
 function impToggle(i,v){ if(window._impItens&&window._impItens[i]){ window._impItens[i].incluir=v; renderPreviaImport(); } }
-function impMarcarTodos(v){ (window._impItens||[]).forEach(x=>x.incluir=v); renderPreviaImport(); }
+function impMarcarTodos(v){
+  // marcar todas NÃO remarca o que já foi apontado como repetido/duplicado — era assim
+  // que voltava a duplicar. Pra incluir mesmo assim, é só marcar a caixinha daquele item.
+  (window._impItens||[]).forEach(x=>{ if(v && (x.dup||x.repetida||x.naoCompra)) return; x.incluir=v; });
+  renderPreviaImport();
+}
 function impSet(i,k,v){ if(window._impItens&&window._impItens[i]) window._impItens[i][k]=v; }
 // escolher o cartao na previa: guarda e apaga o destaque laranja sem redesenhar a lista
 // ===== IMPORTAR FATURA POR FOTO (sem IA) =====
@@ -9669,11 +9722,24 @@ async function scanFatura(ev){
       }catch(e){ falhas++; ultimoErro=String(e&&e.message||e); }
     }
     // tira repetições entre as fotos (a mesma compra pode estar em dois prints)
+    // 1º corte: linha 100% igual (valor+data+hora+nome) -> some, é o mesmo print duas vezes
     {
       const vistos=new Set();
       arr=arr.filter(x=>{
         const k=`${Math.abs(Number(x&&x.valor)||0)}|${x&&x.data||''}|${(x&&x.hora)||''}|${_normTxt(String((x&&x.desc)||''))}`;
         if(vistos.has(k)) return false; vistos.add(k); return true;
+      });
+    }
+    // 2º corte: mesma compra listada 2x na tela do banco (a notificação detalhada + o card
+    // da carteira). Valor+data+nome batem, só a hora que vem diferente (ou vazia).
+    // Não apago: marco como repetida e deixo desmarcada — dois cafés de R$ 13,99 no mesmo
+    // dia existem, quem decide é você.
+    {
+      const conta={};
+      arr.forEach(x=>{
+        const k=`${Math.abs(Number(x&&x.valor)||0)}|${x&&x.data||''}|${_normTxt(String((x&&x.desc)||''))}`;
+        conta[k]=(conta[k]||0)+1;
+        x._repetida = conta[k]>1;
       });
     }
     if(!arr.length){
@@ -9747,8 +9813,10 @@ async function scanFatura(ev){
         }
         if(!contaSug && minhas.length===1) contaSug=minhas[0].id;
       }
+      const repetida = !!x._repetida;
       return { tipo:tipoMov, viaCartao, origem, finalCart:fin, desc, valor, data:data2, hora:x.hora||null,
-        parcela:x.parcela||null, parcelas:x.parcelas||null, dup, naoCompra, incluir:!dup && !naoCompra && valor>0,
+        parcela:x.parcela||null, parcelas:x.parcelas||null, dup, naoCompra, repetida,
+        incluir:!dup && !naoCompra && !repetida && valor>0,
         banco,
         cartao_id:(fin && _mapa[fin]) ? _mapa[fin] : cartaoPorBanco, conta_id:contaSug, categoria_id:cat };
     }).filter(x=>x.valor>0);
@@ -9779,13 +9847,47 @@ function _fileParaBase64Comprimido(file){
   });
 }
 
+// confere no servidor (não só na memória) se esses lançamentos já estão salvos.
+// Fecha o buraco de importar o mesmo print em outro aparelho / depois de recarregar o app.
+async function _jaEstaNoServidor(sel){
+  try{
+    if(!navigator.onLine || !USER || !USER.id) return null;
+    const datas=[...new Set(sel.map(x=>String(x.data)))].filter(Boolean);
+    if(!datas.length) return null;
+    const {data,error}=await sb.from('lancamentos')
+      .select('tipo,valor,data,descricao')
+      .eq('user_id',USER.id).in('data',datas);
+    if(error||!Array.isArray(data)) return null;
+    const cont={};
+    data.forEach(l=>{ const k=l.tipo+'|'+Number(l.valor).toFixed(2)+'|'+String(l.data); cont[k]=(cont[k]||0)+1; });
+    const rep=[];
+    sel.forEach(x=>{
+      const k=x.tipo+'|'+Number(x.valor).toFixed(2)+'|'+String(x.data);
+      if((cont[k]||0)>0){ cont[k]--; rep.push(x); }
+    });
+    return rep;
+  }catch(e){ return null; }
+}
+
 async function confirmarImport(){
+  if(window._salvandoImport) return;          // trava anti toque-duplo (era o que triplicava)
+  window._salvandoImport=true;
+  setTimeout(()=>{ window._salvandoImport=false; }, 8000);
+  const _solta=()=>{ window._salvandoImport=false; };
   const sel=(window._impItens||[]).filter(x=>x.incluir);
-  if(!sel.length){ toast('Marque pelo menos uma'); return; }
+  if(!sel.length){ _solta(); toast('Marque pelo menos uma'); return; }
   // valida destino
   for(const x of sel){
-    if(x.viaCartao && !x.cartao_id){ toast('Escolha o cartão de: '+x.desc); return; }
-    if(!x.viaCartao && !x.conta_id){ toast('Escolha a conta de: '+x.desc); return; }
+    if(x.viaCartao && !x.cartao_id){ _solta(); toast('Escolha o cartão de: '+x.desc); return; }
+    if(!x.viaCartao && !x.conta_id){ _solta(); toast('Escolha a conta de: '+x.desc); return; }
+  }
+  // última conferência: já estão na conta?
+  const jaTem = await _jaEstaNoServidor(sel);
+  if(jaTem && jaTem.length){
+    const lista=jaTem.slice(0,6).map(x=>'• '+x.desc+' — '+brl(x.valor)).join('\n');
+    const mais=jaTem.length>6?('\n… e mais '+(jaTem.length-6)):'';
+    const q='⚠️ '+jaTem.length+' destes já estão salvos na sua conta:\n\n'+lista+mais+'\n\nImportar mesmo assim? Vai ficar repetido.';
+    if(!confirm(q)){ _solta(); return; }
   }
   const rows=[];
   sel.forEach(x=>{
@@ -9804,8 +9906,9 @@ async function confirmarImport(){
     }
   });
   const r=await insertRows(rows);
-  if(!r.ok) return;
+  if(!r.ok){ window._salvandoImport=false; return; }
   window._impItens=null;
+  window._salvandoImport=false;
   closeSheet(); vibra();
   try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
   render();

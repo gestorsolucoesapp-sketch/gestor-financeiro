@@ -734,7 +734,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.24"; /* z4 */
+const APP_VER = "10.25"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1380,7 +1380,8 @@ function aplicarTabsSimples(){
     const esconde=modoSimples();
     document.querySelectorAll('#tabbar button[data-tab="dash"],#tabbar button[data-tab="investimentos"]')
       .forEach(b=>b.classList.toggle('hidden',esconde));
-    setTimeout(moverPillTab,30);
+    if(esconde && (tab==='dash'||tab==='investimentos')) { go('home'); return; }
+    setTimeout(moverPillTab,60);
   }catch(e){}
 }
 function setModoSimples(v,quieto){
@@ -2526,7 +2527,7 @@ async function afterLogin(userArg){
   try{ updateAgBadge(); }catch(e){}
   try{ iniciarRealtime(); }catch(e){}
   try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
-  if(obDone()){ go('dash'); }
+  if(obDone()){ go(modoSimples()?'home':'dash'); }
   else { go('home'); setTimeout(()=>perguntarModoSimples(), 400); }
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
@@ -4794,10 +4795,10 @@ function renderHome(){
     blocos.saldo=`<div class="card hero" style="margin-bottom:0">
       <div class="lab">Voc\u00ea tem hoje</div>
       <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
-      ${_aSair>0?`<div class="srow tap" onclick="go('pendencias')" style="margin-top:10px"><span>Ainda vai sair</span><b style="color:var(--coral)">${brl(_aSair)}</b></div>`:''}
-      <div class="srow" style="border-top:1px solid rgba(255,255,255,.22);margin-top:2px;padding-top:10px">
-        <span style="font-weight:700">${_livre<0?'Falta':'Sobra pra voc\u00ea'}</span>
-        <b style="font-size:19px;color:${_livre<0?'var(--coral)':'var(--hero-green)'}">${brl(Math.abs(_livre))}</b>
+      <div class="saidas">
+        ${_aSair>0?`<div class="srow tap" onclick="go('pendencias')"><span>Ainda vai sair</span><b>${brl(_aSair)}</b></div>`:''}
+        <div class="srow"><span style="opacity:1;font-weight:700">${_livre<0?'Falta':'Sobra pra voc\u00ea'}</span>
+        <b style="font-size:17px;color:${_livre<0?'var(--hero-red)':'var(--hero-green)'}">${brl(Math.abs(_livre))}</b></div>
       </div>
       <div class="note" style="color:rgba(255,255,255,.72);margin-top:8px;font-size:12px">
         ${_livre<0?'O que ainda vai sair passa do que voc\u00ea tem em conta. Vale rever o que d\u00e1 pra adiar.':'Isso \u00e9 o que sobra depois de pagar tudo que j\u00e1 est\u00e1 lan\u00e7ado para este m\u00eas.'}

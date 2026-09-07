@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.15"; /* z4 */
+const APP_VER = "10.16"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4173,7 +4173,13 @@ function renderHome(){
       return conta&&conta.tipo===scope;
     }
     return true;
-  }).sort((a,b)=> a.data===b.data ? ((b.criado_em||'')<(a.criado_em||'')?-1:1) : (b.data<a.data?-1:1)).slice(0,10);
+  }).sort((a,b)=>{
+    // "Últimas transações" = o que o João lançou por último. Ordenar por data fazia
+    // recorrente antigo (salário, recebimento programado) subir na frente da compra de ontem.
+    const ca=String(a.criado_em||''), cb=String(b.criado_em||'');
+    if(ca&&cb&&ca!==cb) return cb<ca?-1:1;
+    return b.data<a.data?-1:1;
+  }).slice(0,10);
 
   let html=monthNav('home');
   // ── Próximo mês: balanço + saldo projetados (logo abaixo do seletor de mês) ──
@@ -4200,7 +4206,7 @@ function renderHome(){
   // última transação LANÇADA (a mais recente que entrou no app, não a de data mais nova).
   // A lista abaixo continua ordenada por data; aqui o que vale é quando foi registrada.
   if(recents.length){
-    const u=recents.slice().sort((a,b)=>String(b.criado_em||'').localeCompare(String(a.criado_em||'')))[0];
+    const u=recents[0];
     const cat=catById(u.categoria_id);
     const vis=catVisual(cat,u.tipo);
     const ondePg=u.cartao_id?cartaoById(u.cartao_id):contaById(u.conta_id);

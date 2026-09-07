@@ -33,6 +33,7 @@
   /* paleta real do app, tema padrao (o que o cliente novo ve) */
   --app-paper:#f4f1ea; --app-card:#fff; --app-ink:#0c1c1a; --app-emerald:#0d3b34;
   --app-mint:#1f9d8a; --app-muted:#6f7d79; --app-red:#d6473a; --app-line:#e6e1d6;
+  --app-orange:#e0a020;
 }
 html{scroll-behavior:smooth}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.55;-webkit-font-smoothing:antialiased}
@@ -76,11 +77,11 @@ a{color:inherit}
 .s-v.g{color:var(--app-mint)} .s-v.r{color:var(--app-red)}
 .s-orc{display:flex;align-items:center;gap:9px;margin-top:9px}
 .s-ring{width:38px;height:38px;border-radius:50%;flex-shrink:0;
-  background:conic-gradient(var(--app-red) 0 74%, var(--app-line) 74% 100%);
+  background:conic-gradient(var(--app-orange) 0 74%, var(--app-line) 74% 100%);
   display:flex;align-items:center;justify-content:center}
 .s-ring i{width:28px;height:28px;border-radius:50%;background:var(--app-card);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:8.5px;font-weight:800}
 .s-orc b{font-size:11.5px;display:block}
-.s-pill{display:inline-block;background:var(--app-red);color:#fff;font-size:8.5px;font-weight:800;padding:1px 7px;border-radius:20px;margin-top:2px}
+.s-pill{display:inline-block;background:var(--app-orange);color:var(--app-ink);font-size:8.5px;font-weight:800;padding:1px 7px;border-radius:20px;margin-top:2px}
 .s-sub{color:var(--app-muted);font-size:9px;margin-top:2px}
 .s-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--app-line)}
 .s-row .ic{width:24px;height:24px;border-radius:8px;background:var(--app-paper);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}

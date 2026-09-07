@@ -734,7 +734,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.20"; /* z4 */
+const APP_VER = "10.21"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -4751,7 +4751,7 @@ function renderHome(){
   // bloco: minhas contas
   const cs=contasPrincipais();
   let bc=`<div class="sec-head"><h3>Minhas contas</h3><a onclick="go('contas')">Ver todas</a></div><div class="card" style="margin-bottom:0">`;
-  if(!cs.length) bc+=`<div class="empty"><div class="ico">${ICON('bank',30)}</div><p>Você ainda não tem contas.</p><button class="btn coral sm" onclick="openConta()">Criar conta</button></div>`;
+  if(!cs.length) bc+=`<div class="empty"><div class="ico">${ICON('bank',30)}</div><p><b>Comece pelas suas contas.</b><br>Banco, carteira, poupança — com o saldo de cada uma. É daqui que sai todo o resto.</p><button class="btn coral sm" onclick="openConta()">Criar conta</button></div>`;
   else cs.forEach(c=>{ bc+=rowConta(c); });
   bc+=`</div>`;
   blocos.contas=bc;
@@ -4764,7 +4764,7 @@ function renderHome(){
   </div></div>`;
   if(!hideRec){
     br+=`<div class="card" style="margin-bottom:0">`;
-    if(!recents.length) br+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Nenhuma transação ainda.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
+    if(!recents.length) br+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p><b>Nada lançado ainda.</b><br>Registre a primeira entrada ou saída e o mês começa a tomar forma.</p><button class="btn coral sm" onclick="openLanc()">Adicionar</button></div>`;
     else recents.forEach(l=>br+=rowLanc(l));
     br+=`</div>`;
   }
@@ -5522,7 +5522,7 @@ function renderCartoes(){
     ${limTot>0?`<div class="note" style="margin-top:2px">${cs.length} cartão(s) · limite total ${brl(limTot)} · disponível ${brl(Math.max(0,limTot-totalFat))}</div>`:`<div class="note" style="margin-top:2px">${cs.length} cartão(s)</div>`}
   </div>`;
   if(!cs.length){
-    html+=`<div class="card"><div class="empty"><div class="ico">${ICON('card',30)}</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'Nenhum cartão cadastrado.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
+    html+=`<div class="card"><div class="empty"><div class="ico">${ICON('card',30)}</div><p>${fam?'Nenhum cartão de familiar. Crie um cartão e marque "De familiar".':'<b>Nenhum cartão ainda.</b><br>Cadastre com o dia de fechamento e de vencimento — o app monta a fatura sozinho.'}</p><button class="btn coral sm" onclick="openCartao()">Adicionar cartão</button></div></div>`;
     $('content').innerHTML=html;return;
   }
   if(fam){
@@ -5667,7 +5667,7 @@ function renderFatura(){
   if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="adiantarPagamento('${c.id}')" style="margin-bottom:12px">💰 Adiantar pagamento / liberar limite</button>`;
   if(souDono(c.user_id)) html+=`<button class="btn outline" onclick="ajustarFatura('${c.id}')" style="margin-bottom:12px">➕ Ajustar fatura (lançar algo que faltou)</button>`;
   html+=`<div class="card">`;
-  if(!itens.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Sem lançamentos nesta fatura.</p></div>`;
+  if(!itens.length) html+=`<div class="empty"><div class="ico">${ICON('receipt',30)}</div><p>Fatura ainda vazia. As compras entram aqui conforme você lança.</p></div>`;
   else itens.forEach(l=>html+=rowLanc(l));
   html+=`</div>`;
   if(souDono(c.user_id)) html+=`<button class="btn ghost" onclick="openCartao('${c.id}')">⚙️ Editar / excluir cartão</button>`;
@@ -5815,7 +5815,7 @@ function renderContas(){
     const invest=cs.filter(c=>c.eh_investimento);
     html=`<div class="page-title">Contas</div>`;
     html+=`<div class="card hero"><div class="lab">Saldo somado</div><div class="big">${brl(normais.reduce((a,c)=>a+saldoConta(c.id),0))}</div></div>`;
-    html+=`<div class="card">`+(normais.length?normais.map(rowConta).join(''):`<div class="empty"><div class="ico">${ICON('bank',32)}</div><p>Nenhuma conta.</p></div>`)+`</div>`;
+    html+=`<div class="card">`+(normais.length?normais.map(rowConta).join(''):`<div class="empty"><div class="ico">${ICON('bank',32)}</div><p>Nenhuma conta por aqui ainda.</p></div>`)+`</div>`;
     if(invest.length || totalInvestido()>0){
       const totalInvTudo = invest.reduce((a,c)=>a+saldoConta(c.id),0) + totalInvestido();
       html+=`<div class="page-title" style="margin-top:18px">Investimentos <span style="font-weight:700;color:var(--mint)">${brl(totalInvTudo)}</span></div>`;
@@ -5853,7 +5853,7 @@ function abrirAuditoriaDup(){
   const grupos=auditoriaDuplicados();
   let h=`<h2>🔍 Possíveis duplicados</h2>`;
   if(!grupos.length){
-    h+=`<div class="empty"><div class="ico">✅</div><p>Nenhum lançamento repetido encontrado.</p></div>`;
+    h+=`<div class="empty"><div class="ico">✅</div><p><b>Nenhuma repetição encontrada.</b><br>Seu histórico está limpo.</p></div>`;
   }else{
     h+=`<div class="note" style="margin-bottom:10px">${grupos.length} caso(s). Confira cada um — apague só o que realmente sobrou.</div>`;
     grupos.forEach(g=>{
@@ -6810,7 +6810,7 @@ async function doWipeTudo(){
 function openCatList(){
   const cats=DATA.categorias.filter(c=>c.user_id===USER.id);
   let h=`<h2>Categorias</h2><div class="card" style="margin:6px 0 12px">`;
-  if(!cats.length) h+=`<div class="empty"><div class="ico">${ICON('tag',30)}</div><p>Sem categorias.</p></div>`;
+  if(!cats.length) h+=`<div class="empty"><div class="ico">${ICON('tag',30)}</div><p><b>Sem categorias ainda.</b><br>São elas que fazem o relatório dizer pra onde o dinheiro foi.</p></div>`;
   else cats.forEach(c=>{
     const v=catVisual(c,c.tipo);
     h+=`<div class="lrow" onclick="closeSheet();openCat('${c.id}')"><div class="dot" style="background:${tintBg(v.color)};color:${v.color}">${ICON(v.icon,18)}</div>
@@ -8277,7 +8277,7 @@ function renderPlanejamento(){
     </div></div>`;
   html+=`<div class="card">`;
   if(!orcs.length){
-    html+=`<div class="empty"><div class="ico">🎯</div><p>Defina quanto pode gastar em cada categoria neste mês.</p></div>`;
+    html+=`<div class="empty"><div class="ico">🎯</div><p><b>Nenhum orçamento definido.</b><br>Escolha quanto pode gastar em cada categoria e o app avisa quando estiver chegando perto.</p></div>`;
   }else{
     orcs.sort((a,b)=>orcPct(gastoOrc(b,viewMonth),Number(b.limite)||0)-orcPct(gastoOrc(a,viewMonth),Number(a.limite)||0));
     orcs.forEach(o=>{

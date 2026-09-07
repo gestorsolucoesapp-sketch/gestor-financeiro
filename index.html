@@ -716,7 +716,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.12"; /* z4 */
+const APP_VER = "10.13"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1507,6 +1507,7 @@ async function checarAcessosEstranhos(){
     const dt=new Date(a.criado_em);
     const quando=dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     const el=document.createElement('div');
+    el.className='alertaAcesso';
     el.style.cssText='position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:9700;background:#3a1220;border:1.5px solid #d64545;border-radius:16px;padding:13px 15px;color:#fff;box-shadow:0 12px 30px rgba(0,0,0,.5);max-width:520px;margin:0 auto';
     el.innerHTML=`<div style="display:flex;gap:10px;align-items:flex-start">
       <span style="font-size:22px">🚨</span>
@@ -1559,6 +1560,9 @@ async function renderDispositivos(){
 async function aprovarDisp(id){
   const r=await sb.from('dispositivos').update({aprovado:true}).eq('id',id);
   if(r.error){toast('Erro: '+r.error.message);return;}
+  // aprovar o aparelho encerra o alerta: o acesso deixou de ser suspeito
+  await marcarAcessosVistos();
+  document.querySelectorAll('.alertaAcesso').forEach(el=>el.remove());
   toast('Aparelho aprovado ✅'); renderDispositivos();
 }
 async function removerDisp(id){

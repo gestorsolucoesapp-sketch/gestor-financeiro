@@ -121,6 +121,11 @@ body.modal-open .fab{display:none !important}
 .seg button{flex:1;padding:5px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13px}
 .seg button.on{background:#fff;color:var(--emerald)}
 
+/* coluna do app: cabecalho e botoes flutuantes acompanham os 560px do #content */
+.topbar>*{max-width:528px;margin-left:auto;margin-right:auto}
+body .fab{right:max(16px, calc(50vw - 264px + 16px))}
+body .iafab{right:max(76px, calc(50vw - 264px + 76px))}
+body .obfab{left:max(16px, calc(50vw - 264px + 16px));right:auto}
 .content{flex:1;min-height:0;padding:16px;padding-bottom:172px;max-width:560px;width:100%;margin:0 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .page-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:4px 2px 12px}
 
@@ -717,7 +722,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.17"; /* z4 */
+const APP_VER = "10.18"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -8196,7 +8201,7 @@ function tendenciaSaldoSVG(d){
       <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="3.6" fill="${cor}" style="opacity:0;animation:svgpop .3s ease .95s forwards"></circle>
       <text x="${Math.min(W-padR-2,pts[pts.length-1][0]+4).toFixed(1)}" y="${Math.max(12,pts[pts.length-1][1]-8).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="800" fill="${cor}" style="opacity:0;animation:svgpop .35s ease 1.05s forwards">${fmtK(vals[vals.length-1])}</text>
       <text x="${(pts[0][0]+3).toFixed(1)}" y="${Math.max(12,pts[0][1]-8).toFixed(1)}" text-anchor="start" font-size="9.5" fill="var(--muted)">${fmtK(vals[0])}</text>
-      ${labX.map(dd=>`<text x="${X(dd-1)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${String(dd).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</text>`).join('')}
+      ${labX.map(dd=>`<text x="${Math.min(W-padR-13,Math.max(padL+13,X(dd-1))).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${String(dd).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</text>`).join('')}
       ${pts.map((pt,i)=>`<circle cx="${pt[0]}" cy="${pt[1]}" r="9" fill="transparent" onclick="toast('dia ${String(i+1).padStart(2,'0')} · ${brl(vals[i]).replace(/'/g,'')}')"></circle>`).join('')}
     </svg>`;
   }catch(e){ return ''; }
@@ -8975,7 +8980,7 @@ function renderInvestimentos(){
             const dias=(d-a)/86400000;
             vs.push((car>0&&dias<car)?Number(i.valor_aplicado||0):Number(i.valor_aplicado||0)*Math.pow(1+txm,meses));
           }
-          if(vs.some(v=>v>0)) spark=`<div style="margin:2px 0 -2px">${sparkSVG(vs,'#1f9d8a')}</div>`;
+          if(vs.some(v=>v>0)) spark=`<div style="margin:2px 0 3px">${sparkSVG(vs,'#1f9d8a')}</div>`;
         }
       }catch(e){}
       html+=`<div class="lrow" onclick="openInvest('${i.id}')">

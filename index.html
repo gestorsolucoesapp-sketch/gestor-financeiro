@@ -734,7 +734,7 @@ window._splashT0=Date.now();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.22"; /* z4 */
+const APP_VER = "10.23"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1373,6 +1373,22 @@ function taxaMensalDe(pct, idx){
 }
 function projInvest(){ return localStorage.getItem('gf_proj_invest')==='1'; }
 function toggleProjInvest(v){ localStorage.setItem('gf_proj_invest', v?'1':'0'); salvarPrefs(); render(); }
+// ===== MODO SIMPLES: menos tela, mesma conta =====
+function modoSimples(){ try{ return localStorage.getItem('gf_modo_simples')==='1'; }catch(e){ return false; } }
+function aplicarTabsSimples(){
+  try{
+    const esconde=modoSimples();
+    document.querySelectorAll('#tabbar button[data-tab="dash"],#tabbar button[data-tab="investimentos"]')
+      .forEach(b=>b.classList.toggle('hidden',esconde));
+    setTimeout(moverPillTab,30);
+  }catch(e){}
+}
+function setModoSimples(v,quieto){
+  try{ localStorage.setItem('gf_modo_simples', v?'1':'0'); localStorage.setItem('gf_modo_simples_resp','1'); }catch(e){}
+  salvarPrefs(); aplicarTabsSimples();
+  if(v && (tab==='dash'||tab==='investimentos')) { go('home'); } else { render(); }
+  if(!quieto) toast(v?'Modo simples ligado \u2705 \u2014 d\u00e1 pra voltar em Mais quando quiser':'Modo completo de volta');
+}
 // "Investir só o que sobra": investimento entra na previsão só até o que sobra, nunca deixa negativo. Padrão: ligado.
 function investSobra(){ const v=localStorage.getItem('gf_invest_sobra'); return v===null?true:v==='1'; }
 function toggleInvestSobra(v){ localStorage.setItem('gf_invest_sobra', v?'1':'0'); salvarPrefs(); render(); }
@@ -1427,7 +1443,7 @@ function showLogin(){$('signupForm').classList.add('hidden');$('loginForm').clas
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 // ===== SINCRONIZAÇÃO DE PREFERÊNCIAS (tema, cores, ordem) NO SERVIDOR =====
-const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest','gf_invest_sobra'];
+const PREF_KEYS=['gf_theme_mode','gf_dark','temas','gf_ia_cor','gf_ia_bubble_off','gf_ia_pode_excluir','gf_order_home','gf_order_relatorios','gf_hideRecents','gf_proj_invest','gf_invest_sobra','gf_modo_simples'];
 function coletarPrefs(){ const o={}; PREF_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; }); return o; }
 function aplicarPrefs(o){ if(!o) return; PREF_KEYS.forEach(k=>{ if(o[k]!=null){ try{localStorage.setItem(k,o[k]);}catch(e){} } }); }
 let _prefSaveT=null;
@@ -2497,7 +2513,7 @@ async function afterLogin(userArg){
   }catch(e){}
   await loadAll();
   await carregarPrefs();
-  applyTema(scope); updateIaFab();
+  applyTema(scope); updateIaFab(); aplicarTabsSimples();
   const _licOk=await checarLicenca(true);
   if(!_licOk) return;
   // usuário antigo (já tem dados) não vê tutorial; usuário novo cai nele
@@ -2511,7 +2527,7 @@ async function afterLogin(userArg){
   try{ iniciarRealtime(); }catch(e){}
   try{ if(!window._logosPreenchidos){ window._logosPreenchidos=true; setTimeout(preencherLogosFaltantes, 1500); } }catch(e){}
   if(obDone()){ go('dash'); }
-  else { go('home'); setTimeout(()=>abrirBemVindo(), 400); }
+  else { go('home'); setTimeout(()=>perguntarModoSimples(), 400); }
   maybeShowInstall();
   setTimeout(maybeShowPushPrompt, 2500);
   setTimeout(()=>{ try{ checarVersaoNova(true); }catch(e){} }, 4000);
@@ -4770,7 +4786,30 @@ function renderHome(){
   }
   blocos.recentes=br;
 
-  const ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','orcamento','saldo','projecao','mesisolado','limitecombinado','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos),{mesisolado:'projecao',limitecombinado:'mesisolado',orcamento:'quicknav'});
+  let ordem=ordemSalva('gf_order_home',['melhorcartao','alerta','lancrapido','quicknav','orcamento','saldo','projecao','mesisolado','limitecombinado','anomalia','resumoia','pendalert','contas','recentes'],Object.keys(blocos),{mesisolado:'projecao',limitecombinado:'mesisolado',orcamento:'quicknav'});
+  if(modoSimples()){
+    // card unico: o que voce tem, o que ainda vai sair, o que sobra
+    const _aSair=Math.max(0,(sd.aPagar||0))+Math.max(0,gcRest||0);
+    const _livre=tot-_aSair;
+    blocos.saldo=`<div class="card hero" style="margin-bottom:0">
+      <div class="lab">Voc\u00ea tem hoje</div>
+      <div class="big ${tot<0?'neg':''}">${brl(tot)}</div>
+      ${_aSair>0?`<div class="srow tap" onclick="go('pendencias')" style="margin-top:10px"><span>Ainda vai sair</span><b style="color:var(--coral)">${brl(_aSair)}</b></div>`:''}
+      <div class="srow" style="border-top:1px solid rgba(255,255,255,.22);margin-top:2px;padding-top:10px">
+        <span style="font-weight:700">${_livre<0?'Falta':'Sobra pra voc\u00ea'}</span>
+        <b style="font-size:19px;color:${_livre<0?'var(--coral)':'var(--hero-green)'}">${brl(Math.abs(_livre))}</b>
+      </div>
+      <div class="note" style="color:rgba(255,255,255,.72);margin-top:8px;font-size:12px">
+        ${_livre<0?'O que ainda vai sair passa do que voc\u00ea tem em conta. Vale rever o que d\u00e1 pra adiar.':'Isso \u00e9 o que sobra depois de pagar tudo que j\u00e1 est\u00e1 lan\u00e7ado para este m\u00eas.'}
+      </div>
+    </div>`;
+    const _ok=['alerta','lancrapido','saldo','pendalert','contas','recentes'];
+    ordem=ordem.filter(k=>_ok.indexOf(k)>=0);
+  }
+  html+=`<div style="text-align:center;margin:2px 0 12px">
+    <span onclick="setModoSimples(${modoSimples()?'false':'true'})" style="cursor:pointer;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:5px 13px;display:inline-block">
+      ${modoSimples()?'\ud83c\udf31 Modo simples \u00b7 <b style="color:var(--mint)">ver tudo</b>':'\ud83c\udf31 <b style="color:var(--mint)">Ver em modo simples</b>'}
+    </span></div>`;
   html+=`<div id="homeSortable">`;
   ordem.forEach(k=>{
     if(!blocos[k]) return;
@@ -4780,6 +4819,33 @@ function renderHome(){
   $('content').innerHTML=html;
   makeSortable('homeSortable','gf_order_home');
   setTimeout(checarOrcamentos,400);
+}
+function perguntarModoSimples(){
+  let respondeu=false; try{ respondeu=localStorage.getItem('gf_modo_simples_resp')==='1'; }catch(e){}
+  if(respondeu){ abrirBemVindo(); return; }
+  openSheet(`
+    <div style="text-align:center;padding:4px 2px 2px">
+      <div style="font-size:38px;line-height:1">\ud83c\udf31</div>
+      <h3 style="margin:8px 0 4px;font-size:20px">Como voc\u00ea quer come\u00e7ar?</h3>
+      <p class="note" style="margin-bottom:16px">D\u00e1 pra trocar quando quiser, a qualquer momento.</p>
+    </div>
+    <div class="lrow tap" onclick="escolherModo(true)" style="align-items:flex-start;border:1.5px solid var(--mint);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">\ud83c\udf31</div>
+      <div class="mid"><div class="t">Modo simples</div>
+        <div class="s">S\u00f3 o essencial: quanto voc\u00ea tem, o que ainda vai sair e o que sobra. Bom pra quem quer p\u00f4r as contas em ordem sem se perder.</div></div>
+    </div>
+    <div class="lrow tap" onclick="escolherModo(false)" style="align-items:flex-start;border:1px solid var(--line-2);border-radius:14px;padding:14px">
+      <div class="dot" style="background:${tintBg('#7c5cff')};color:#7c5cff">${ICON('chart',20)}</div>
+      <div class="mid"><div class="t">Modo completo</div>
+        <div class="s">Tudo ligado: pain\u00e9is, or\u00e7amentos por categoria, investimentos, proje\u00e7\u00f5es e relat\u00f3rios.</div></div>
+    </div>
+    <div class="note" style="text-align:center;margin-top:14px;font-size:12px">Depois, em <b>Mais \u203a Configura\u00e7\u00f5es</b>, voc\u00ea liga e desliga isso numa chave.</div>
+  `);
+}
+function escolherModo(simples){
+  try{ localStorage.setItem('gf_modo_simples', simples?'1':'0'); localStorage.setItem('gf_modo_simples_resp','1'); }catch(e){}
+  salvarPrefs(); aplicarTabsSimples(); closeSheet();
+  setTimeout(()=>{ render(); abrirBemVindo(); }, 220);
 }
 function explicarPatrimonio(){
   const _lista=investimentosScope();
@@ -6168,6 +6234,11 @@ function renderConfig(){
       <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">${ICON('chart',20)}</div>
       <div class="mid"><div class="t">Investir só o que sobra</div><div class="s">Ligado: o investimento entra na previsão só até o que sobra — nunca deixa o balanço negativo. Desligado: desconta o aporte cheio.</div></div>
       <button class="switch ${investSobra()?'on':''}" onclick="toggleInvestSobra(${investSobra()?'false':'true'})"><span class="knob"></span></button>
+    </div>
+    <div class="lrow" style="cursor:default;border-bottom:1px solid var(--line-2)">
+      <div class="dot" style="background:${tintBg('#2f8f66')};color:#2f8f66">\ud83c\udf31</div>
+      <div class="mid"><div class="t">Modo simples</div><div class="s">Mostra s\u00f3 o essencial: quanto voc\u00ea tem, o que ainda vai sair e o que sobra. Esconde Painel, Investir, or\u00e7amentos e proje\u00e7\u00f5es \u2014 nada \u00e9 apagado, s\u00f3 sai da frente.</div></div>
+      <button class="switch ${modoSimples()?'on':''}" onclick="setModoSimples(${modoSimples()?'false':'true'})"><span class="knob"></span></button>
     </div>
     ${hubItem('play','Assistente IA','Pergunte sobre seus gastos ou lance por texto',"go('assistente')",'#7c5cff')}
     ${hubItem('receipt','Primeiros passos','Rever o tutorial de configuração inicial',"go('tutorial')",'#3b82f6')}

@@ -583,6 +583,92 @@ body.scrolling .fab{opacity:.25}
 @media (prefers-reduced-motion: reduce){
   #content .revelar{opacity:1;transform:none;animation:none}
 }
+
+/* Visual de abertura e Início — 2026-09-07. Somente apresentação. */
+#auth{
+  min-height:100dvh;justify-content:center;gap:0;
+  padding:max(28px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));
+  background:radial-gradient(ellipse at 50% 0%,#123d36 0%,#081b20 42%,#080e19 100%);
+}
+#auth::before{display:none}
+#auth .brand{margin:0 0 24px;gap:0}
+#auth .brand .logo-img{width:88px;height:88px;object-fit:contain;border-radius:23px;filter:drop-shadow(0 10px 24px #0003)}
+#auth .brand-word{margin-top:14px}
+#auth .brand-word span{font-size:32px;line-height:1.12;letter-spacing:-.6px;color:#f2fcf8;background:none;opacity:1;transform:none;animation:none}
+.brand-product{margin:5px 0 0;font-size:11px;font-weight:700;letter-spacing:3.2px;text-transform:uppercase;color:#84d9bd}
+#auth .brand .tag{margin-top:14px;font-size:14px;line-height:1.6;color:#bdcfc9;font-weight:400}
+#auth .brand .tag b{color:#7de4bc;font-weight:600}
+#auth .brand .ver{margin:12px 0 0;padding:3px 9px;font-size:10px;color:#a9bfb7;background:#ffffff06;border-color:#ffffff14}
+#auth .auth-card{
+  position:relative;max-width:400px;padding:26px;border-radius:22px;
+  background:#fff;color:#172b27;border:1px solid #e2eae6;
+  box-shadow:0 20px 60px #0004;
+  --card:#fff;--ink:#172b27;--muted:#52665f;--line-2:#cbd9d2;--input-bg:#fff;--nav-on:#11684e;
+}
+#auth .auth-card h2{font-size:22px;letter-spacing:-.5px}
+#auth .auth-card .sub{color:#52665f;margin-top:5px;margin-bottom:22px;font-size:14px}
+#auth .field label{color:#52665f;font-size:11px;letter-spacing:.8px}
+#auth .field input{min-height:48px;border-width:1px;background:#f8fbf9;color:#172b27}
+#auth .field input:focus{border-color:#13835f;box-shadow:0 0 0 3px #13835f1a}
+#auth .field input::placeholder{color:#75847e;opacity:1}
+#auth .auth-card .btn:not(.ghost):not(.outline){min-height:48px;background:#11684e;color:#fff;box-shadow:0 4px 12px #11684e26}
+#auth .auth-switch{line-height:1.6;color:#52665f}
+#auth .auth-switch b{color:#11684e}
+#auth .savepass-row{color:#52665f}
+#auth .savepass-row input{accent-color:#11684e;width:18px;height:18px}
+#splash{background:radial-gradient(ellipse at 50% 35%,#123d36 0%,#081b20 48%,#080e19 100%)}
+#splash .splash-mark{width:112px;height:112px;object-fit:contain;border-radius:29px}
+#splash .splash-word span{font-size:38px;letter-spacing:-.6px}
+#splash .brand-product{margin-top:8px}
+#splash .splash-tag{line-height:1.7;color:#bdcfc9}
+#splash .splash-tag b{color:#7de4bc}
+#homeSortable .card{border:1px solid var(--line);box-shadow:0 4px 18px #0000000d}
+#homeSortable .hero{border-color:transparent;padding:22px}
+#homeSortable .hero .big{font-size:clamp(28px,7vw,36px);letter-spacing:-.8px}
+#homeSortable .hero .lab{opacity:.92}
+#homeSortable .quickrow{gap:10px}
+#homeSortable .quick{padding:14px 8px;border:1px solid var(--line);border-radius:16px}
+#homeSortable .sec-head h3{font-size:16px}
+#homeSortable .sec-head a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+#homeSortable .lrow{padding-top:15px;padding-bottom:15px}
+#homeSortable .drag-handle{opacity:.6}
+#installBanner{
+  bottom:calc(env(safe-area-inset-bottom) + 148px);
+  background:var(--card);color:var(--ink);border:1px solid var(--line-2);
+  box-shadow:0 8px 28px #0003;padding:12px;gap:10px;
+}
+#installBanner .ib-txt{min-width:0}
+#installBanner .ib-txt b{color:var(--ink)}
+#installBanner .ib-txt span{color:var(--muted);opacity:1;display:block;margin-top:3px}
+#installBanner .ib-btn{background:#11684e;color:#fff;min-height:40px;flex-shrink:0}
+#installBanner .ib-x{color:var(--ink);width:32px;min-height:40px;flex-shrink:0}
+body:has(#installBanner:not(.hidden)) .content{padding-bottom:280px}
+body.modal-open #installBanner{display:none}
+@media(max-width:380px){
+  #auth{padding:24px 16px}
+  #auth .auth-card{padding:22px 20px}
+  #auth .brand .logo-img{width:72px;height:72px;border-radius:19px}
+  #homeSortable .hero{padding:18px}
+  #installBanner{gap:8px;padding:10px}
+  #installBanner .ib-ic{display:none}
+  #installBanner .ib-txt b{font-size:13px}
+  #installBanner .ib-txt span{font-size:11px}
+  #installBanner .ib-btn{padding:9px 10px}
+}
+@media(max-height:760px){
+  #auth{justify-content:flex-start}
+  #auth .brand{margin-bottom:18px}
+  #auth .brand .logo-img{width:64px;height:64px;border-radius:17px}
+  #auth .brand-word{margin-top:10px}
+  #auth .brand-word span{font-size:28px}
+  #auth .brand .tag{margin-top:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  #splash .splash-mark,#splash .splash-glow,#splash .word-reveal span,#splash .splash-tag{
+    animation:none;opacity:1;transform:none;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -591,10 +677,11 @@ body.scrolling .fab{opacity:.25}
 <div id="splash">
   <div class="splash-glow"></div>
   <div class="splash-stack">
-    <img src="icon-192.png" class="splash-mark" alt="" onerror="this.style.display='none'">
+    <img src="icon-512.png" class="splash-mark" alt="Gestor Financeiro" onerror="this.style.display='none'">
     <div class="word-reveal splash-word">
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
+    <div class="brand-product">Financeiro</div>
     <div class="splash-tag"><b>Assuma o controle.</b><br>Construa seu futuro.</div>
     <div id="splashVer" style="margin-top:10px;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.38);font-weight:600"></div>
   </div>
@@ -603,10 +690,11 @@ body.scrolling .fab{opacity:.25}
 <!-- ================= AUTH ================= -->
 <div id="auth">
   <div class="brand">
-    <img class="logo-img" src="icon-192.png" alt="Gestor Soluções" onerror="this.style.display='none'">
+    <img class="logo-img" src="icon-512.png" alt="Gestor Financeiro" onerror="this.style.display='none'">
     <div class="word-reveal brand-word">
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
+    <div class="brand-product">Financeiro</div>
     <p class="tag"><b>Assuma o controle.</b><br>Construa seu futuro.</p>
     <p class="ver" id="appVer"></p>
   </div>
@@ -12205,3 +12293,4 @@ setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '
 </script>
 </body>
 </html>
+

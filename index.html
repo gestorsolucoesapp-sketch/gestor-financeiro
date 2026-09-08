@@ -670,7 +670,6 @@ body.modal-open #installBanner{display:none}
   }
 }
 
-#splash:not(.logo-ready) .splash-mark, #splash:not(.logo-ready) .word-reveal span, #splash:not(.logo-ready) .splash-tag, #splash:not(.logo-ready) .splash-glow{animation-play-state:paused}
 </style>
 <link rel="preload" as="image" href="logo-inicio-v2.png">
 </head>
@@ -823,28 +822,14 @@ body.modal-open #installBanner{display:none}
 <script>
 // ============ CONFIG ============
 window._splashT0=Date.now();
-window._splashReady = new Promise(resolve => {
-  const splash = document.getElementById('splash');
-  const logo = splash && splash.querySelector('.splash-mark');
-  let started = false;
-  const start = () => {
-    if (started) return;
-    started = true;
-    window._splashT0 = Date.now();
-    if (splash) splash.classList.add('logo-ready');
-    resolve();
-  };
-  if (!logo || logo.complete) start();
-  else {
-    logo.addEventListener('load', start, {once:true});
-    logo.addEventListener('error', start, {once:true});
-    setTimeout(start, 1200);   // rede ruim nao pode congelar a abertura
-  }
-});
+// v10.32: a animação da abertura roda assim que a página pinta — como era na v10.30.
+// Não espera o logo carregar: com o arquivo em cache ele chega junto, e numa rede
+// ruim é melhor a animação rodar do que a tela ficar congelada.
+window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.32"; /* z4 */
+const APP_VER = "10.33"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{

@@ -55,21 +55,22 @@ input,select{font-family:inherit;font-size:16px}
 #splash{position:fixed;inset:0;z-index:100000;background:#020111;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #splash.done{opacity:0;transition:opacity .5s ease;pointer-events:none}
 .splash-stack{display:flex;flex-direction:column;align-items:center;position:relative;z-index:2}
-.splash-mark{width:min(34vw,132px);height:auto;animation:markPop .42s cubic-bezier(.2,.9,.3,1.15) both}
+.splash-mark{width:min(34vw,132px);height:auto;animation:markPop .21s cubic-bezier(.2,.9,.3,1.15) both}
 .splash-glow,#splash::before{content:'';position:absolute;top:50%;left:50%;
   width:120vw;height:120vw;max-width:560px;max-height:560px;border-radius:50%;z-index:1;pointer-events:none;
   background:radial-gradient(circle,rgba(6,161,109,.36) 0%,rgba(0,120,92,.18) 40%,transparent 68%);
-  animation:splRipple 1.8s ease-out infinite}
+  animation:splRipple .9s ease-out infinite}
 /* a onda nasce no centro e abre pra fora, sem parar. Duas defasadas pra nunca
    ficar um instante parado — é o que dá pra ver mesmo quando o iOS cobre o começo */
-#splash::before{animation-delay:.9s}
+#splash::before{animation-delay:.45s}
 @keyframes splRipple{
-  0%{transform:translate(-50%,-50%) scale(.28);opacity:0}
-  22%{opacity:.85}
-  100%{transform:translate(-50%,-50%) scale(1.3);opacity:0}}
+  0%{transform:translate(-50%,-50%) scale(.18);opacity:0}
+  12%{opacity:1}
+  62%{opacity:.65}
+  100%{transform:translate(-50%,-50%) scale(1.55);opacity:0}}
 #splash::after{content:'';position:absolute;inset:-40%;z-index:0;pointer-events:none;
   background:conic-gradient(from 0deg,transparent 0 62%,rgba(18,185,129,.13) 78%,rgba(95,231,176,.05) 88%,transparent 100%);
-  animation:splSpin 8s linear infinite}
+  animation:splSpin 4s linear infinite}
 @keyframes splSpin{to{transform:rotate(360deg)}}
 @keyframes markPop{0%{opacity:0;transform:scale(.4) translateY(14px)}65%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes splGlow{0%{opacity:0;transform:scale(.5)}45%{opacity:1}100%{opacity:.55;transform:scale(1.05)}}
@@ -78,8 +79,8 @@ input,select{font-family:inherit;font-size:16px}
   background:linear-gradient(100deg,#5fe7b0,#12b981 52%,#06a16d);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   opacity:0;display:inline-block;transform:translateY(14px) scale(.7);
-  animation:letterIn .28s cubic-bezier(.2,.9,.3,1.3) forwards;
-  animation-delay:calc(.42s + var(--i) * .06s)}
+  animation:letterIn .14s cubic-bezier(.2,.9,.3,1.3) forwards;
+  animation-delay:calc(.21s + var(--i) * .03s)}
 .splash-word span{font-size:42px}
 .brand-word span{font-size:34px}
 @keyframes letterIn{to{opacity:1;transform:translateY(0) scale(1)}}
@@ -849,15 +850,15 @@ window._splashT0=Date.now();
     let pi=0, ci=0;
     l1.appendChild(cur);
     const passo=()=>{
-      if(pi>=partes.length){ setTimeout(()=>cur.remove(), 450); return; }
+      if(pi>=partes.length){ setTimeout(()=>cur.remove(), 220); return; }
       const [el,txt]=partes[pi];
       if(ci===0) el.appendChild(cur);
       if(ci<txt.length){
         cur.insertAdjacentText('beforebegin', txt[ci]);
-        ci++; setTimeout(passo, 16);
-      }else{ pi++; ci=0; setTimeout(passo, 100); }
+        ci++; setTimeout(passo, 8);
+      }else{ pi++; ci=0; setTimeout(passo, 50); }
     };
-    setTimeout(passo, 400);
+    setTimeout(passo, 200);
   }catch(e){}
 })();
 try{
@@ -871,7 +872,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.37"; /* z4 */
+const APP_VER = "10.38"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -12334,7 +12335,7 @@ setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '
   initLoginUI();
 })().finally(async()=>{
   await window._splashReady;
-  const min=1550, dt=Date.now()-window._splashT0;   // metade do tempo, a pedido do João
+  const min=780, dt=Date.now()-window._splashT0;   // metade de novo, a pedido do João
   setTimeout(()=>{
     const sp=document.getElementById('splash');
     if(sp){ sp.classList.add('done'); setTimeout(()=>sp.remove(),600); }

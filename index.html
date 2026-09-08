@@ -58,7 +58,14 @@ input,select{font-family:inherit;font-size:16px}
 .splash-mark{width:min(34vw,132px);height:auto;animation:markPop .85s cubic-bezier(.2,.9,.3,1.15) both}
 .splash-glow{position:absolute;width:120vw;height:120vw;max-width:560px;max-height:560px;border-radius:50%;z-index:1;
   background:radial-gradient(circle,rgba(6,161,109,.34) 0%,rgba(0,120,92,.17) 40%,transparent 68%);
-  animation:splGlow 2.4s ease-in-out both}
+  animation:splGlow 2.4s ease-in-out both, splPulse 3.6s ease-in-out 2.4s infinite alternate}
+/* o fundo nunca para de se mexer: assim tem movimento na tela em qualquer momento
+   que o usuário olhe, mesmo quando o iOS cobre o começo com a tela dele */
+@keyframes splPulse{from{transform:scale(1.05);opacity:.5}to{transform:scale(1.18);opacity:.8}}
+#splash::after{content:'';position:absolute;inset:-40%;z-index:0;pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0 62%,rgba(18,185,129,.13) 78%,rgba(95,231,176,.05) 88%,transparent 100%);
+  animation:splSpin 16s linear infinite}
+@keyframes splSpin{to{transform:rotate(360deg)}}
 @keyframes markPop{0%{opacity:0;transform:scale(.4) translateY(14px)}65%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes splGlow{0%{opacity:0;transform:scale(.5)}45%{opacity:1}100%{opacity:.55;transform:scale(1.05)}}
 .word-reveal{display:flex;margin-top:8px}
@@ -72,7 +79,10 @@ input,select{font-family:inherit;font-size:16px}
 .brand-word span{font-size:34px}
 @keyframes letterIn{to{opacity:1;transform:translateY(0) scale(1)}}
 .splash-tag{margin-top:12px;color:#9db3ab;font-size:14px;font-weight:600;letter-spacing:.2px;line-height:1.45;text-align:center;
-  opacity:0;animation:tagIn .6s ease forwards;animation-delay:1.75s}
+  min-height:42px}
+.tw-cur{display:inline-block;width:2px;height:1em;background:#12b981;margin-left:3px;vertical-align:-2px;
+  animation:twBlink .85s steps(1,end) infinite}
+@keyframes twBlink{50%{opacity:0}}
 .splash-tag b,.brand .tag b{color:#12b981;font-weight:700}
 
 @keyframes tagIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -685,7 +695,7 @@ body.modal-open #installBanner{display:none}
       <span style="--i:0">G</span><span style="--i:1">e</span><span style="--i:2">s</span><span style="--i:3">t</span><span style="--i:4">o</span><span style="--i:5">r</span>
     </div>
     <div class="brand-product">Financeiro</div>
-    <div class="splash-tag"><b>Assuma o controle.</b><br>Construa seu futuro.</div>
+    <div class="splash-tag"><b class="tw1"></b><br><span class="tw2"></span></div>
     <div id="splashVer" style="margin-top:10px;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.38);font-weight:600"></div>
   </div>
 </div>
@@ -823,6 +833,28 @@ body.modal-open #installBanner{display:none}
 <script>
 // ============ CONFIG ============
 window._splashT0=Date.now();
+// máquina de escrever da assinatura. Começa depois do logo e das letras, e é o
+// último movimento da abertura — é o pedaço que dá pra ver mesmo no app instalado.
+(function(){
+  try{
+    const l1=document.querySelector('.splash-tag .tw1'), l2=document.querySelector('.splash-tag .tw2');
+    if(!l1||!l2) return;
+    const cur=document.createElement('i'); cur.className='tw-cur';
+    const partes=[[l1,'Assuma o controle.'],[l2,'Construa seu futuro.']];
+    let pi=0, ci=0;
+    l1.appendChild(cur);
+    const passo=()=>{
+      if(pi>=partes.length){ setTimeout(()=>cur.remove(), 900); return; }
+      const [el,txt]=partes[pi];
+      if(ci===0) el.appendChild(cur);
+      if(ci<txt.length){
+        cur.insertAdjacentText('beforebegin', txt[ci]);
+        ci++; setTimeout(passo, 32);
+      }else{ pi++; ci=0; setTimeout(passo, 200); }
+    };
+    setTimeout(passo, 800);
+  }catch(e){}
+})();
 try{
   if(window.navigator.standalone===true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))
     document.documentElement.classList.add('pwa');
@@ -834,7 +866,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.35"; /* z4 */
+const APP_VER = "10.36"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -12297,7 +12329,7 @@ setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '
   initLoginUI();
 })().finally(async()=>{
   await window._splashReady;
-  const min=2300, dt=Date.now()-window._splashT0;
+  const min=3100, dt=Date.now()-window._splashT0;   // cabe a frase sendo digitada
   setTimeout(()=>{
     const sp=document.getElementById('splash');
     if(sp){ sp.classList.add('done'); setTimeout(()=>sp.remove(),600); }

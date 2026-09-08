@@ -670,7 +670,9 @@ body.modal-open #installBanner{display:none}
   }
 }
 
+#splash:not(.logo-ready) .splash-mark, #splash:not(.logo-ready) .word-reveal span, #splash:not(.logo-ready) .splash-tag, #splash:not(.logo-ready) .splash-glow{animation-play-state:paused}
 </style>
+<link rel="preload" as="image" href="logo-inicio-v2.png">
 </head>
 <body>
 
@@ -821,10 +823,28 @@ body.modal-open #installBanner{display:none}
 <script>
 // ============ CONFIG ============
 window._splashT0=Date.now();
+window._splashReady = new Promise(resolve => {
+  const splash = document.getElementById('splash');
+  const logo = splash && splash.querySelector('.splash-mark');
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    window._splashT0 = Date.now();
+    if (splash) splash.classList.add('logo-ready');
+    resolve();
+  };
+  if (!logo || logo.complete) start();
+  else {
+    logo.addEventListener('load', start, {once:true});
+    logo.addEventListener('error', start, {once:true});
+    setTimeout(start, 4000);
+  }
+});
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.30"; /* z4 */
+const APP_VER = "10.31"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -856,7 +876,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       try{ const {data}=await sb.auth.refreshSession(); if(data&&data.session) return data.session.access_token; }catch(e){}
       try{ const {data}=await sb.auth.getSession(); if(data&&data.session) return data.session.access_token; }catch(e){}
       return null;
-    })().finally(()=>{ setTimeout(()=>{ renovando=null; }, 300); });
+    })().finally(async()=>{
+  await window._splashReady; setTimeout(()=>{ renovando=null; }, 300); });
     return renovando;
   }
   window.fetch = async function(entrada, opcoes){
@@ -12284,7 +12305,8 @@ setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '
   const ls=localSession();
   if(ls && ls.user){ await afterLogin(ls.user); return; }
   initLoginUI();
-})().finally(()=>{
+})().finally(async()=>{
+  await window._splashReady;
   const min=2300, dt=Date.now()-window._splashT0;
   setTimeout(()=>{
     const sp=document.getElementById('splash');

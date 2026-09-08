@@ -593,8 +593,9 @@ body.scrolling .fab{opacity:.25}
 #auth::before{display:none}
 #auth .brand{margin:0 0 24px;gap:0}
 #auth .brand .logo-img{width:88px;height:88px;object-fit:contain;border-radius:23px;filter:drop-shadow(0 10px 24px #0003)}
+#auth .brand .logo-img{animation:markPop .85s cubic-bezier(.2,.9,.3,1.15) both}
 #auth .brand-word{margin-top:14px}
-#auth .brand-word span{font-size:32px;line-height:1.12;letter-spacing:-.6px;color:#f2fcf8;background:none;opacity:1;transform:none;animation:none}
+#auth .brand-word span{font-size:32px;line-height:1.12;letter-spacing:-.6px;color:#f2fcf8;background:none}
 .brand-product{margin:5px 0 0;font-size:11px;font-weight:700;letter-spacing:3.2px;text-transform:uppercase;color:#84d9bd}
 #auth .brand .tag{margin-top:14px;font-size:14px;line-height:1.6;color:#bdcfc9;font-weight:400}
 #auth .brand .tag b{color:#7de4bc;font-weight:600}
@@ -664,7 +665,7 @@ body.modal-open #installBanner{display:none}
   #auth .brand .tag{margin-top:10px}
 }
 @media(prefers-reduced-motion:reduce){
-  #splash .splash-mark,#splash .splash-glow,#splash .word-reveal span,#splash .splash-tag{
+  #auth .logo-img,#auth .word-reveal span,#splash .splash-mark,#splash .splash-glow,#splash .word-reveal span,#splash .splash-tag{
     animation:none;opacity:1;transform:none;
   }
 }

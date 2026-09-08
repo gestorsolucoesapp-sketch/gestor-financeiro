@@ -74,13 +74,7 @@ input,select{font-family:inherit;font-size:16px}
 .splash-tag{margin-top:12px;color:#9db3ab;font-size:14px;font-weight:600;letter-spacing:.2px;line-height:1.45;text-align:center;
   opacity:0;animation:tagIn .6s ease forwards;animation-delay:1.75s}
 .splash-tag b,.brand .tag b{color:#12b981;font-weight:700}
-/* App instalado (iOS/Android): o sistema mostra a tela de abertura DELE por cima
-   enquanto a página carrega. Sem esse atraso a animação roda escondida e o usuário
-   só vê o quadro final. No navegador nada muda. */
-.pwa .splash-glow{animation-delay:.5s}
-.pwa .splash-mark{animation-delay:.75s}
-.pwa .word-reveal span{animation-delay:calc(1.6s + var(--i) * .12s)}
-.pwa .splash-tag{animation-delay:2.5s}
+
 @keyframes tagIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 #auth::before{content:'';position:fixed;inset:0;background:radial-gradient(90% 50% at 50% 8%, rgba(4,90,68,.38) 0%, transparent 70%);pointer-events:none}
 .brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:22px;margin-top:-8px;position:relative}
@@ -840,7 +834,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.34"; /* z4 */
+const APP_VER = "10.35"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -12303,7 +12297,7 @@ setTimeout(()=>{ try{ processarBancoPend(0); }catch(e){ try{ alert('ERRO pend: '
   initLoginUI();
 })().finally(async()=>{
   await window._splashReady;
-  const min=document.documentElement.classList.contains('pwa')?3200:2300, dt=Date.now()-window._splashT0;
+  const min=2300, dt=Date.now()-window._splashT0;
   setTimeout(()=>{
     const sp=document.getElementById('splash');
     if(sp){ sp.classList.add('done'); setTimeout(()=>sp.remove(),600); }

@@ -876,7 +876,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.40"; /* z4 */
+const APP_VER = "10.42"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -1057,6 +1057,17 @@ const ICON=(n,s=20)=>{const p={
   return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p[n]||''}</svg>`;
 };
 const ymd=d=>{const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
+// FUSO TRAVADO: o app sempre pensa em horário de Brasília, não importa o relógio do aparelho.
+// agora() devolve um Date cujos campos locais JÁ são a hora de São Paulo — use no lugar de
+// new Date() em toda decisão de "que dia é hoje". Para carimbo de tempo real, continue com new Date().
+const TZ_APP='America/Sao_Paulo';
+const _FMT_SP=new Intl.DateTimeFormat('en-CA',{timeZone:TZ_APP,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+function agora(){
+  try{
+    const p={}; _FMT_SP.formatToParts(new Date()).forEach(x=>{p[x.type]=x.value;});
+    return new Date(+p.year,+p.month-1,+p.day,(+p.hour)%24,+p.minute,+p.second);
+  }catch(e){ return new Date(); }
+}
 function tintBg(hex){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return `rgba(${r},${g},${b},.16)`;}
 function catVisual(cat,tipo){
   const n=((cat&&cat.nome)||'').toLowerCase();
@@ -1466,7 +1477,7 @@ let SELIC={meta_aa:null,data_meta:null,atualizado_em:null};
 async function carregarSelic(){
   // cache local primeiro (vale o dia), pra tela nunca ficar sem número
   try{ const c=JSON.parse(localStorage.getItem('gf_selic')||'null'); if(c&&c.meta_aa>0) SELIC=c; }catch(e){}
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   if(SELIC.meta_aa>0 && SELIC.buscado_em===hoje) return;
   // 1) direto do Banco Central: 432 = meta Selic (% a.a.) | 4389 = CDI anualizado (% a.a.)
   const bcb=async(serie)=>{
@@ -1560,7 +1571,7 @@ function descontarInvest(investBruto, base){
 }
 // Saldo projetado: no mês atual/passado = saldo real; nos meses FUTUROS = fechamento do mês anterior + receitas - gastos do mês
 function saldoProjetado(d){
-  const hoje=new Date();
+  const hoje=agora();
   const ymView=d.getFullYear()*12+d.getMonth();
   const ymHoje=hoje.getFullYear()*12+hoje.getMonth();
   if(ymView<=ymHoje) return saldoTotal(); // mês atual ou passado: saldo real de hoje
@@ -1973,7 +1984,7 @@ function exportarCSV(){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='gestor-financeiro-'+ymd(new Date())+'.csv';
+  a.download='gestor-financeiro-'+ymd(agora())+'.csv';
   document.body.appendChild(a); a.click(); a.remove();
   vibra(); toast('Planilha exportada 📊 ('+rows.length+' lançamentos)');
 }
@@ -1988,7 +1999,7 @@ async function baixarBackup(){
       lancamentos:DATA.lancamentos.filter(meu)
     };
     const txt=JSON.stringify(dump,null,2);
-    const nome='gestor-backup-'+ymd(new Date())+'.json';
+    const nome='gestor-backup-'+ymd(agora())+'.json';
     const blob=new Blob([txt],{type:'application/json'});
     // tenta compartilhar arquivo (melhor no iPhone → salva em Arquivos/Drive)
     try{
@@ -2349,7 +2360,7 @@ async function onbCriarLanc(){
   if(!(val>0)){ toast('Informe o valor'); return; }
   const tipo=$('ob2LTipo').value||'despesa';
   const contaId=window._onb.conta?window._onb.conta.id:(DATA.contas.find(c=>c.user_id===USER.id)||{}).id;
-  const row={id:uuid(),user_id:USER.id,tipo,descricao:desc,valor:val,data:ymd(new Date()),status:'pago',conta_id:contaId||null};
+  const row={id:uuid(),user_id:USER.id,tipo,descricao:desc,valor:val,data:ymd(agora()),status:'pago',conta_id:contaId||null};
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){ toast('Erro: '+r.error.message); return; }
   DATA.lancamentos.unshift(row); window._onb.lanc=row;
@@ -2555,7 +2566,7 @@ function licCache(){try{return JSON.parse(localStorage.getItem('gf_lic')||'null'
 function setLicCache(o){try{localStorage.setItem('gf_lic',JSON.stringify(o))}catch(e){}}
 function licStatus(l){
   if(!l) return {ok:true,tipo:'novo'};
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   if(l.status==='bloqueado') return {ok:false,motivo:'bloqueado'};
   if(l.status==='liberado') return {ok:true,tipo:'liberado'};
   if(l.status==='pago'){ if(l.pago_ate && l.pago_ate>=hoje) return {ok:true,tipo:'pago',ate:l.pago_ate}; return {ok:false,motivo:'pagamento vencido'}; }
@@ -2804,7 +2815,7 @@ function partnerLancsAgrupados(){
 async function updateAgBadge(){
   const b=$('agBadge'); if(!b) return;
   try{
-    const hj=ymd(new Date());
+    const hj=ymd(agora());
     const {data}=await sb.from('agenda').select('id').eq('feito',false).lte('data',hj);
     const n=(data||[]).length;
     if(n>0){ b.textContent=n>9?'9+':n; b.classList.remove('hidden'); }
@@ -3217,7 +3228,7 @@ function updateIaFab(){
 }
 let _aiMsgs=[]; // {role:'user'|'assistant', content:string}
 function resumoParaIA(){
-  const hoje=ymd(new Date()); const ym=hoje.slice(0,7);
+  const hoje=ymd(agora()); const ym=hoje.slice(0,7);
   const contas=DATA.contas.filter(c=>!c.arquivada&&c.user_id===USER.id).map(c=>`${c.nome}: ${brl(saldoConta(c.id))}`).join('; ');
   const cats={};
   DATA.lancamentos.forEach(l=>{
@@ -3418,7 +3429,7 @@ async function aiEnviar(){
     let obj=null;
     try{ obj=JSON.parse(String(d.texto||'').replace(/```json|```/g,'').trim()); }catch(e){}
     if(obj && obj.acao==='criar_lancamento'){
-      window._aiProposta={tipo:obj.tipo==='receita'?'receita':'despesa',descricao:obj.descricao||'Lançamento',valor:+obj.valor||0,data:obj.data||ymd(new Date()),conta_nome:obj.conta_nome||'',categoria_nome:obj.categoria_nome||''};
+      window._aiProposta={tipo:obj.tipo==='receita'?'receita':'despesa',descricao:obj.descricao||'Lançamento',valor:+obj.valor||0,data:obj.data||ymd(agora()),conta_nome:obj.conta_nome||'',categoria_nome:obj.categoria_nome||''};
       _aiMsgs.push({role:'assistant',content:'Preparei o lançamento abaixo — confirma?'});
     }else if(obj && obj.acao==='excluir_lancamento'){
       if(!iaPodeExcluir()){
@@ -3596,7 +3607,7 @@ function inMonthRep(l,d){
 // alerta quando um orçamento por categoria passa de 80% e de 100% (avisa 1x por mês por nível)
 function checarOrcamentos(){
   try{
-    const hoje=new Date(); const am=ymd(firstOfMonth(hoje)).slice(0,7);
+    const hoje=agora(); const am=ymd(firstOfMonth(hoje)).slice(0,7);
     const orcs=DATA.orcamentos.filter(o=>o.ano_mes===am && Number(o.limite)>0 && (o.user_id===USER.id||orcEspelho(o)));
     if(!orcs.length) return;
     for(const o of orcs){
@@ -3902,7 +3913,7 @@ const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','
 function mesesChartHTML(itens,titulo,nota){
   if(!itens || !itens.length) return '';
   const maxV=Math.max(1,...itens.map(x=>x.valor));
-  const hojeYm=ymd(new Date()).slice(0,7);
+  const hojeYm=ymd(agora()).slice(0,7);
   let html=`<div class="card" style="margin-bottom:0"><h3 style="margin:0 0 4px;font-size:15px">${esc(titulo)}</h3>`;
   if(nota) html+=`<div class="note" style="margin-bottom:8px">${nota}</div>`;
   html+=`<div class="daybars mesbars">`;
@@ -3980,7 +3991,7 @@ function centralizarHoje(){
 }
 function daybarChartHTML(dias,titulo,nota,ownerFiltro,detalheFn){
   const maxD=Math.max(1,...dias.map(x=>x.valor));
-  const hoje=new Date();
+  const hoje=agora();
   const mesAtual = hoje.getFullYear()===viewMonth.getFullYear() && hoje.getMonth()===viewMonth.getMonth();
   const maxBarPx=110;
   const fk=ownerFiltro?`'${ownerFiltro}'`:'null';
@@ -4303,7 +4314,7 @@ function gastoCartaoMes(d){
   return s;
 }
 function renderHome(){
-  const _hoje=new Date();
+  const _hoje=agora();
   const _futuro = (viewMonth.getFullYear()*12+viewMonth.getMonth()) > (_hoje.getFullYear()*12+_hoje.getMonth());
   const _passado = (viewMonth.getFullYear()*12+viewMonth.getMonth()) < (_hoje.getFullYear()*12+_hoje.getMonth());
   const tot=_futuro ? saldoProjetado(viewMonth) : saldoTotal();
@@ -4350,7 +4361,7 @@ function renderHome(){
     _invNota=`Aporte planejado na projeção${_prox>0?` · mês que vem ${brl(_prox)}`:''}.`;
   }
   // lançamentos recentes (conta E cartão) do scope — sem projeções futuras
-  const _hjRec=ymd(new Date());
+  const _hjRec=ymd(agora());
   const recents=DATA.lancamentos.filter(l=>{
     if(!srcOk(l.user_id)) return false;
     if(l.data>_hjRec) return false;
@@ -4435,7 +4446,7 @@ function renderHome(){
   const blocos={};
 
   // bloco: contas pra pagar (atrasadas/vencendo até amanhã)
-  const _hj=ymd(new Date()), _am=ymd(new Date(Date.now()+86400000));
+  const _hj=ymd(agora()), _am=ymd(new Date(agora().getTime()+86400000));
   const tarefas=DATA.lancamentos.filter(l=>
     l.tipo==='despesa' && l.status==='pendente' && !l.cartao_id &&
     srcOk(l.user_id) && l.data<=_am
@@ -5113,7 +5124,7 @@ function verPrevistoConta(cid){
   const entra=itens.filter(i=>i.v>0).reduce((a,i)=>a+i.v,0);
   const sai=itens.filter(i=>i.v<0).reduce((a,i)=>a-i.v,0);
   const fim=s+entra-sai;
-  const hojeS=ymd(new Date());
+  const hojeS=ymd(agora());
   openSheet(`<h2>${esc(c.nome)}</h2>
     <div class="note" style="margin-bottom:10px">O que ainda mexe nesta conta em ${mesNome(viewMonth)}</div>
     <div class="lrow"><div class="mid"><div class="t">Saldo atual</div></div><div class="amt">${brl(s)}</div></div>
@@ -5140,7 +5151,7 @@ function verReceberConta(contaId){
       .sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
   }catch(e){}
   const tot=itens.reduce((s,l)=>s+(Number(l.valor)||0),0);
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   const linhas=itens.map(l=>{
     let quando='';
     try{
@@ -5189,14 +5200,14 @@ function rowConta(c){
   }catch(e){}
   let saiLbl='';
   if(saiData){
-    const _h2=ymd(new Date());
+    const _h2=ymd(agora());
     const _d2=Math.round((new Date(saiData+'T00:00:00')-new Date(_h2+'T00:00:00'))/86400000);
     saiLbl = _d2<0?(-_d2)+'d atrasado' : _d2===0?'sai hoje' : _d2===1?'sai amanhã' : 'sai em '+_d2+' dias';
   }
   // rótulo "recebe em X dias" (receita pendente mais próxima da conta)
   let recPrevLbl='';
   if(recPrevData){
-    const _h=ymd(new Date());
+    const _h=ymd(agora());
     const _d=Math.round((new Date(recPrevData+'T00:00:00')-new Date(_h+'T00:00:00'))/86400000);
     recPrevLbl = _d<0?(-_d)+'d atrasado' : _d===0?'recebe hoje' : _d===1?'recebe amanhã' : 'recebe em '+_d+' dias';
   }
@@ -5252,7 +5263,7 @@ function renderPendencias(){
   const due=all.filter(l=>new Date(l.data+'T00:00:00')<=fimMes);
   const fut=all.filter(l=>new Date(l.data+'T00:00:00')>fimMes);
   const list = window._pendFut ? all : due;
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   let html=`<div class="lrow" style="border:none;padding:4px 0 10px;cursor:pointer" onclick="go('home')"><span style="font-size:20px;margin-right:4px">‹</span><b>Contas a pagar</b></div>`;
   if(!list.length){
     html+=`<div class="card"><div class="empty"><div class="ico">${ICON('receipt',32)}</div><p>${all.length?'Nada vence até o fim do mês. 🎉':'Nenhuma pendência. Está tudo em dia! 🎉'}</p></div></div>`;
@@ -5386,7 +5397,7 @@ async function alocarAporteConfirma(valor){
   } else {
     const nome=($('apNome')?$('apNome').value:'').trim()||'Investimento';
     let taxa=evalValor($('apTaxa')?$('apTaxa').value:''); if(isNaN(taxa)) taxa=0;
-    const row={user_id:USER.id,nome,tipo:window._apTipo||'renda_fixa',valor_aplicado:Number(valor),taxa_mensal:taxa,data_aplicacao:ymd(new Date()),incluir_patrimonio:true};
+    const row={user_id:USER.id,nome,tipo:window._apTipo||'renda_fixa',valor_aplicado:Number(valor),taxa_mensal:taxa,data_aplicacao:ymd(agora()),incluir_patrimonio:true};
     r=await dbInsert('investimentos',[row]);
   }
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
@@ -5515,7 +5526,7 @@ function renderTrans(){
     html+=`<div class="card" style="padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
       <div><b>${window._pendSel.size}</b> selecionada(s)</div>
       <button class="lnk" onclick="transSelAll()">${allSel?'Limpar':'Selecionar todas'}</button></div>`;
-    const hoje=ymd(new Date());
+    const hoje=ymd(agora());
     html+=`<div class="card">`;
     list.forEach(l=>{
       const cat=catById(l.categoria_id); const conta=contaById(l.conta_id);
@@ -5584,7 +5595,7 @@ function vencimentoFatura(l){
 }
 function duePill(l){
   if(l.status!=='pendente'||l.tipo==='transferencia'||l.tipo==='receita') return '';
-  const hoje=ymd(new Date()), amanha=ymd(new Date(Date.now()+86400000));
+  const hoje=ymd(agora()), amanha=ymd(new Date(agora().getTime()+86400000));
   // compra no cartão não vence na data da compra: quem vence é a fatura
   if(l.cartao_id){
     const venc=vencimentoFatura(l);
@@ -5649,7 +5660,7 @@ function rowLanc(l){
   }
   let dias='';
   if(l.status==='pendente' && !l.cartao_id && l.tipo!=='transferencia'){
-    const dd=Math.round((new Date(l.data+'T00:00:00')-new Date(ymd(new Date())+'T00:00:00'))/86400000);
+    const dd=Math.round((new Date(l.data+'T00:00:00')-new Date(ymd(agora())+'T00:00:00'))/86400000);
     const cor=dd<0?'var(--coral)':(dd<=2?'#e0a020':'var(--muted)');
     dias=`<div style="font-size:9px;font-weight:800;color:${cor};line-height:1;margin-top:3px;text-align:center">${dd<0?Math.abs(dd)+'d!':dd===0?'hoje':dd+'d'}</div>`;
   }
@@ -5665,7 +5676,7 @@ function rowLanc(l){
 function melhorCartaoCompra(){
   const meus=DATA.cartoes.filter(c=>!c.arquivado && c.user_id===USER.id && (scope==='tudo'||c.tipo===scope));
   if(!meus.length) return null;
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hoje=agora(); hoje.setHours(0,0,0,0);
   const diaHoje=hoje.getDate();
   let melhor=null, maxDias=-1;
   meus.forEach(c=>{
@@ -5688,7 +5699,7 @@ function melhorCartaoCompra(){
   return melhor;
 }
 function diasParaVencCartao(c){
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hoje=agora(); hoje.setHours(0,0,0,0);
   let due=new Date(hoje.getFullYear(),hoje.getMonth(),Math.min(Number(c.dia_vencimento)||1,28));
   const dv=Number(c.dia_vencimento)||1;
   due=new Date(hoje.getFullYear(),hoje.getMonth(),dv);
@@ -5864,8 +5875,8 @@ async function confirmAdiantar(cartaoId){
 
   // 2 lançamentos: receita no cartão (abate fatura/libera limite) + despesa na conta (sai o dinheiro)
   const rows=[
-    {user_id:USER.id,tipo:'receita',descricao:descCartao,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp},
-    {user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome+' (adiantamento)',valor,data:ymd(new Date()),status:'pago',conta_id:contaId}
+    {user_id:USER.id,tipo:'receita',descricao:descCartao,valor,data:ymd(agora()),status:'pago',cartao_id:cartaoId,competencia:comp},
+    {user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome+' (adiantamento)',valor,data:ymd(agora()),status:'pago',conta_id:contaId}
   ];
   const r=await dbInsert('lancamentos',rows);
   if(r&&r.error){ toast('Erro: '+r.error.message); return; }
@@ -5881,7 +5892,7 @@ async function confirmAdiantar(cartaoId){
 // limite usado = soma de TODAS as faturas em aberto do cartão (atual + futuras não pagas)
 function limiteUsadoTotal(cartaoId){
   const c=cartaoById(cartaoId);
-  const hojeYm=ymd(new Date()).slice(0,7);
+  const hojeYm=ymd(agora()).slice(0,7);
   let usado=0;
   const porFatura={};
   DATA.lancamentos.filter(l=>l.cartao_id===cartaoId && l.competencia).forEach(l=>{
@@ -5969,7 +5980,7 @@ async function saveAjusteFatura(cartaoId){
   const off=cardDueOffset(cartaoById(cartaoId));
   const compDate=new Date(faturaMonth.getFullYear(), faturaMonth.getMonth()-off, 1);
   const comp=ymd(firstOfMonth(compDate));
-  const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(new Date()),status:'pago',cartao_id:cartaoId,competencia:comp,ancora_total:window._ajAncora||null};
+  const row={user_id:USER.id,tipo,descricao:desc,valor,data:ymd(agora()),status:'pago',cartao_id:cartaoId,competencia:comp,ancora_total:window._ajAncora||null};
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
@@ -6017,7 +6028,7 @@ async function pagarFatura(cartaoId){
 async function confirmPagarFatura(cartaoId,tot){
   const contaId=$('payConta').value;
   const c=cartaoById(cartaoId);
-  const row={user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome,valor:tot,data:ymd(new Date()),status:'pago',conta_id:contaId};
+  const row={user_id:USER.id,tipo:'despesa',descricao:'Pagamento fatura '+c.nome,valor:tot,data:ymd(agora()),status:'pago',conta_id:contaId};
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();
@@ -6170,7 +6181,7 @@ function _mediana(a){
 }
 // núcleo: roda tudo em cima dos meses JÁ FECHADOS (o mês corrente ainda está pela metade)
 function diagCalc(){
-  const hoje=new Date();
+  const hoje=agora();
   let serie=evolucaoMesesOficial(7);
   const ult=serie[serie.length-1];
   if(ult && ult.mes.getFullYear()===hoje.getFullYear() && ult.mes.getMonth()===hoje.getMonth()) serie=serie.slice(0,-1);
@@ -6716,7 +6727,7 @@ function recMetasHTML(total, porAno, anos){
   }
   if(r.media>0) h+=`<div class="note" style="font-size:11px;margin-top:3px">Ritmo de ${brl(r.media)}/ano — média de ${r.anos.join(', ')}</div>`;
   else h+=`<div class="note" style="font-size:11px;margin-top:3px">Sem ano encerrado suficiente pra calcular o ritmo.</div>`;
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hoje=agora(); hoje.setHours(0,0,0,0);
   metas.forEach(m=>{
     const alvo=Number(m.valor)||0, pct=alvo>0?Math.min(100,total/alvo*100):0;
     const falta=alvo-total;
@@ -6905,7 +6916,7 @@ function desenharClientes(filtro){
 }
 async function adminAcao(uid,acao){
   const r=(window._cliRows||[]).find(x=>x.user_id===uid); if(!r)return;
-  const hojeD=new Date(); const hoje=ymd(hojeD);
+  const hojeD=agora(); const hoje=ymd(hojeD);
   const somaDias=(d)=>{ const b=(r.teste_ate&&r.teste_ate>=hoje)?new Date(r.teste_ate+'T00:00:00'):new Date(hojeD); b.setDate(b.getDate()+d); return ymd(b); };
   let patch=null;
   if(acao==='mais7') patch={status:'teste',teste_ate:somaDias(7)};
@@ -7939,7 +7950,7 @@ function _lancNoMes(d){
   return n;
 }
 function futuroSerie(){
-  const hoje=new Date(); const out=[];
+  const hoje=agora(); const out=[];
   for(let i=0;i<=12;i++){
     const d=new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
     out.push({ i, d, v: (i===0? balancoFechamento(hoje) : saldoProjetado(d)), n: _lancNoMes(d) });
@@ -8349,7 +8360,7 @@ function tendenciaSaldoSVG(d){
     if(!ids.size) return '';
     let base=contas.reduce((a,c)=>a+(Number(c.saldo_inicial)||0),0);
     const iniS=ymd(ini);
-    const _hj=ymd(new Date());
+    const _hj=ymd(agora());
     const porDia={};
     for(const l of DATA.lancamentos){
       const ehPend = l.status==='pendente' && !l.cartao_id && l.tipo!=='transferencia';
@@ -9293,7 +9304,7 @@ function openInvest(id){
       <div id="iIdxNota" class="note" style="margin-top:5px"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(new Date())}"></div>
+      <div class="field"><label>Data da aplicação</label><input id="iData" type="date" value="${e.data_aplicacao||ymd(agora())}"></div>
       <div class="field"><label>Carência (dias)</label><input id="iCar" type="number" inputmode="numeric" min="0" max="3650" step="1" value="${e.carencia_dias!=null?e.carencia_dias:0}" placeholder="0"></div>
     </div>
     <div class="note" style="margin:-4px 0 10px">Ex.: RDB com resgate imediato costuma render só depois de <b>30 dias</b> — e aí o rendimento vem retroativo. Deixe 0 se rende desde o primeiro dia.</div>
@@ -9338,7 +9349,7 @@ async function saveInvest(id){
   const nome=$('iNome').value.trim(); if(!nome){toast('Informe o nome');return;}
   const valor=parseFloat($('iValor').value)||0;
   const taxa=parseFloat($('iTaxa').value)||0;
-  const data=$('iData').value||ymd(new Date());
+  const data=$('iData').value||ymd(agora());
   const idx=($('iIdx')&&$('iIdx').value)||'mensal';
   const car=Math.max(0,Math.min(3650,parseInt(($('iCar')||{}).value||'0',10)||0));
   const row={user_id:USER.id,nome,tipo:window._invTipo||'renda_fixa',valor_aplicado:valor,taxa_mensal:taxa,data_aplicacao:data,incluir_patrimonio:window._invInc!==false,indexador:idx,carencia_dias:car};
@@ -9497,7 +9508,7 @@ function parseNotifBanco(txt){
     const md2=seg.match(/(\d{2})\/(\d{2})(?!\/)/);
     if(md) data=`${md[3]}-${md[2]}-${md[1]}`;
     else if(md2){ const y=new Date().getFullYear(); data=`${y}-${md2[2]}-${md2[1]}`; }
-    else data=ymd(new Date());
+    else data=ymd(agora());
     // final do cartão
     const mf=seg.match(/final\s*(\d{4})/i);
     const finalCart=mf?mf[1]:null;
@@ -9563,7 +9574,7 @@ function parseNotifBanco(txt){
       desc=c; break;
     }
     if(!desc) return;
-    const data=ymd(new Date());
+    const data=ymd(agora());
     const d2=_limparNomeLoja(_capWords(desc));
     if(itens.some(x=>Math.abs(x.valor-valor)<0.005 && x.data===data)) return;
     const chave=`d|${valor.toFixed(2)}|${data}|${d2}`;
@@ -9730,7 +9741,7 @@ function parseFatura(txt){
     const valor = parseFloat(valStr.replace(/\./g,'').replace(',','.'));
     if(!(valor>0)) return;
     // acha data DD/MM ou DD/MM/AAAA
-    let data = ymd(new Date());
+    let data = ymd(agora());
     const md = linha.match(/(\d{1,2})[\/\.](\d{1,2})(?:[\/\.](\d{2,4}))?/);
     if(md){
       const dd=+md[1], mm=+md[2]; let yy=md[3]?+md[3]:anoAtual;
@@ -9886,14 +9897,23 @@ async function scanFatura(ev){
         x._repetida = conta[k]>1;
       });
     }
+    // por que o servidor deixou item de fora — agrupado por motivo, pra não mentir
+    const _porqueFora = ()=>{
+      const c={};
+      (ignoradosSrv||[]).forEach(g=>{
+        const m = (g && typeof g==='object' && g.motivo) ? String(g.motivo) : 'não parece compra';
+        c[m]=(c[m]||0)+1;
+      });
+      return Object.keys(c).map(m=>`${c[m]}× ${m}`).join('; ');
+    };
     if(!arr.length){
       closeSheet();
-      if(ignoradosSrv.length) toast(`Nada pra importar — ${ignoradosSrv.length} item(ns) eram transferência/Pix ou pagamento, não compra`);
+      if(ignoradosSrv.length) toast(`Nada pra importar — ${ignoradosSrv.length} item(ns) de fora: ${_porqueFora()}`);
       else toast(falhas?('Não consegui ler: '+ultimoErro).slice(0,90):'Não achei compras 🤔 tente imagens mais nítidas');
       return;
     }
     if(falhas) toast(`${falhas} imagem(ns) não deram certo`);
-    else if(ignoradosSrv.length) toast(`Deixei ${ignoradosSrv.length} item(ns) de fora: transferência/Pix ou pagamento não é compra`);
+    else if(ignoradosSrv.length) toast(`Deixei ${ignoradosSrv.length} item(ns) de fora: ${_porqueFora()}`);
     // vira itens da prévia
     const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
     // quantas despesas com esse mesmo valor+data JA existem? (2 compras de R$20 no mesmo dia
@@ -9910,7 +9930,7 @@ async function scanFatura(ev){
     arr.sort((a,b)=>String((a&&a.hora)||'').localeCompare(String((b&&b.hora)||'')));
     const itens = arr.map(x=>{
       const valor = Math.abs(Number(x.valor)||0);
-      const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(new Date());
+      const data2 = (x.data && /^\d{4}-\d{2}-\d{2}$/.test(x.data)) ? x.data : ymd(agora());
       const desc = _limparNomeLoja((x.desc||'Compra').toString().slice(0,60));
       const fin = x.final ? String(x.final).replace(/\D/g,'').slice(-4) : null;
       const banco = x.banco ? String(x.banco) : '';
@@ -10363,7 +10383,7 @@ async function salvarVoz(){
   const meio=($('vzMeio')&&$('vzMeio').value)||'cartao';
   const onde=($('vzOnde')&&$('vzOnde').value)||'';
   if(!onde){ toast(meio==='cartao'?'Cadastre um cartão primeiro':'Cadastre uma conta primeiro'); return; }
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   const rows=[];
   if(meio==='cartao'){
     const n=Math.max(1,parseInt(($('vzParc')&&$('vzParc').value)||'1'));
@@ -10466,7 +10486,7 @@ async function renderAgenda(){
 function pintarAgenda(){
   const ano=_agMes.getFullYear(), mes=_agMes.getMonth();
   const FER=feriadosDoAno(ano);
-  const hoje=ymd(new Date());
+  const hoje=ymd(agora());
   if(!_agSel) _agSel = (new Date().getMonth()===mes && new Date().getFullYear()===ano) ? hoje : ymd(new Date(ano,mes,1));
 
   const primeiro=new Date(ano,mes,1), ultimo=new Date(ano,mes+1,0);
@@ -10575,7 +10595,7 @@ async function agSalvar(id){
   const row={
     user_id: USER.id,
     titulo,
-    data: ($('agData')&&$('agData').value)||ymd(new Date()),
+    data: ($('agData')&&$('agData').value)||ymd(agora()),
     hora: (($('agHora')&&$('agHora').value)||null) || null,
     nota: (($('agNota')&&$('agNota').value)||'').trim() || null,
     avisar: !!($('agAvisar')&&$('agAvisar').checked)
@@ -10681,7 +10701,7 @@ function openLanc(id, preset){
     <div id="lancCatWrap"></div>
     <div id="lancDynamic"></div>
     <div class="field"><label>Data</label>
-      <input id="lData" type="date" value="${e.data||ymd(new Date())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
+      <input id="lData" type="date" value="${e.data||ymd(agora())}" onchange="ajustaStatusData();if(typeof updateRecorrNote==='function')updateRecorrNote()">
     </div>
     <div id="lancStatusWrap" class="field"><label>Status</label>
       <div class="seg2"><button id="stPago" class="${e.status==='pago'?'on':''}" onclick="setStatus('pago')">Pago</button>
@@ -10756,7 +10776,7 @@ function calcPronto(){
 }
 function setData(off){ const d=new Date(); d.setDate(d.getDate()+off); if($('lData'))$('lData').value=ymd(d); marcaDataChip(); }
 function marcaDataChip(){
-  const v=$('lData')?$('lData').value:''; const hoje=ymd(new Date());
+  const v=$('lData')?$('lData').value:''; const hoje=ymd(agora());
   const o=new Date(); o.setDate(o.getDate()-1); const ontem=ymd(o);
   [['dcHoje',v===hoje],['dcOntem',v===ontem],['dcOutros',v!==hoje&&v!==ontem]].forEach(([id,on])=>{const b=$(id);if(b)b.classList.toggle('on',!!on);});
   const ds=$('dataShow'); if(ds){ ds.textContent = v ? '📅 '+new Date(v+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}) : ''; }
@@ -10775,7 +10795,7 @@ async function colarClipboard(){
 function parseBanco(txt){
   const t=txt.replace(/\s+/g,' ').trim();
   let valor=0; const mv=t.match(/R\$\s*([\d.]+,\d{2})/); if(mv){valor=parseFloat(mv[1].replace(/\./g,'').replace(',','.'));}
-  let data=ymd(new Date()); const md=t.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
+  let data=ymd(agora()); const md=t.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
   if(md){let y=md[3]?(md[3].length===2?'20'+md[3]:md[3]):String(new Date().getFullYear()); data=`${y}-${md[2]}-${md[1]}`;}
   const tipo=/(receb|cr[ée]dito|entrada|dep[oó]sito|estorno|salário|salario)/i.test(t)?'receita':'despesa';
   const isCard=/(cart[ãa]o|final\s*\d{4}|cr[ée]dito)/i.test(t) && !/pix|d[ée]bito autom/i.test(t);
@@ -11082,7 +11102,7 @@ function updateFaturaNote(){
   const el=$('faturaNote'); if(!el) return;
   const sel=$('lCartao'); if(!sel){ el.innerHTML=''; return; }
   const cartao=cartaoById(sel.value); if(!cartao){ el.innerHTML=''; return; }
-  const data=$('lData')?$('lData').value:ymd(new Date());
+  const data=$('lData')?$('lData').value:ymd(agora());
   let pv=($('lAvista')&&$('lAvista').checked)?'1':($('lParcelas')?$('lParcelas').value:'1'); if(pv==='custom') pv=String(parcelasEfetivas());
   const base=calcCompetencia(data, cartao.dia_fechamento);
   const venc=new Date(base.getFullYear(), base.getMonth()+cardDueOffset(cartao), 1);
@@ -11468,7 +11488,7 @@ function prolongarBlocoHTML(e){
     if(!e || !e.grupo_id || e.cartao_id) return '';
     if(Number(e.parcelas)>1) return '';                 // parcelamento tem fim definido: não se prolonga
     const ult=recUltima(e.grupo_id); if(!ult) return '';
-    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const hoje=agora(); hoje.setHours(0,0,0,0);
     const dUlt=new Date(ult.data+'T00:00:00');
     const mesesRestam=Math.round((dUlt-hoje)/86400000/30.4);
     const acabando = mesesRestam<=3;
@@ -11913,7 +11933,7 @@ async function reajustarConfirma(id){
     cat=rc.rows[0];
     if(!(rc&&rc.queued) && !DATA.categorias.some(c=>c.id===cat.id)) DATA.categorias.push(cat);
   }
-  const row={user_id:USER.id,tipo,descricao:'Reajuste de saldo',valor:Math.abs(diff),data:ymd(new Date()),status:'pago',conta_id:id,categoria_id:cat.id};
+  const row={user_id:USER.id,tipo,descricao:'Reajuste de saldo',valor:Math.abs(diff),data:ymd(agora()),status:'pago',conta_id:id,categoria_id:cat.id};
   const r=await dbInsert('lancamentos',[row]);
   if(r&&r.error){toast('Erro: '+r.error.message);return;}
   closeSheet();

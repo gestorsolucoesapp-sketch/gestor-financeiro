@@ -876,7 +876,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.42"; /* z4 */
+const APP_VER = "10.43"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9918,12 +9918,16 @@ async function scanFatura(ev){
     const _mapa = (typeof mapFinal==='function') ? mapFinal() : {};
     // quantas despesas com esse mesmo valor+data JA existem? (2 compras de R$20 no mesmo dia
     // sao 2 compras; so as que ja tem par no banco vem marcadas como duplicada)
-    const _jaTem={};
+    const _jaTem={};      // tipo|valor|data|hora  -> os que tem hora gravada (casamento exato)
+    const _jaTemSemH={};  // tipo|valor|data       -> os antigos, sem hora (regra frouxa de antes)
+    const _hhmm=v=>String(v||'').slice(0,5);
     try{
       DATA.lancamentos.forEach(l=>{
         if(l.user_id!==USER.id || (l.tipo!=='despesa'&&l.tipo!=='receita')) return;
         const k=l.tipo+'|'+Number(l.valor).toFixed(2)+'|'+String(l.data);
-        _jaTem[k]=(_jaTem[k]||0)+1;
+        const hh=_hhmm(l.hora);
+        if(hh) _jaTem[k+'|'+hh]=(_jaTem[k+'|'+hh]||0)+1;
+        else   _jaTemSemH[k]=(_jaTemSemH[k]||0)+1;
       });
     }catch(e){}
     // as mais antigas do lote casam primeiro com o que ja esta no banco
@@ -9957,11 +9961,15 @@ async function scanFatura(ev){
       const origem = String(x.origem||'credito').toLowerCase();
       const viaCartao = origem==='credito';
       const tipoMov = String(x.tipo||'despesa').toLowerCase()==='receita' ? 'receita' : 'despesa';
-      // mesmo valor + mesma data já basta pra levantar suspeita, mesmo com nome diferente
-      // ("Olympia Country" x "Olympia Eventos"): vem desmarcado, você decide
+      // Duplicada: quando os dois lados tem hora, so e duplicata se a HORA tambem bater.
+      // Duas compras de R$ 20 no mesmo dia em horarios diferentes sao duas compras de verdade.
+      // Sem hora de um dos lados (lancamento manual ou importacao antiga), cai na regra
+      // frouxa de antes: mesmo valor + mesma data ja levanta suspeita e vem desmarcado.
       const _kd = tipoMov+'|'+valor.toFixed(2)+'|'+data2;
+      const _kh = _hhmm(x.hora);
       let dup=false;
-      if((_jaTem[_kd]||0)>0){ dup=true; _jaTem[_kd]--; }
+      if(_kh && (_jaTem[_kd+'|'+_kh]||0)>0){ dup=true; _jaTem[_kd+'|'+_kh]--; }
+      else if((_jaTemSemH[_kd]||0)>0){ dup=true; _jaTemSemH[_kd]--; }
       // pagamento de fatura, estorno, pix e afins nao sao compra: vem desmarcado e avisado
       const naoCompra = _naoEhCompra(desc);
       // categoria automática pelo nome do estabelecimento (mesmo motor da voz)
@@ -10019,15 +10027,23 @@ async function _jaEstaNoServidor(sel){
     const datas=[...new Set(sel.map(x=>String(x.data)))].filter(Boolean);
     if(!datas.length) return null;
     const {data,error}=await sb.from('lancamentos')
-      .select('tipo,valor,data,descricao')
+      .select('tipo,valor,data,hora,descricao')
       .eq('user_id',USER.id).in('data',datas);
     if(error||!Array.isArray(data)) return null;
-    const cont={};
-    data.forEach(l=>{ const k=l.tipo+'|'+Number(l.valor).toFixed(2)+'|'+String(l.data); cont[k]=(cont[k]||0)+1; });
+    const hm=v=>String(v||'').slice(0,5);
+    const cont={}, contSemH={};
+    data.forEach(l=>{
+      const k=l.tipo+'|'+Number(l.valor).toFixed(2)+'|'+String(l.data);
+      const hh=hm(l.hora);
+      if(hh) cont[k+'|'+hh]=(cont[k+'|'+hh]||0)+1;
+      else   contSemH[k]=(contSemH[k]||0)+1;
+    });
     const rep=[];
     sel.forEach(x=>{
       const k=x.tipo+'|'+Number(x.valor).toFixed(2)+'|'+String(x.data);
-      if((cont[k]||0)>0){ cont[k]--; rep.push(x); }
+      const hh=hm(x.hora);
+      if(hh && (cont[k+'|'+hh]||0)>0){ cont[k+'|'+hh]--; rep.push(x); }
+      else if((contSemH[k]||0)>0){ contSemH[k]--; rep.push(x); }
     });
     return rep;
   }catch(e){ return null; }
@@ -10062,10 +10078,12 @@ async function confirmarImport(){
       const cartao=cartaoById(x.cartao_id);
       const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
       rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
+        hora:x.hora||null,
         cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
     }else{
       if(x.categoria_id) lembrarCatEstab(x.desc,x.categoria_id);
       rows.push({user_id:USER.id,tipo:x.tipo,descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
+        hora:x.hora||null,
         conta_id:x.conta_id,categoria_id:x.categoria_id||null});
     }
   });

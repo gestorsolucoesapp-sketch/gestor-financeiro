@@ -876,7 +876,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.46"; /* z4 */
+const APP_VER = "10.47"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -11740,15 +11740,25 @@ async function upsertLanc(id,row){
     const r=await dbUpdate('lancamentos',row,'id',id);
     if(r&&r.error){toast('Erro: '+r.error.message);return;}
     closeSheet();
-    if(!(r&&r.queued)){ try{ await loadAll(); }catch(e){} }
-    vibra(); toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render(); setTimeout(()=>mostrarBalaoOrc(row),650); return;
+    // mostra a mudança na hora; o loadAll vai por trás, sem segurar a tela
+    try{ const l=DATA.lancamentos.find(x=>x.id===id); if(l) Object.assign(l,row); }catch(e){}
+    vibra(); toast(r&&r.queued?'Atualizado offline — sincroniza depois':'Transação atualizada'); render();
+    if(!(r&&r.queued)) loadAll().then(()=>render()).catch(()=>{});
+    setTimeout(()=>mostrarBalaoOrc(row),650); return;
   }
   if(!row.id) row.id=uuid();
   const r=await insertRows([row]);
   if(!r.ok) return;
   closeSheet();
   if(r.queued){ render(); toast('Salvo offline — sincroniza quando a internet voltar'); }
-  else { await absorverNoAcerto(r.rows||[row]); await loadAll(); toast('Transação adicionada'); render(); }
+  else{
+    // entra na lista local já, depois reconcilia com o servidor por trás
+    try{ (r.rows||[row]).forEach(x=>{ if(x&&x.id&&!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
+    vibra(); toast('Transação adicionada'); render();
+    (async()=>{
+      try{ await absorverNoAcerto(r.rows||[row]); await loadAll(); render(); }catch(e){}
+    })();
+  }
   setTimeout(()=>mostrarBalaoOrc(row),650);
 }
 async function delLanc(id){

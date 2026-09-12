@@ -876,7 +876,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.43"; /* z4 */
+const APP_VER = "10.44"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -5719,12 +5719,20 @@ function faturaPagaInfo(cartaoId, mes){
   });
   const pago=pags.reduce((a,l)=>a+(Number(l.valor)||0),0);
   const paga = pago >= tot-0.5;
-  let dataPg='';
+  let dataPg='', contasPg='';
   if(paga && pags.length){
     const ult=pags.sort((a,b)=>(b.data||'')<(a.data||'')?-1:1)[0];
     if(ult&&ult.data) dataPg=new Date(ult.data+'T00:00:00').toLocaleDateString('pt-BR');
+    // de qual conta saiu. Pode ser mais de uma quando houve adiantamento antes.
+    try{
+      const nomes=[...new Set(pags.map(l=>{
+        const co=(DATA.contas||[]).find(x=>x.id===l.conta_id);
+        return co?co.nome:'';
+      }).filter(Boolean))];
+      contasPg=nomes.join(' + ');
+    }catch(e){}
   }
-  return {paga, dataPg};
+  return {paga, dataPg, contasPg, valorPago:pago};
 }
 function faturaPaga(cartaoId, mes){ return faturaPagaInfo(cartaoId,mes).paga; }
 // finais do cartão: vêm do mapa que o importador já usa (final -> id do cartão).
@@ -5917,12 +5925,15 @@ function renderFatura(){
   const tot=itens.reduce((a,l)=>a+valFatura(l),0);
   let html=`<div class="lrow" style="border:none;padding:4px 0 12px;cursor:pointer" onclick="go('cartoes')"><span style="font-size:20px;margin-right:4px">‹</span><b>${esc(c.nome)}</b></div>`;
   html+=monthNav('fatura');
-  const _fpaga=faturaPaga(c.id,faturaMonth);
+  const _pi=faturaPagaInfo(c.id,faturaMonth);
+  const _fpaga=_pi.paga;
   html+=`<div class="card facard"><div class="lab" style="font-size:12px;opacity:.8;text-transform:uppercase">Fatura de ${mesNome(faturaMonth)}${_fpaga?' · <span style="color:#8ff0c0">PAGA ✓</span>':''}</div>
     <div class="big" style="font-size:30px;font-weight:800;margin:6px 0;color:${_fpaga?'#fff':'#ff7a6b'}">${brl(tot)}</div>
     <div class="note" style="color:rgba(255,255,255,.7)">Vence dia ${c.dia_vencimento}</div></div>`;
   if(tot>0 && souDono(c.user_id)){
-    if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">Você já registrou o pagamento desta fatura.</div>
+    if(_fpaga) html+=`<div class="card" style="border:1px solid var(--mint);text-align:center;margin-bottom:12px"><b style="color:var(--mint)">✓ Fatura paga</b><div class="note" style="margin-top:2px">${_pi.contasPg
+        ? `Saiu de <b>${esc(_pi.contasPg)}</b>${_pi.dataPg?` em ${_pi.dataPg}`:''}`
+        : 'Você já registrou o pagamento desta fatura.'}</div>
       <button class="btn outline" style="margin-top:10px" onclick="desfazerPagFatura('${c.id}')">↩️ Desfazer pagamento</button></div>`;
     else html+=`<button class="btn" onclick="pagarFatura('${c.id}')" style="margin-bottom:12px">💳 Registrar pagamento da fatura</button>`;
   }

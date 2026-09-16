@@ -876,7 +876,7 @@ window._splashReady = Promise.resolve();
 const SUPABASE_URL = "https://cppuceykhffjdcmwpfpk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_smlzffY0zZQ_coqc2Eo29g_-2ddMnvF";
 const VAPID_PUBLIC = "BEiff-z5h7tDk14PwaidBW0JX9ZnX1n7u57d0ZCQmQq6EkUmsq1UPUfRrzbkLoSy4BxNberxwoelYKEJ8LefFW0";
-const APP_VER = "10.47"; /* z4 */
+const APP_VER = "10.48"; /* z4 */
 try{ const _sv=document.getElementById('splashVer'); if(_sv) _sv.textContent='v'+APP_VER; }catch(e){}
 // reset único de layout: aplica o novo padrão de ordem pra todos (novos e antigos)
 try{
@@ -9671,7 +9671,7 @@ function impSetDestino(i,v){
   const x=(window._impItens||[])[i]; if(!x) return;
   if(!v){ x.cartao_id=null; x.conta_id=null; }
   else if(v.slice(0,2)==='c:'){ x.viaCartao=true;  x.cartao_id=v.slice(2); x.conta_id=null; }
-  else                        { x.viaCartao=false; x.conta_id=v.slice(2);  x.cartao_id=null; }
+  else                        { x.viaCartao=false; x.conta_id=v.slice(2);  x.cartao_id=null; x.nParc=1; }
   renderPreviaImport();
 }
 function _optsCats(tipo,sel){
@@ -9712,6 +9712,8 @@ function renderPreviaImport(){
         <div><input type="date" value="${x.data}" onchange="impSet(${i},'data',this.value)"></div>
         <div><select onchange="impSet(${i},'categoria_id',this.value)">${_optsCats(x.tipo,x.categoria_id)}</select></div>
         <div class="full"><select ${(x.viaCartao?x.cartao_id:x.conta_id)?'':'style="border-color:#e0a020;box-shadow:0 0 0 2px rgba(224,160,32,.18)"'} onchange="impSetDestino(${i},this.value)">${_optsDestino(x)}</select></div>
+        ${x.viaCartao?`<div class="full"><select onchange="impSetParcelas(${i},this.value)">${_optsParcelas(x.nParc)}</select>
+          ${(x.nParc>1)?`<div class="note" style="font-size:11px;margin-top:3px">${x.nParc}× de ${brl(Math.floor((x.valor/x.nParc)*100)/100)} · o valor cheio ${brl(x.valor)} continua sendo o da compra</div>`:''}</div>`:''}
       </div>
     </div>`;
   });
@@ -9727,6 +9729,19 @@ function impMarcarTodos(v){
   renderPreviaImport();
 }
 function impSet(i,k,v){ if(window._impItens&&window._impItens[i]) window._impItens[i][k]=v; }
+// parcelamento na prévia da importação: o banco avisa "compra aprovada" sem dizer
+// em quantas vezes, então quem sabe é o João — aqui ele diz, e o app divide.
+function _optsParcelas(n){
+  n=Number(n||1);
+  let o=`<option value="1" ${n<=1?'selected':''}>À vista</option>`;
+  for(let k=2;k<=24;k++) o+=`<option value="${k}" ${n===k?'selected':''}>${k}× parcelas</option>`;
+  return o;
+}
+function impSetParcelas(i,v){
+  const x=(window._impItens||[])[i]; if(!x) return;
+  x.nParc=Math.max(1,parseInt(v)||1);
+  renderPreviaImport();
+}
 // escolher o cartao na previa: guarda e apaga o destaque laranja sem redesenhar a lista
 // ===== IMPORTAR FATURA POR FOTO (sem IA) =====
 function processarTextoFatura(txt){
@@ -10090,9 +10105,24 @@ async function confirmarImport(){
       if(x.categoria_id) lembrarCatEstab(x.desc,x.categoria_id); // memoriza a categoria do lugar
       const cartao=cartaoById(x.cartao_id);
       const comp=calcCompetencia(x.data, cartao?cartao.dia_fechamento:1);
-      rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
-        hora:x.hora||null,
-        cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
+      const n=Math.max(1,parseInt(x.nParc)||1);
+      if(n>1){
+        // mesma régua do lançamento manual: divide, sobra vai na última, uma linha por fatura
+        const base=Math.floor((x.valor/n)*100)/100;
+        const resto=Math.round((x.valor-base*n)*100)/100;
+        const grupo=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
+        for(let k=0;k<n;k++){
+          const compK=new Date(comp.getFullYear(), comp.getMonth()+k, 1);
+          rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:(k===n-1?base+resto:base),
+            data:x.data,status:'pago',hora:x.hora||null,cartao_id:x.cartao_id,
+            categoria_id:x.categoria_id||null,competencia:ymd(compK),
+            parcela:k+1, parcelas:n, grupo_id:grupo});
+        }
+      }else{
+        rows.push({user_id:USER.id,tipo:'despesa',descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
+          hora:x.hora||null,
+          cartao_id:x.cartao_id,categoria_id:x.categoria_id||null,competencia:ymd(comp)});
+      }
     }else{
       if(x.categoria_id) lembrarCatEstab(x.desc,x.categoria_id);
       rows.push({user_id:USER.id,tipo:x.tipo,descricao:x.desc,valor:x.valor,data:x.data,status:'pago',
@@ -10107,7 +10137,7 @@ async function confirmarImport(){
   closeSheet(); vibra();
   try{ (r.rows||rows).forEach(x=>{ if(!DATA.lancamentos.find(y=>y.id===x.id)) DATA.lancamentos.unshift(x); }); }catch(e){}
   render();
-  toast(r.queued?'Salvo offline — sincroniza depois':(rows.length+' lançamento(s) importado(s) ✅'));
+  toast(r.queued?'Salvo offline — sincroniza depois':(sel.length+' compra(s) importada(s) ✅'+(rows.length>sel.length?(' · '+rows.length+' lançamentos com as parcelas'):'')));
   if(!r.queued) bgSync();
 }
 
